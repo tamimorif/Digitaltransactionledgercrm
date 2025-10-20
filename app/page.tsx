@@ -1,13 +1,14 @@
+'use client';
+
 import { useState, useEffect } from 'react';
-import { DailyRatesWidget } from './components/DailyRatesWidget';
-import { ClientSearch } from './components/ClientSearch';
-import { ClientProfile } from './components/ClientProfile';
-import { NewClientDialog } from './components/NewClientDialog';
-import { Toaster } from './components/ui/sonner';
-import { Card, CardContent } from './components/ui/card';
+import { DailyRatesWidget } from '../src/components/DailyRatesWidget';
+import { ClientSearch } from '../src/components/ClientSearch';
+import { ClientProfile } from '../src/components/ClientProfile';
+import { NewClientDialog } from '../src/components/NewClientDialog';
+import { Card, CardContent } from '../src/components/ui/card';
 import { toast } from 'sonner';
 import { Building2, TrendingUp } from 'lucide-react';
-import { projectId, publicAnonKey } from './utils/supabase/info';
+import { projectId, publicAnonKey } from '../src/utils/supabase/info';
 
 interface Client {
   id: string;
@@ -17,7 +18,7 @@ interface Client {
   joinDate: string;
 }
 
-export default function App() {
+export default function HomePage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [showNewClientDialog, setShowNewClientDialog] = useState(false);
@@ -47,7 +48,7 @@ export default function App() {
       if (data.success) {
         // Filter out any null or invalid clients
         const validClients = (data.clients || []).filter(
-          (client: Client | null) => 
+          (client: Client | null) =>
             client && client.id && client.name && client.phoneNumber
         );
         setClients(validClients);
@@ -71,8 +72,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Toaster position="top-right" />
-      
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -156,7 +155,10 @@ export default function App() {
             )}
           </div>
         ) : (
-          <ClientProfile client={selectedClient} onClose={() => setSelectedClient(null)} />
+          <ClientProfile
+            client={selectedClient}
+            onClose={() => setSelectedClient(null)}
+          />
         )}
       </main>
 
