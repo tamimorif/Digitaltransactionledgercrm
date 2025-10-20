@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -18,7 +20,7 @@ import {
 import { TransactionForm } from './TransactionForm';
 import { EditTransactionDialog } from './EditTransactionDialog';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface Client {

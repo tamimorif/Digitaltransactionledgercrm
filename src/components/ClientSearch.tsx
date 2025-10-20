@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { Search, UserPlus } from 'lucide-react';
 import { Input } from './ui/input';
