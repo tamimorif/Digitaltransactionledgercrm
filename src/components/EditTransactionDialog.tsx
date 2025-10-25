@@ -17,7 +17,6 @@ import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Card, CardContent } from './ui/card';
 import { toast } from 'sonner';
 import { Calculator, AlertCircle } from 'lucide-react';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { Alert, AlertDescription } from './ui/alert';
 
 interface Transaction {
@@ -128,36 +127,29 @@ export function EditTransactionDialog({
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-a3e538f5/transactions/${transaction.transactionId}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify({
-            type: transactionType,
-            ...formData,
-          }),
-        }
-      );
+      const response = await fetch(`/api/transactions/${transaction.transactionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: transactionType,
+          ...formData,
+        }),
+      });
 
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Failed to update transaction');
       }
 
-      const data = await response.json();
-
-      if (data.success && data.transaction) {
-        toast.success('Transaction updated successfully');
-        onTransactionUpdated(data.transaction);
-        onOpenChange(false);
-      }
+      const updatedTransaction = await response.json();
+      toast.success('Transaction updated successfully');
+      onTransactionUpdated(updatedTransaction);
+      onOpenChange(false);
     } catch (error) {
       console.error('Error updating transaction:', error);
-      toast.error('Failed to update transaction');
+      toast.error(error instanceof Error ? error.message : 'Failed to update transaction');
     } finally {
       setIsSubmitting(false);
     }

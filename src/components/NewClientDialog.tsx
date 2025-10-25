@@ -13,7 +13,6 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { toast } from 'sonner';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface Client {
   id: string;
@@ -47,44 +46,27 @@ export function NewClientDialog({ open, onOpenChange, onClientCreated }: NewClie
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-a3e538f5/clients`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify(formData),
-        }
-      );
-
-      const data = await response.json();
+      const response = await fetch('/api/clients', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
 
       if (!response.ok) {
-        if (response.status === 409) {
-          toast.error('A client with this phone number already exists');
-          // Still return the existing client
-          if (data.client) {
-            onClientCreated(data.client);
-            onOpenChange(false);
-            setFormData({ name: '', phoneNumber: '', email: '' });
-          }
-        } else {
-          throw new Error(data.error || 'Failed to create client');
-        }
-        return;
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to create client');
       }
 
-      if (data.success && data.client) {
-        toast.success('Client created successfully');
-        onClientCreated(data.client);
-        onOpenChange(false);
-        setFormData({ name: '', phoneNumber: '', email: '' });
-      }
+      const newClient = await response.json();
+      toast.success('Client created successfully');
+      onClientCreated(newClient);
+      onOpenChange(false);
+      setFormData({ name: '', phoneNumber: '', email: '' });
     } catch (error) {
       console.error('Error creating client:', error);
-      toast.error('Failed to create client');
+      toast.error(error instanceof Error ? error.message : 'Failed to create client');
     } finally {
       setIsSubmitting(false);
     }

@@ -8,7 +8,6 @@ import { NewClientDialog } from '../src/components/NewClientDialog';
 import { Card, CardContent } from '../src/components/ui/card';
 import { toast } from 'sonner';
 import { Building2, TrendingUp } from 'lucide-react';
-import { projectId, publicAnonKey } from '../src/utils/supabase/info';
 
 interface Client {
   id: string;
@@ -31,28 +30,14 @@ export default function HomePage() {
   const fetchClients = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-a3e538f5/clients`,
-        {
-          headers: {
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-        }
-      );
+      const response = await fetch('/api/clients');
 
       if (!response.ok) {
         throw new Error('Failed to fetch clients');
       }
 
-      const data = await response.json();
-      if (data.success) {
-        // Filter out any null or invalid clients
-        const validClients = (data.clients || []).filter(
-          (client: Client | null) =>
-            client && client.id && client.name && client.phoneNumber
-        );
-        setClients(validClients);
-      }
+      const clients = await response.json();
+      setClients(clients);
     } catch (error) {
       console.error('Error fetching clients:', error);
       toast.error('Failed to load clients');
