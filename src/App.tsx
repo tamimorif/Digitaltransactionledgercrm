@@ -5,7 +5,7 @@ import { ClientProfile } from './components/ClientProfile';
 import { NewClientDialog } from './components/NewClientDialog';
 import { Toaster } from './components/ui/sonner';
 import { Card, CardContent } from './components/ui/card';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { Building2, TrendingUp } from 'lucide-react';
 import { projectId, publicAnonKey } from './utils/supabase/info';
 
