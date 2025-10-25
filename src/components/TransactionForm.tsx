@@ -17,7 +17,6 @@ import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Card, CardContent } from './ui/card';
 import { toast } from 'sonner';
 import { ArrowRight, Calculator } from 'lucide-react';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface Transaction {
   transactionId: string;
@@ -105,49 +104,42 @@ export function TransactionForm({
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-a3e538f5/transactions`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify({
-            clientId,
-            type: transactionType,
-            ...formData,
-          }),
-        }
-      );
+      const response = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clientId,
+          type: transactionType,
+          ...formData,
+        }),
+      });
 
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Failed to create transaction');
       }
 
-      const data = await response.json();
-
-      if (data.success && data.transaction) {
-        toast.success('Transaction created successfully');
-        onTransactionCreated(data.transaction);
-        onOpenChange(false);
-        // Reset form
-        setFormData({
-          sendCurrency: 'EUR',
-          sendAmount: '',
-          receiveCurrency: 'IRR',
-          receiveAmount: '',
-          rateApplied: '',
-          feeCharged: '',
-          beneficiaryName: '',
-          beneficiaryDetails: '',
-          userNotes: '',
-        });
-      }
+      const newTransaction = await response.json();
+      toast.success('Transaction created successfully');
+      onTransactionCreated(newTransaction);
+      onOpenChange(false);
+      // Reset form
+      setFormData({
+        sendCurrency: 'EUR',
+        sendAmount: '',
+        receiveCurrency: 'IRR',
+        receiveAmount: '',
+        rateApplied: '',
+        feeCharged: '',
+        beneficiaryName: '',
+        beneficiaryDetails: '',
+        userNotes: '',
+      });
     } catch (error) {
       console.error('Error creating transaction:', error);
-      toast.error('Failed to create transaction');
+      toast.error(error instanceof Error ? error.message : 'Failed to create transaction');
     } finally {
       setIsSubmitting(false);
     }

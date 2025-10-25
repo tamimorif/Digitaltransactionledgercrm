@@ -6,7 +6,6 @@ import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { TrendingUp, Save } from 'lucide-react';
 import { toast } from 'sonner';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface DailyRates {
   date: string;
@@ -34,23 +33,14 @@ export function DailyRatesWidget() {
 
   const fetchDailyRates = async () => {
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-a3e538f5/daily-rates`,
-        {
-          headers: {
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-        }
-      );
+      const response = await fetch('/api/daily-rates');
       
       if (!response.ok) {
         throw new Error('Failed to fetch daily rates');
       }
       
-      const data = await response.json();
-      if (data.success && data.rates) {
-        setRates(data.rates);
-      }
+      const rates = await response.json();
+      setRates(rates);
     } catch (error) {
       console.error('Error fetching daily rates:', error);
       toast.error('Failed to load daily rates');
@@ -60,28 +50,22 @@ export function DailyRatesWidget() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-a3e538f5/daily-rates`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify(rates),
-        }
-      );
+      const response = await fetch('/api/daily-rates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(rates),
+      });
       
       if (!response.ok) {
         throw new Error('Failed to save daily rates');
       }
       
-      const data = await response.json();
-      if (data.success) {
-        setRates(data.rates);
-        setIsEditing(false);
-        toast.success('Daily rates updated successfully');
-      }
+      const updatedRates = await response.json();
+      setRates(updatedRates);
+      setIsEditing(false);
+      toast.success('Daily rates updated successfully');
     } catch (error) {
       console.error('Error saving daily rates:', error);
       toast.error('Failed to save daily rates');
