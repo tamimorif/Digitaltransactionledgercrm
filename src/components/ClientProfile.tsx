@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -18,8 +20,7 @@ import {
 import { TransactionForm } from './TransactionForm';
 import { EditTransactionDialog } from './EditTransactionDialog';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { toast } from 'sonner@2.0.3';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { toast } from 'sonner';
 
 interface Client {
   id: string;
@@ -69,32 +70,14 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
   const fetchTransactions = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-a3e538f5/clients/${client.id}/transactions`,
-        {
-          headers: {
-            Authorization: `Bearer ${publicAnonKey}`,
-          },
-        }
-      );
+      const response = await fetch(`/api/transactions?clientId=${client.id}`);
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Failed to fetch transactions:', errorData);
-        throw new Error(errorData.error || 'Failed to fetch transactions');
+        throw new Error('Failed to fetch transactions');
       }
 
-      const data = await response.json();
-      if (data.success) {
-        // Filter out any null or invalid transactions
-        const validTransactions = (data.transactions || []).filter(
-          (tx: Transaction | null) => tx && tx.transactionId && tx.date
-        );
-        setTransactions(validTransactions);
-      } else {
-        console.error('Error response from server:', data);
-        toast.error(data.error || 'Failed to load transaction history');
-      }
+      const transactions = await response.json();
+      setTransactions(transactions);
     } catch (error) {
       console.error('Error fetching transactions:', error);
       toast.error('Failed to load transaction history');
