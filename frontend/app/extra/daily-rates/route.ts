@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '../../../src/lib/prisma';
 
 // Simple key-value store model for daily rates
 // We'll store daily rates as a single JSON record
@@ -8,10 +8,10 @@ import { prisma } from '@/lib/prisma';
 export async function GET() {
   try {
     const today = new Date().toISOString().split('T')[0];
-    
+
     // For simplicity, we can use a simple table or just return default values
     // Since we don't have a DailyRates model in Prisma, let's create one or use a simple approach
-    
+
     // Option: Return default rates (can be enhanced with actual database storage later)
     const defaultRates = {
       date: today,
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     const { EUR, USD, GBP, CAD } = body;
 
     const today = new Date().toISOString().split('T')[0];
-    
+
     const updatedRates = {
       date: today,
       EUR: parseFloat(EUR) || 0,
