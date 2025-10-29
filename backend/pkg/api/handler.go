@@ -232,19 +232,68 @@ func (h *Handler) UpdateTransaction(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	var transaction models.Transaction
-	if err := h.db.First(&transaction, "id = ?", id).Error; err != nil {
+	// Get existing transaction
+	var existingTransaction models.Transaction
+	if err := h.db.First(&existingTransaction, "id = ?", id).Error; err != nil {
 		http.Error(w, "Transaction not found", http.StatusNotFound)
 		return
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&transaction); err != nil {
+	// Save current state to edit history before updating
+	editHistoryEntry := map[string]interface{}{
+		"editedAt":           existingTransaction.UpdatedAt,
+		"type":               existingTransaction.Type,
+		"sendCurrency":       existingTransaction.SendCurrency,
+		"sendAmount":         existingTransaction.SendAmount,
+		"receiveCurrency":    existingTransaction.ReceiveCurrency,
+		"receiveAmount":      existingTransaction.ReceiveAmount,
+		"rateApplied":        existingTransaction.RateApplied,
+		"feeCharged":         existingTransaction.FeeCharged,
+		"beneficiaryName":    existingTransaction.BeneficiaryName,
+		"beneficiaryDetails": existingTransaction.BeneficiaryDetails,
+		"userNotes":          existingTransaction.UserNotes,
+	}
+
+	// Parse existing edit history
+	var editHistory []map[string]interface{}
+	if existingTransaction.EditHistory != nil && *existingTransaction.EditHistory != "" {
+		if err := json.Unmarshal([]byte(*existingTransaction.EditHistory), &editHistory); err != nil {
+			// If parsing fails, start with empty history
+			editHistory = []map[string]interface{}{}
+		}
+	}
+
+	// Append new entry to history
+	editHistory = append(editHistory, editHistoryEntry)
+	historyJSON, _ := json.Marshal(editHistory)
+	historyStr := string(historyJSON)
+
+	// Decode the update request
+	var updatedTransaction models.Transaction
+	if err := json.NewDecoder(r.Body).Decode(&updatedTransaction); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	h.db.Save(&transaction)
-	respondJSON(w, http.StatusOK, transaction)
+	// Keep the original ID and timestamps
+	updatedTransaction.ID = existingTransaction.ID
+	updatedTransaction.ClientID = existingTransaction.ClientID
+	updatedTransaction.CreatedAt = existingTransaction.CreatedAt
+	updatedTransaction.TransactionDate = existingTransaction.TransactionDate
+	
+	// Mark as edited and update edit history
+	updatedTransaction.IsEdited = true
+	now := existingTransaction.UpdatedAt
+	updatedTransaction.LastEditedAt = &now
+	updatedTransaction.EditHistory = &historyStr
+
+	// Save the updated transaction
+	if err := h.db.Save(&updatedTransaction).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, updatedTransaction)
 }
 
 // DeleteTransaction godoc

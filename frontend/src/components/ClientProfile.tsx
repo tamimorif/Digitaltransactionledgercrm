@@ -16,6 +16,7 @@ import {
   X,
   Edit,
   Info,
+  History,
 } from 'lucide-react';
 import { TransactionForm } from './TransactionForm';
 import { EditTransactionDialog } from './EditTransactionDialog';
@@ -214,15 +215,130 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
                             {tx.isEdited && tx.editHistory && (
                               <Popover>
                                 <PopoverTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-6 px-2">
-                                    <Info className="h-3 w-3 mr-1" />
-                                    <span className="text-xs">View Previous</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200"
+                                  >
+                                    <History className="h-3 w-3 mr-1" />
+                                    <span className="text-xs font-medium">View Previous</span>
                                   </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-96">
-                                  <div className="space-y-3">
-                                    <h4 className="text-sm font-semibold">Edit History</h4>
-                                    <p className="text-xs text-gray-500">{tx.editHistory}</p>
+                                <PopoverContent className="w-[500px] p-0 max-h-[600px] overflow-hidden" align="start">
+                                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-4 border-b border-amber-200">
+                                    <div className="flex items-center gap-2">
+                                      <div className="p-1.5 bg-amber-100 rounded-full">
+                                        <History className="h-4 w-4 text-amber-700" />
+                                      </div>
+                                      <div>
+                                        <h4 className="text-sm font-bold text-amber-900">Edit History</h4>
+                                        <p className="text-xs text-amber-700">
+                                          {(() => {
+                                            try {
+                                              const history = JSON.parse(tx.editHistory || '[]');
+                                              return `${history.length} previous ${history.length === 1 ? 'version' : 'versions'}`;
+                                            } catch {
+                                              return 'Previous versions';
+                                            }
+                                          })()}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="p-4 space-y-3 max-h-[500px] overflow-y-auto">
+                                    {(() => {
+                                      try {
+                                        const history = JSON.parse(tx.editHistory || '[]');
+                                        return history.slice().reverse().map((edit: any, index: number) => (
+                                          <div
+                                            key={index}
+                                            className="p-4 bg-white rounded-xl border-2 border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+                                          >
+                                            {/* Header */}
+                                            <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
+                                              <div className="flex items-center gap-2">
+                                                <div className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
+                                                  Version {index + 1}
+                                                </div>
+                                                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded">
+                                                  {edit.type === 'CASH_EXCHANGE' ? '💵 Cash Exchange' : '🏦 Bank Transfer'}
+                                                </span>
+                                              </div>
+                                              <span className="text-xs text-gray-400 font-medium">
+                                                {new Date(edit.editedAt).toLocaleDateString()} at{' '}
+                                                {new Date(edit.editedAt).toLocaleTimeString([], {
+                                                  hour: '2-digit',
+                                                  minute: '2-digit'
+                                                })}
+                                              </span>
+                                            </div>
+
+                                            {/* Transaction Details */}
+                                            <div className="space-y-3">
+                                              {/* Main Transaction Flow */}
+                                              <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg">
+                                                <div className="flex-1">
+                                                  <div className="text-xs text-gray-500 mb-0.5">Send Amount</div>
+                                                  <div className="text-lg font-bold text-gray-800">
+                                                    {Number(edit.sendAmount).toFixed(2)} {edit.sendCurrency}
+                                                  </div>
+                                                </div>
+                                                <div className="text-gray-400">→</div>
+                                                <div className="flex-1 text-right">
+                                                  <div className="text-xs text-gray-500 mb-0.5">Receive Amount</div>
+                                                  <div className="text-lg font-bold text-gray-800">
+                                                    {Number(edit.receiveAmount).toFixed(2)} {edit.receiveCurrency}
+                                                  </div>
+                                                </div>
+                                              </div>
+
+                                              {/* Rate and Fee */}
+                                              <div className="grid grid-cols-2 gap-2">
+                                                <div className="p-2 bg-purple-50 rounded-lg border border-purple-100">
+                                                  <div className="text-xs text-purple-600 font-medium mb-0.5">Exchange Rate</div>
+                                                  <div className="text-sm font-bold text-purple-900">
+                                                    {Number(edit.rateApplied).toFixed(4)}
+                                                  </div>
+                                                </div>
+                                                <div className="p-2 bg-orange-50 rounded-lg border border-orange-100">
+                                                  <div className="text-xs text-orange-600 font-medium mb-0.5">Fee Charged</div>
+                                                  <div className="text-sm font-bold text-orange-900">
+                                                    {Number(edit.feeCharged).toFixed(2)} {edit.sendCurrency}
+                                                  </div>
+                                                </div>
+                                              </div>
+
+                                              {/* Beneficiary Info */}
+                                              {edit.beneficiaryName && (
+                                                <div className="p-2 bg-indigo-50 rounded-lg border border-indigo-100">
+                                                  <div className="text-xs text-indigo-600 font-medium mb-0.5">Beneficiary</div>
+                                                  <div className="text-sm font-semibold text-indigo-900">{edit.beneficiaryName}</div>
+                                                  {edit.beneficiaryDetails && (
+                                                    <div className="text-xs text-indigo-700 mt-1 font-mono">
+                                                      {edit.beneficiaryDetails}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              )}
+
+                                              {/* Notes */}
+                                              {edit.userNotes && (
+                                                <div className="p-2 bg-gray-50 rounded-lg border border-gray-200">
+                                                  <div className="text-xs text-gray-500 font-medium mb-1">📝 Notes</div>
+                                                  <div className="text-xs text-gray-700 italic">{edit.userNotes}</div>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ));
+                                      } catch (error) {
+                                        return (
+                                          <div className="text-sm text-gray-500 text-center py-4">
+                                            Unable to load edit history
+                                          </div>
+                                        );
+                                      }
+                                    })()}
                                   </div>
                                 </PopoverContent>
                               </Popover>

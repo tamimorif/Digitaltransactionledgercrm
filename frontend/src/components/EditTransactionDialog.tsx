@@ -16,8 +16,13 @@ import { Textarea } from './ui/textarea';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Card, CardContent } from './ui/card';
 import { toast } from 'sonner';
-import { Calculator, AlertCircle } from 'lucide-react';
+import { Calculator, AlertCircle, History } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from './ui/collapsible';
 
 interface Transaction {
   id: string;
@@ -70,6 +75,8 @@ export function EditTransactionDialog({
     userNotes: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [editHistory, setEditHistory] = useState<any[]>([]);
 
   // Load transaction data when dialog opens
   useEffect(() => {
@@ -86,6 +93,19 @@ export function EditTransactionDialog({
         beneficiaryDetails: transaction.beneficiaryDetails || '',
         userNotes: transaction.userNotes || '',
       });
+
+      // Parse edit history
+      if (transaction.editHistory) {
+        try {
+          const history = JSON.parse(transaction.editHistory);
+          setEditHistory(Array.isArray(history) ? history : []);
+        } catch (error) {
+          console.error('Failed to parse edit history:', error);
+          setEditHistory([]);
+        }
+      } else {
+        setEditHistory([]);
+      }
     }
   }, [open, transaction]);
 
@@ -105,12 +125,24 @@ export function EditTransactionDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Auto-calculate receive amount before saving
+    const send = parseFloat(formData.sendAmount) || 0;
+    const rate = parseFloat(formData.rateApplied) || 0;
+    const fee = parseFloat(formData.feeCharged) || 0;
+
+    let finalReceiveAmount = formData.receiveAmount;
+    if (send > 0 && rate > 0) {
+      const amountAfterFee = send - fee;
+      const received = amountAfterFee * rate;
+      finalReceiveAmount = received.toFixed(2);
+    }
+
     // Validate required fields
     if (
       !formData.sendCurrency ||
       !formData.sendAmount ||
       !formData.receiveCurrency ||
-      !formData.receiveAmount ||
+      !finalReceiveAmount ||
       !formData.rateApplied ||
       formData.feeCharged === ''
     ) {
@@ -137,7 +169,7 @@ export function EditTransactionDialog({
           sendCurrency: formData.sendCurrency,
           sendAmount: parseFloat(formData.sendAmount),
           receiveCurrency: formData.receiveCurrency,
-          receiveAmount: parseFloat(formData.receiveAmount),
+          receiveAmount: parseFloat(finalReceiveAmount),
           rateApplied: parseFloat(formData.rateApplied),
           feeCharged: parseFloat(formData.feeCharged),
           beneficiaryName: formData.beneficiaryName,
@@ -179,7 +211,126 @@ export function EditTransactionDialog({
           </AlertDescription>
         </Alert>
 
-        <form onSubmit={handleSubmit}>
+        {/* Edit History */}
+        {transaction.isEdited && editHistory.length > 0 && (
+          <Collapsible open={showHistory} onOpenChange={setShowHistory}>
+            <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 shadow-sm">
+              <CardContent className="pt-4 pb-4">
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-between p-2 h-auto hover:bg-amber-100/50 rounded-md transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-amber-100 rounded-full">
+                        <History className="h-4 w-4 text-amber-700" />
+                      </div>
+                      <div className="text-left">
+                        <div className="text-sm font-semibold text-amber-900">
+                          Edit History
+                        </div>
+                        <div className="text-xs text-amber-700">
+                          {editHistory.length} previous {editHistory.length === 1 ? 'version' : 'versions'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs font-medium text-amber-600">
+                      {showHistory ? '▲ Hide' : '▼ Show'}
+                    </div>
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-4">
+                  <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                    {editHistory.slice().reverse().map((edit, index) => (
+                      <div
+                        key={index}
+                        className="p-4 bg-white rounded-xl border-2 border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+                      >
+                        {/* Header */}
+                        <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
+                          <div className="flex items-center gap-2">
+                            <div className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
+                              Version {index + 1}
+                            </div>
+                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded">
+                              {edit.type === 'CASH_EXCHANGE' ? '💵 Cash Exchange' : '🏦 Bank Transfer'}
+                            </span>
+                          </div>
+                          <span className="text-xs text-gray-400 font-medium">
+                            {new Date(edit.editedAt).toLocaleDateString()} at{' '}
+                            {new Date(edit.editedAt).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+
+                        {/* Transaction Details */}
+                        <div className="space-y-3">
+                          {/* Main Transaction Flow */}
+                          <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg">
+                            <div className="flex-1">
+                              <div className="text-xs text-gray-500 mb-0.5">Send Amount</div>
+                              <div className="text-lg font-bold text-gray-800">
+                                {Number(edit.sendAmount).toFixed(2)} {edit.sendCurrency}
+                              </div>
+                            </div>
+                            <div className="text-gray-400">→</div>
+                            <div className="flex-1 text-right">
+                              <div className="text-xs text-gray-500 mb-0.5">Receive Amount</div>
+                              <div className="text-lg font-bold text-gray-800">
+                                {Number(edit.receiveAmount).toFixed(2)} {edit.receiveCurrency}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Rate and Fee */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="p-2 bg-purple-50 rounded-lg border border-purple-100">
+                              <div className="text-xs text-purple-600 font-medium mb-0.5">Exchange Rate</div>
+                              <div className="text-sm font-bold text-purple-900">
+                                {Number(edit.rateApplied).toFixed(4)}
+                              </div>
+                            </div>
+                            <div className="p-2 bg-orange-50 rounded-lg border border-orange-100">
+                              <div className="text-xs text-orange-600 font-medium mb-0.5">Fee Charged</div>
+                              <div className="text-sm font-bold text-orange-900">
+                                {Number(edit.feeCharged).toFixed(2)} {edit.sendCurrency}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Beneficiary Info */}
+                          {edit.beneficiaryName && (
+                            <div className="p-2 bg-indigo-50 rounded-lg border border-indigo-100">
+                              <div className="text-xs text-indigo-600 font-medium mb-0.5">Beneficiary</div>
+                              <div className="text-sm font-semibold text-indigo-900">{edit.beneficiaryName}</div>
+                              {edit.beneficiaryDetails && (
+                                <div className="text-xs text-indigo-700 mt-1 font-mono">
+                                  {edit.beneficiaryDetails}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Notes */}
+                          {edit.userNotes && (
+                            <div className="p-2 bg-gray-50 rounded-lg border border-gray-200">
+                              <div className="text-xs text-gray-500 font-medium mb-1">📝 Notes</div>
+                              <div className="text-xs text-gray-700 italic">{edit.userNotes}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </CardContent>
+            </Card>
+          </Collapsible>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-6 py-4">
             {/* Transaction Type Selection */}
             <div className="space-y-3">
