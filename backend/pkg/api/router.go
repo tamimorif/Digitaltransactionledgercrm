@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
+	httpSwagger "github.com/swaggo/http-swagger"
 	"gorm.io/gorm"
 	"net/http"
 	"time"
@@ -34,6 +35,9 @@ func NewRouter(db *gorm.DB) http.Handler {
 	api.HandleFunc("/clients/{id}", handler.DeleteClient).Methods("DELETE")
 	api.HandleFunc("/clients/{id}/transactions", handler.GetClientTransactions).Methods("GET")
 	api.HandleFunc("/clients/search", handler.SearchClients).Methods("GET")
+
+	// Swagger documentation
+	router.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 
 	// Add health check endpoint
 	router.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {

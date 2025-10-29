@@ -115,7 +115,15 @@ export function TransactionForm({
         body: JSON.stringify({
           clientId,
           type: transactionType,
-          ...formData,
+          sendCurrency: formData.sendCurrency,
+          sendAmount: parseFloat(formData.sendAmount),
+          receiveCurrency: formData.receiveCurrency,
+          receiveAmount: parseFloat(formData.receiveAmount),
+          rateApplied: parseFloat(formData.rateApplied),
+          feeCharged: parseFloat(formData.feeCharged),
+          beneficiaryName: formData.beneficiaryName,
+          beneficiaryDetails: formData.beneficiaryDetails,
+          userNotes: formData.userNotes,
         }),
       });
 
