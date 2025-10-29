@@ -3,10 +3,30 @@ package main
 import (
 	"api/pkg/api"
 	"api/pkg/database"
+	_ "api/docs" // Import generated docs
 	"log"
 	"net/http"
 	"os"
 )
+
+// @title Transaction Ledger & Client CRM API
+// @version 1.0
+// @description API for Currency Exchange & Remittance Management System
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.email support@transactionledger.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /api
+// @schemes http https
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 
 func main() {
 	// Initialize database
