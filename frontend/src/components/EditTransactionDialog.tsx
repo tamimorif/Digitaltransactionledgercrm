@@ -20,9 +20,8 @@ import { Calculator, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 
 interface Transaction {
-  transactionId: string;
+  id: string;
   clientId: string;
-  date: string;
   type: string;
   sendCurrency: string;
   sendAmount: number;
@@ -30,15 +29,15 @@ interface Transaction {
   receiveAmount: number;
   rateApplied: number;
   feeCharged: number;
-  beneficiaryName: string;
-  beneficiaryDetails: string;
-  userNotes: string;
+  beneficiaryName?: string;
+  beneficiaryDetails?: string;
+  userNotes?: string;
   isEdited?: boolean;
   lastEditedAt?: string;
-  editHistory?: Array<{
-    editedAt: string;
-    previousVersion: any;
-  }>;
+  editHistory?: string;
+  transactionDate: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface EditTransactionDialogProps {
@@ -95,7 +94,7 @@ export function EditTransactionDialog({
     const send = parseFloat(formData.sendAmount) || 0;
     const rate = parseFloat(formData.rateApplied) || 0;
     const fee = parseFloat(formData.feeCharged) || 0;
-    
+
     if (send > 0 && rate > 0) {
       const amountAfterFee = send - fee;
       const received = amountAfterFee * rate;
@@ -127,7 +126,8 @@ export function EditTransactionDialog({
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`/api/transactions/${transaction.transactionId}`, {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${API_BASE_URL}/api/transactions/${transaction.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -139,8 +139,7 @@ export function EditTransactionDialog({
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to update transaction');
+        throw new Error('Failed to update transaction');
       }
 
       const updatedTransaction = await response.json();

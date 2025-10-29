@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DailyRatesWidget } from '../src/components/DailyRatesWidget';
-import { ClientSearch } from '../src/components/ClientSearch';
-import { ClientProfile } from '../src/components/ClientProfile';
-import { NewClientDialog } from '../src/components/NewClientDialog';
-import { Card, CardContent } from '../src/components/ui/card';
+import { DailyRatesWidget } from '@/src/components/DailyRatesWidget';
+import { ClientSearch } from '@/src/components/ClientSearch';
+import { ClientProfile } from '@/src/components/ClientProfile';
+import { NewClientDialog } from '@/src/components/NewClientDialog';
+import { Card, CardContent } from '@/src/components/ui/card';
 import { toast } from 'sonner';
 import { Building2, TrendingUp } from 'lucide-react';
+import { api } from '@/src/lib/api';
 
 interface Client {
   id: string;
@@ -30,17 +31,11 @@ export default function HomePage() {
   const fetchClients = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/clients');
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch clients');
-      }
-
-      const clients = await response.json();
+      const clients = await api.getClients();
       setClients(clients);
     } catch (error) {
       console.error('Error fetching clients:', error);
-      toast.error('Failed to load clients');
+      toast.error('Failed to load clients. Make sure the backend is running on port 8080.');
     } finally {
       setIsLoading(false);
     }
