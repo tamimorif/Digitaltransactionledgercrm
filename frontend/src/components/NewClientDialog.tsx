@@ -38,7 +38,7 @@ export function NewClientDialog({ open, onOpenChange, onClientCreated }: NewClie
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim() || !formData.phoneNumber.trim()) {
       toast.error('Name and phone number are required');
       return;
@@ -46,7 +46,9 @@ export function NewClientDialog({ open, onOpenChange, onClientCreated }: NewClie
 
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/clients', {
+      // Call the Go backend API
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${API_BASE_URL}/api/clients`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -55,8 +57,7 @@ export function NewClientDialog({ open, onOpenChange, onClientCreated }: NewClie
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to create client');
+        throw new Error('Failed to create client');
       }
 
       const newClient = await response.json();
@@ -66,7 +67,7 @@ export function NewClientDialog({ open, onOpenChange, onClientCreated }: NewClie
       setFormData({ name: '', phoneNumber: '', email: '' });
     } catch (error) {
       console.error('Error creating client:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create client');
+      toast.error(error instanceof Error ? error.message : 'Failed to create client. Make sure the backend is running on port 8080.');
     } finally {
       setIsSubmitting(false);
     }

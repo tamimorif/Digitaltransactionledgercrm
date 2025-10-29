@@ -31,9 +31,8 @@ interface Client {
 }
 
 interface Transaction {
-  transactionId: string;
+  id: string;
   clientId: string;
-  date: string;
   type: string;
   sendCurrency: string;
   sendAmount: number;
@@ -41,15 +40,15 @@ interface Transaction {
   receiveAmount: number;
   rateApplied: number;
   feeCharged: number;
-  beneficiaryName: string;
-  beneficiaryDetails: string;
-  userNotes: string;
+  beneficiaryName?: string;
+  beneficiaryDetails?: string;
+  userNotes?: string;
   isEdited?: boolean;
   lastEditedAt?: string;
-  editHistory?: Array<{
-    editedAt: string;
-    previousVersion: any;
-  }>;
+  editHistory?: string;
+  transactionDate: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface ClientProfileProps {
@@ -70,7 +69,8 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
   const fetchTransactions = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/transactions?clientId=${client.id}`);
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${API_BASE_URL}/api/clients/${client.id}/transactions`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch transactions');
@@ -93,7 +93,7 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
   const handleTransactionUpdated = (updatedTransaction: Transaction) => {
     setTransactions((prev) =>
       prev.map((tx) =>
-        tx.transactionId === updatedTransaction.transactionId ? updatedTransaction : tx
+        tx.id === updatedTransaction.id ? updatedTransaction : tx
       )
     );
   };
@@ -191,7 +191,7 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
             ) : (
               <div className="space-y-3">
                 {transactions.map((tx) => (
-                  <Card key={tx.transactionId} className="hover:shadow-md transition-shadow">
+                  <Card key={tx.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="pt-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -209,9 +209,9 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
                               </Badge>
                             )}
                             <span className="text-xs text-gray-500">
-                              {new Date(tx.date).toLocaleString()}
+                              {new Date(tx.transactionDate).toLocaleString()}
                             </span>
-                            {tx.isEdited && tx.editHistory && tx.editHistory.length > 0 && (
+                            {tx.isEdited && tx.editHistory && (
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <Button variant="ghost" size="sm" className="h-6 px-2">
@@ -221,36 +221,8 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
                                 </PopoverTrigger>
                                 <PopoverContent className="w-96">
                                   <div className="space-y-3">
-                                    <h4 className="text-sm">Edit History</h4>
-                                    {tx.editHistory.map((edit, index) => (
-                                      <div
-                                        key={index}
-                                        className="p-3 bg-gray-50 rounded-md text-xs space-y-1"
-                                      >
-                                        <p className="text-gray-500">
-                                          Edited: {new Date(edit.editedAt).toLocaleString()}
-                                        </p>
-                                        <div className="space-y-0.5">
-                                          <p>
-                                            Send: {edit.previousVersion.sendAmount.toLocaleString()}{' '}
-                                            {edit.previousVersion.sendCurrency}
-                                          </p>
-                                          <p>
-                                            Receive:{' '}
-                                            {edit.previousVersion.receiveAmount.toLocaleString()}{' '}
-                                            {edit.previousVersion.receiveCurrency}
-                                          </p>
-                                          <p>Rate: {edit.previousVersion.rateApplied.toLocaleString()}</p>
-                                          <p>Fee: {edit.previousVersion.feeCharged.toLocaleString()}</p>
-                                          {edit.previousVersion.beneficiaryDetails && (
-                                            <p>Beneficiary: {edit.previousVersion.beneficiaryDetails}</p>
-                                          )}
-                                          {edit.previousVersion.userNotes && (
-                                            <p className="italic">Note: {edit.previousVersion.userNotes}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                    ))}
+                                    <h4 className="text-sm font-semibold">Edit History</h4>
+                                    <p className="text-xs text-gray-500">{tx.editHistory}</p>
                                   </div>
                                 </PopoverContent>
                               </Popover>
@@ -296,8 +268,8 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </CardContent >
+      </Card >
 
       <TransactionForm
         open={showTransactionForm}
@@ -307,14 +279,16 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
         onTransactionCreated={handleTransactionCreated}
       />
 
-      {editingTransaction && (
-        <EditTransactionDialog
-          open={!!editingTransaction}
-          onOpenChange={(open) => !open && setEditingTransaction(null)}
-          transaction={editingTransaction}
-          onTransactionUpdated={handleTransactionUpdated}
-        />
-      )}
+      {
+        editingTransaction && (
+          <EditTransactionDialog
+            open={!!editingTransaction}
+            onOpenChange={(open) => !open && setEditingTransaction(null)}
+            transaction={editingTransaction}
+            onTransactionUpdated={handleTransactionUpdated}
+          />
+        )
+      }
     </>
   );
 }

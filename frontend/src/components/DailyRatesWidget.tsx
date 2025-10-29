@@ -33,36 +33,27 @@ export function DailyRatesWidget() {
 
   const fetchDailyRates = async () => {
     try {
-      const response = await fetch('/api/daily-rates');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch daily rates');
+      // Load from localStorage (temporary solution until backend endpoint is added)
+      const stored = localStorage.getItem('dailyRates');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setRates(parsed);
       }
-      
-      const rates = await response.json();
-      setRates(rates);
     } catch (error) {
       console.error('Error fetching daily rates:', error);
-      toast.error('Failed to load daily rates');
+      // Don't show error toast on initial load if no rates exist
     }
   };
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const response = await fetch('/api/daily-rates', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(rates),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to save daily rates');
-      }
-      
-      const updatedRates = await response.json();
+      // Save to localStorage (temporary solution until backend endpoint is added)
+      const updatedRates = {
+        ...rates,
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem('dailyRates', JSON.stringify(updatedRates));
       setRates(updatedRates);
       setIsEditing(false);
       toast.success('Daily rates updated successfully');
