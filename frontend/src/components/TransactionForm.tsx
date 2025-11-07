@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useCreateTransaction } from '@/src/lib/queries/client.query';
 import {
   Dialog,
   DialogContent,
@@ -16,7 +17,7 @@ import { Textarea } from './ui/textarea';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Card, CardContent } from './ui/card';
 import { toast } from 'sonner';
-import { ArrowRight, Calculator } from 'lucide-react';
+import { ArrowRight, Calculator, Loader2 } from 'lucide-react';
 
 interface Transaction {
   id: string;
@@ -82,6 +83,8 @@ export function TransactionForm({
     }
   };
 
+  const createTransaction = useCreateTransaction();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -106,35 +109,24 @@ export function TransactionForm({
 
     setIsSubmitting(true);
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${API_BASE_URL}/api/transactions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          clientId,
-          type: transactionType,
-          sendCurrency: formData.sendCurrency,
-          sendAmount: parseFloat(formData.sendAmount),
-          receiveCurrency: formData.receiveCurrency,
-          receiveAmount: parseFloat(formData.receiveAmount),
-          rateApplied: parseFloat(formData.rateApplied),
-          feeCharged: parseFloat(formData.feeCharged),
-          beneficiaryName: formData.beneficiaryName,
-          beneficiaryDetails: formData.beneficiaryDetails,
-          userNotes: formData.userNotes,
-        }),
+      const newTransaction = await createTransaction.mutateAsync({
+        clientId,
+        type: transactionType,
+        sendCurrency: formData.sendCurrency,
+        sendAmount: parseFloat(formData.sendAmount),
+        receiveCurrency: formData.receiveCurrency,
+        receiveAmount: parseFloat(formData.receiveAmount),
+        rateApplied: parseFloat(formData.rateApplied),
+        feeCharged: parseFloat(formData.feeCharged),
+        beneficiaryName: formData.beneficiaryName || undefined,
+        beneficiaryDetails: formData.beneficiaryDetails || undefined,
+        userNotes: formData.userNotes || undefined,
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to create transaction');
-      }
-
-      const newTransaction = await response.json();
+      
       toast.success('Transaction created successfully');
       onTransactionCreated(newTransaction);
       onOpenChange(false);
+      
       // Reset form
       setFormData({
         sendCurrency: 'EUR',
@@ -147,9 +139,11 @@ export function TransactionForm({
         beneficiaryDetails: '',
         userNotes: '',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating transaction:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create transaction');
+      toast.error('Failed to create transaction', {
+        description: error?.response?.data?.error || 'Please try again',
+      });
     } finally {
       setIsSubmitting(false);
     }

@@ -7,7 +7,7 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 
 interface Client {
-  id: string;
+  id: number | string;
   name: string;
   phoneNumber: string;
   email: string;
