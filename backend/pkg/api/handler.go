@@ -1,7 +1,9 @@
 package api
 
 import (
+	"api/pkg/middleware"
 	"api/pkg/models"
+	"api/pkg/services"
 	"encoding/json"
 	"net/http"
 
@@ -12,29 +14,36 @@ import (
 
 // Handler struct
 type Handler struct {
-    db *gorm.DB
+	db           *gorm.DB
+	auditService *services.AuditService
 }
 
 // NewHandler creates a new handler instance with database connection
 func NewHandler(db *gorm.DB) *Handler {
-    return &Handler{
-        db: db,
-    }
+	return &Handler{
+		db:           db,
+		auditService: services.NewAuditService(db),
+	}
 }
 
 // Client Handlers
 
 // GetClients godoc
 // @Summary Get all clients
-// @Description Get a list of all clients
+// @Description Get a list of all clients (filtered by tenant)
 // @Tags clients
 // @Produce json
+// @Security BearerAuth
 // @Success 200 {array} models.Client
 // @Failure 500 {object} map[string]string
 // @Router /clients [get]
 func (h *Handler) GetClients(w http.ResponseWriter, r *http.Request) {
 	var clients []models.Client
-	result := h.db.Find(&clients)
+	
+	// Apply tenant isolation
+	db := middleware.ApplyTenantScope(h.db, r)
+	
+	result := db.Find(&clients)
 	if result.Error != nil {
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return
@@ -48,6 +57,7 @@ func (h *Handler) GetClients(w http.ResponseWriter, r *http.Request) {
 // @Tags clients
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param client body models.Client true "Client object"
 // @Success 201 {object} models.Client
 // @Failure 400 {object} map[string]string
@@ -62,6 +72,14 @@ func (h *Handler) CreateClient(w http.ResponseWriter, r *http.Request) {
 
 	// Generate UUID for the client
 	client.ID = uuid.New().String()
+	
+	// Get tenant ID from context and assign to client
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Tenant ID required", http.StatusBadRequest)
+		return
+	}
+	client.TenantID = *tenantID
 
 	result := h.db.Create(&client)
 	if result.Error != nil {
@@ -76,6 +94,7 @@ func (h *Handler) CreateClient(w http.ResponseWriter, r *http.Request) {
 // @Description Get a specific client by their ID with transactions
 // @Tags clients
 // @Produce json
+// @Security BearerAuth
 // @Param id path string true "Client ID"
 // @Success 200 {object} models.Client
 // @Failure 404 {object} map[string]string
@@ -85,7 +104,11 @@ func (h *Handler) GetClient(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 
 	var client models.Client
-	result := h.db.Preload("Transactions").First(&client, "id = ?", id)
+	
+	// Apply tenant isolation
+	db := middleware.ApplyTenantScope(h.db, r)
+	
+	result := db.Preload("Transactions").First(&client, "id = ?", id)
 	if result.Error != nil {
 		http.Error(w, "Client not found", http.StatusNotFound)
 		return
@@ -99,6 +122,7 @@ func (h *Handler) GetClient(w http.ResponseWriter, r *http.Request) {
 // @Tags clients
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path string true "Client ID"
 // @Param client body models.Client true "Client object"
 // @Success 200 {object} models.Client
@@ -110,7 +134,11 @@ func (h *Handler) UpdateClient(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 
 	var client models.Client
-	if err := h.db.First(&client, "id = ?", id).Error; err != nil {
+	
+	// Apply tenant isolation
+	db := middleware.ApplyTenantScope(h.db, r)
+	
+	if err := db.First(&client, "id = ?", id).Error; err != nil {
 		http.Error(w, "Client not found", http.StatusNotFound)
 		return
 	}
@@ -129,6 +157,7 @@ func (h *Handler) UpdateClient(w http.ResponseWriter, r *http.Request) {
 // @Description Delete a client by ID
 // @Tags clients
 // @Produce json
+// @Security BearerAuth
 // @Param id path string true "Client ID"
 // @Success 200 {object} map[string]string
 // @Failure 500 {object} map[string]string
@@ -137,7 +166,10 @@ func (h *Handler) DeleteClient(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	result := h.db.Delete(&models.Client{}, "id = ?", id)
+	// Apply tenant isolation
+	db := middleware.ApplyTenantScope(h.db, r)
+
+	result := db.Delete(&models.Client{}, "id = ?", id)
 	if result.Error != nil {
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return
@@ -149,15 +181,20 @@ func (h *Handler) DeleteClient(w http.ResponseWriter, r *http.Request) {
 
 // GetTransactions godoc
 // @Summary Get all transactions
-// @Description Get a list of all transactions with client details
+// @Description Get a list of all transactions with client details (filtered by tenant)
 // @Tags transactions
 // @Produce json
+// @Security BearerAuth
 // @Success 200 {array} models.Transaction
 // @Failure 500 {object} map[string]string
 // @Router /transactions [get]
 func (h *Handler) GetTransactions(w http.ResponseWriter, r *http.Request) {
 	var transactions []models.Transaction
-	result := h.db.Preload("Client").Find(&transactions)
+	
+	// Apply tenant isolation
+	db := middleware.ApplyTenantScope(h.db, r)
+	
+	result := db.Preload("Client").Find(&transactions)
 	if result.Error != nil {
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return
@@ -171,12 +208,15 @@ func (h *Handler) GetTransactions(w http.ResponseWriter, r *http.Request) {
 // @Tags transactions
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param transaction body models.Transaction true "Transaction object"
 // @Success 201 {object} models.Transaction
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /transactions [post]
 func (h *Handler) CreateTransaction(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+	
 	var transaction models.Transaction
 	if err := json.NewDecoder(r.Body).Decode(&transaction); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -185,12 +225,34 @@ func (h *Handler) CreateTransaction(w http.ResponseWriter, r *http.Request) {
 
 	// Generate UUID for the transaction
 	transaction.ID = uuid.New().String()
+	
+	// Get tenant ID from context and assign to transaction
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Tenant ID required", http.StatusBadRequest)
+		return
+	}
+	transaction.TenantID = *tenantID
 
 	result := h.db.Create(&transaction)
 	if result.Error != nil {
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return
 	}
+	
+	// Audit log
+	h.auditService.LogAction(
+		user.ID,
+		user.TenantID,
+		models.ActionCreateTransaction,
+		"Transaction",
+		transaction.ID,
+		"Created new transaction",
+		nil,
+		transaction,
+		r,
+	)
+	
 	respondJSON(w, http.StatusCreated, transaction)
 }
 
@@ -199,6 +261,7 @@ func (h *Handler) CreateTransaction(w http.ResponseWriter, r *http.Request) {
 // @Description Get a specific transaction by ID with client details
 // @Tags transactions
 // @Produce json
+// @Security BearerAuth
 // @Param id path string true "Transaction ID"
 // @Success 200 {object} models.Transaction
 // @Failure 404 {object} map[string]string
@@ -208,7 +271,11 @@ func (h *Handler) GetTransaction(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 
 	var transaction models.Transaction
-	result := h.db.Preload("Client").First(&transaction, "id = ?", id)
+	
+	// Apply tenant isolation
+	db := middleware.ApplyTenantScope(h.db, r)
+	
+	result := db.Preload("Client").First(&transaction, "id = ?", id)
 	if result.Error != nil {
 		http.Error(w, "Transaction not found", http.StatusNotFound)
 		return
@@ -222,6 +289,7 @@ func (h *Handler) GetTransaction(w http.ResponseWriter, r *http.Request) {
 // @Tags transactions
 // @Accept json
 // @Produce json
+// @Security BearerAuth
 // @Param id path string true "Transaction ID"
 // @Param transaction body models.Transaction true "Transaction object"
 // @Success 200 {object} models.Transaction
@@ -232,9 +300,11 @@ func (h *Handler) UpdateTransaction(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	// Get existing transaction
+	// Get existing transaction with tenant isolation
 	var existingTransaction models.Transaction
-	if err := h.db.First(&existingTransaction, "id = ?", id).Error; err != nil {
+	db := middleware.ApplyTenantScope(h.db, r)
+	
+	if err := db.First(&existingTransaction, "id = ?", id).Error; err != nil {
 		http.Error(w, "Transaction not found", http.StatusNotFound)
 		return
 	}
@@ -301,6 +371,7 @@ func (h *Handler) UpdateTransaction(w http.ResponseWriter, r *http.Request) {
 // @Description Delete a transaction by ID
 // @Tags transactions
 // @Produce json
+// @Security BearerAuth
 // @Param id path string true "Transaction ID"
 // @Success 200 {object} map[string]string
 // @Failure 500 {object} map[string]string
@@ -309,7 +380,10 @@ func (h *Handler) DeleteTransaction(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	result := h.db.Delete(&models.Transaction{}, "id = ?", id)
+	// Apply tenant isolation
+	db := middleware.ApplyTenantScope(h.db, r)
+
+	result := db.Delete(&models.Transaction{}, "id = ?", id)
 	if result.Error != nil {
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return
@@ -322,6 +396,7 @@ func (h *Handler) DeleteTransaction(w http.ResponseWriter, r *http.Request) {
 // @Description Get all transactions for a specific client
 // @Tags transactions
 // @Produce json
+// @Security BearerAuth
 // @Param id path string true "Client ID"
 // @Success 200 {array} models.Transaction
 // @Failure 500 {object} map[string]string
@@ -331,7 +406,11 @@ func (h *Handler) GetClientTransactions(w http.ResponseWriter, r *http.Request) 
 	clientId := vars["id"]
 
 	var transactions []models.Transaction
-	result := h.db.Where("client_id = ?", clientId).Find(&transactions)
+	
+	// Apply tenant isolation
+	db := middleware.ApplyTenantScope(h.db, r)
+	
+	result := db.Where("client_id = ?", clientId).Find(&transactions)
 	if result.Error != nil {
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return
@@ -344,6 +423,7 @@ func (h *Handler) GetClientTransactions(w http.ResponseWriter, r *http.Request) 
 // @Description Search clients by name, email, or phone
 // @Tags clients
 // @Produce json
+// @Security BearerAuth
 // @Param q query string true "Search query"
 // @Success 200 {array} models.Client
 // @Failure 400 {object} map[string]string
@@ -357,7 +437,11 @@ func (h *Handler) SearchClients(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var clients []models.Client
-	result := h.db.Where("name LIKE ? OR email LIKE ? OR phone LIKE ?", 
+	
+	// Apply tenant isolation
+	db := middleware.ApplyTenantScope(h.db, r)
+	
+	result := db.Where("name LIKE ? OR email LIKE ? OR phone_number LIKE ?", 
 		"%"+query+"%", "%"+query+"%", "%"+query+"%").Find(&clients)
 	if result.Error != nil {
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
@@ -374,8 +458,12 @@ func (h *Handler) SearchTransactions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var transactions []models.Transaction
-	result := h.db.Preload("Client").Where("description LIKE ? OR type LIKE ?", 
-		"%"+query+"%", "%"+query+"%").Find(&transactions)
+	
+	// Apply tenant isolation
+	db := middleware.ApplyTenantScope(h.db, r)
+	
+	result := db.Preload("Client").Where("send_currency LIKE ? OR receive_currency LIKE ? OR type LIKE ?", 
+		"%"+query+"%", "%"+query+"%", "%"+query+"%").Find(&transactions)
 	if result.Error != nil {
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return

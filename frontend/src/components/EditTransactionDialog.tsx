@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useUpdateTransaction } from '@/src/lib/queries/client.query';
 import {
   Dialog,
   DialogContent,
@@ -16,7 +17,7 @@ import { Textarea } from './ui/textarea';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Card, CardContent } from './ui/card';
 import { toast } from 'sonner';
-import { Calculator, AlertCircle, History } from 'lucide-react';
+import { Calculator, AlertCircle, History, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import {
   Collapsible,
@@ -122,6 +123,8 @@ export function EditTransactionDialog({
     }
   };
 
+  const updateTransaction = useUpdateTransaction(transaction.id);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -158,37 +161,27 @@ export function EditTransactionDialog({
 
     setIsSubmitting(true);
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${API_BASE_URL}/api/transactions/${transaction.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type: transactionType,
-          sendCurrency: formData.sendCurrency,
-          sendAmount: parseFloat(formData.sendAmount),
-          receiveCurrency: formData.receiveCurrency,
-          receiveAmount: parseFloat(finalReceiveAmount),
-          rateApplied: parseFloat(formData.rateApplied),
-          feeCharged: parseFloat(formData.feeCharged),
-          beneficiaryName: formData.beneficiaryName,
-          beneficiaryDetails: formData.beneficiaryDetails,
-          userNotes: formData.userNotes,
-        }),
+      const updatedTransaction = await updateTransaction.mutateAsync({
+        type: transactionType,
+        sendCurrency: formData.sendCurrency,
+        sendAmount: parseFloat(formData.sendAmount),
+        receiveCurrency: formData.receiveCurrency,
+        receiveAmount: parseFloat(finalReceiveAmount),
+        rateApplied: parseFloat(formData.rateApplied),
+        feeCharged: parseFloat(formData.feeCharged),
+        beneficiaryName: formData.beneficiaryName || undefined,
+        beneficiaryDetails: formData.beneficiaryDetails || undefined,
+        userNotes: formData.userNotes || undefined,
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update transaction');
-      }
-
-      const updatedTransaction = await response.json();
+      
       toast.success('Transaction updated successfully');
       onTransactionUpdated(updatedTransaction);
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating transaction:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to update transaction');
+      toast.error('Failed to update transaction', {
+        description: error?.response?.data?.error || 'Please try again',
+      });
     } finally {
       setIsSubmitting(false);
     }

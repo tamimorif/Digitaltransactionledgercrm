@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useGetTransactions } from '@/src/lib/queries/client.query';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -17,6 +18,7 @@ import {
   Edit,
   Info,
   History,
+  Loader2,
 } from 'lucide-react';
 import { TransactionForm } from './TransactionForm';
 import { EditTransactionDialog } from './EditTransactionDialog';
@@ -24,7 +26,7 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { toast } from 'sonner';
 
 interface Client {
-  id: string;
+  id: number | string;
   name: string;
   phoneNumber: string;
   email: string;
@@ -58,45 +60,21 @@ interface ClientProfileProps {
 }
 
 export function ClientProfile({ client, onClose }: ClientProfileProps) {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const clientIdString = String(client.id);
+  const { data: transactions = [], isLoading, refetch } = useGetTransactions(clientIdString);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
-  useEffect(() => {
-    fetchTransactions();
-  }, [client.id]);
-
-  const fetchTransactions = async () => {
-    setIsLoading(true);
-    try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${API_BASE_URL}/api/clients/${client.id}/transactions`);
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch transactions');
-      }
-
-      const transactions = await response.json();
-      setTransactions(transactions);
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-      toast.error('Failed to load transaction history');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleTransactionCreated = () => {
+    refetch();
+    setShowTransactionForm(false);
+    toast.success('Transaction created successfully');
   };
 
-  const handleTransactionCreated = (newTransaction: Transaction) => {
-    setTransactions((prev) => [newTransaction, ...prev]);
-  };
-
-  const handleTransactionUpdated = (updatedTransaction: Transaction) => {
-    setTransactions((prev) =>
-      prev.map((tx) =>
-        tx.id === updatedTransaction.id ? updatedTransaction : tx
-      )
-    );
+  const handleTransactionUpdated = () => {
+    refetch();
+    setEditingTransaction(null);
+    toast.success('Transaction updated successfully');
   };
 
   const formatCurrency = (amount: number, currency: string) => {
@@ -390,21 +368,19 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
       <TransactionForm
         open={showTransactionForm}
         onOpenChange={setShowTransactionForm}
-        clientId={client.id}
+        clientId={String(client.id)}
         clientName={client.name}
         onTransactionCreated={handleTransactionCreated}
       />
 
-      {
-        editingTransaction && (
-          <EditTransactionDialog
-            open={!!editingTransaction}
-            onOpenChange={(open) => !open && setEditingTransaction(null)}
-            transaction={editingTransaction}
-            onTransactionUpdated={handleTransactionUpdated}
-          />
-        )
-      }
+      {editingTransaction && (
+        <EditTransactionDialog
+          open={!!editingTransaction}
+          onOpenChange={(open) => !open && setEditingTransaction(null)}
+          transaction={editingTransaction}
+          onTransactionUpdated={handleTransactionUpdated}
+        />
+      )}
     </>
   );
 }

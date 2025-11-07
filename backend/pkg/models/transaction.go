@@ -7,6 +7,7 @@ import (
 // Client represents a client in the system
 type Client struct {
 	ID          string    `gorm:"primaryKey;type:text" json:"id"`
+	TenantID    uint      `gorm:"type:bigint;not null;index" json:"tenantId"` // *** ADDED FOR TENANT ISOLATION ***
 	Name        string    `gorm:"type:text;not null" json:"name"`
 	PhoneNumber string    `gorm:"column:phone_number;type:text;not null" json:"phoneNumber"`
 	Email       *string   `gorm:"type:text" json:"email"`
@@ -15,6 +16,7 @@ type Client struct {
 	UpdatedAt   time.Time `gorm:"column:updated_at;type:datetime;autoUpdateTime" json:"updatedAt"`
 
 	Transactions []Transaction `gorm:"foreignKey:ClientID;constraint:OnDelete:CASCADE" json:"transactions"`
+	Tenant       Tenant        `gorm:"foreignKey:TenantID;constraint:OnDelete:RESTRICT" json:"tenant,omitempty"`
 }
 
 // TableName specifies the table name for a Client model
@@ -25,6 +27,7 @@ func (Client) TableName() string {
 // Transaction represents a financial transaction
 type Transaction struct {
 	ID                 string     `gorm:"primaryKey;type:text" json:"id"`
+	TenantID           uint       `gorm:"type:bigint;not null;index" json:"tenantId"` // *** ADDED FOR TENANT ISOLATION ***
 	ClientID           string     `gorm:"column:client_id;type:text;not null;index" json:"clientId"`
 	Type               string     `gorm:"type:text;not null" json:"type"` // "CASH_EXCHANGE" or "BANK_TRANSFER"
 	SendCurrency       string     `gorm:"column:send_currency;type:text;not null" json:"sendCurrency"`
@@ -44,6 +47,7 @@ type Transaction struct {
 	UpdatedAt          time.Time  `gorm:"column:updated_at;type:datetime;autoUpdateTime" json:"updatedAt"`
 
 	Client Client `gorm:"foreignKey:ClientID;constraint:OnDelete:CASCADE" json:"client"`
+	Tenant Tenant `gorm:"foreignKey:TenantID;constraint:OnDelete:RESTRICT" json:"tenant,omitempty"`
 }
 
 // TableName specifies the table name for a Transaction model

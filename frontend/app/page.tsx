@@ -1,152 +1,191 @@
-'use client';
+import Link from 'next/link';
+import { Button } from '@/src/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
+import { Building2, Shield, Users, Zap, Check } from 'lucide-react';
 
-import { useState, useEffect } from 'react';
-import { DailyRatesWidget } from '@/src/components/DailyRatesWidget';
-import { ClientSearch } from '@/src/components/ClientSearch';
-import { ClientProfile } from '@/src/components/ClientProfile';
-import { NewClientDialog } from '@/src/components/NewClientDialog';
-import { Card, CardContent } from '@/src/components/ui/card';
-import { toast } from 'sonner';
-import { Building2, TrendingUp } from 'lucide-react';
-import { api } from '@/src/lib/api';
+export default function Home() {
+  const features = [
+    {
+      icon: Building2,
+      title: 'Multi-Tenant Management',
+      description: 'Each company with separate database and complete features',
+    },
+    {
+      icon: Shield,
+      title: 'High Security',
+      description: 'Two-factor authentication and email verification',
+    },
+    {
+      icon: Users,
+      title: 'User Management',
+      description: 'Different roles and access levels',
+    },
+    {
+      icon: Zap,
+      title: 'Free Trial',
+      description: '7 days free access to all features',
+    },
+  ];
 
-interface Client {
-  id: string;
-  name: string;
-  phoneNumber: string;
-  email: string;
-  joinDate: string;
-}
-
-export default function HomePage() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [showNewClientDialog, setShowNewClientDialog] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    fetchClients();
-  }, []);
-
-  const fetchClients = async () => {
-    setIsLoading(true);
-    try {
-      const clients = await api.getClients();
-      setClients(clients);
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-      toast.error('Failed to load clients. Make sure the backend is running on port 8080.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleClientCreated = (newClient: Client) => {
-    setClients((prev) => [...prev, newClient]);
-    setSelectedClient(newClient);
-  };
-
-  const handleClientSelect = (client: Client) => {
-    setSelectedClient(client);
-  };
+  const plans = [
+    {
+      name: 'Starter',
+      users: '5 Users',
+      price: 'Contact Us',
+    },
+    {
+      name: 'Professional',
+      users: '20 Users',
+      price: 'Contact Us',
+      popular: true,
+    },
+    {
+      name: 'Business',
+      users: '50 Users',
+      price: 'Contact Us',
+    },
+    {
+      name: 'Enterprise',
+      users: 'Unlimited',
+      price: 'Contact Us',
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center">
-              <Building2 className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1>Transaction Ledger & Client CRM</h1>
-              <p className="text-sm text-gray-500">
-                Currency Exchange & Remittance Management
-              </p>
-            </div>
+      <header className="border-b bg-white/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-8 w-8 text-primary" />
+            <span className="font-bold text-xl">Accounting System</span>
+          </div>
+          <div className="flex gap-4">
+            <Link href="/login">
+              <Button variant="ghost">Login</Button>
+            </Link>
+            <Link href="/register">
+              <Button>Sign Up Free</Button>
+            </Link>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Daily Rates Widget */}
-        <div className="mb-8">
-          <DailyRatesWidget />
+      {/* Hero Section */}
+      <section className="container mx-auto px-4 py-20 text-center">
+        <h1 className="text-5xl font-bold mb-6">
+          Accounting & Transaction Management System
+        </h1>
+        <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+          A powerful platform for managing currency exchange, remittance, and money transfer
+          with multi-tenancy capabilities and advanced licensing system
+        </p>
+        <div className="flex gap-4 justify-center">
+          <Link href="/register">
+            <Button size="lg" className="text-lg px-8">
+              Start Free 7-Day Trial
+            </Button>
+          </Link>
+          <Link href="/login">
+            <Button size="lg" variant="outline" className="text-lg px-8">
+              Login to Account
+            </Button>
+          </Link>
         </div>
+      </section>
 
-        {/* Main Content */}
-        {!selectedClient ? (
-          <div className="space-y-8">
-            {/* Search Section */}
-            <Card>
-              <CardContent className="pt-6">
-                <div className="mb-4">
-                  <h2 className="mb-2">Find Client</h2>
-                  <p className="text-sm text-gray-500">
-                    Search by phone number or name to view transaction history
-                  </p>
-                </div>
-                <ClientSearch
-                  clients={clients}
-                  onClientSelect={handleClientSelect}
-                  onNewClient={() => setShowNewClientDialog(true)}
-                />
+      {/* Features Section */}
+      <section className="container mx-auto px-4 py-20">
+        <h2 className="text-3xl font-bold text-center mb-12">Key Features</h2>
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {features.map((feature, index) => (
+            <Card key={index}>
+              <CardHeader>
+                <feature.icon className="h-10 w-10 text-primary mb-2" />
+                <CardTitle>{feature.title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>{feature.description}</CardDescription>
               </CardContent>
             </Card>
+          ))}
+        </div>
+      </section>
 
-            {/* Recent Activity / Stats */}
-            {!isLoading && clients.length > 0 && (
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <TrendingUp className="h-5 w-5 text-blue-600" />
-                    <h3>Quick Stats</h3>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-gray-600">Total Clients</p>
-                      <p className="text-2xl mt-1">{clients.length}</p>
-                    </div>
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <p className="text-sm text-gray-600">Active Today</p>
-                      <p className="text-2xl mt-1">0</p>
-                    </div>
-                    <div className="p-4 bg-purple-50 rounded-lg">
-                      <p className="text-sm text-gray-600">This Month</p>
-                      <p className="text-2xl mt-1">0</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+      {/* Pricing Section */}
+      <section className="container mx-auto px-4 py-20 bg-gray-50">
+        <h2 className="text-3xl font-bold text-center mb-12">Pricing Plans</h2>
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+          {plans.map((plan, index) => (
+            <Card
+              key={index}
+              className={plan.popular ? 'border-primary shadow-lg' : ''}
+            >
+              <CardHeader>
+                {plan.popular && (
+                  <span className="bg-primary text-primary-foreground text-xs px-3 py-1 rounded-full w-fit mb-2">
+                    Most Popular
+                  </span>
+                )}
+                <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                <CardDescription className="text-lg font-semibold mt-2">
+                  {plan.users}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-3xl font-bold">{plan.price}</div>
+                <ul className="space-y-2">
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-600" />
+                    <span className="text-sm">7-Day Free Trial</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-600" />
+                    <span className="text-sm">Email Support</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-green-600" />
+                    <span className="text-sm">Free Updates</span>
+                  </li>
+                </ul>
+                <Link href="/register" className="block">
+                  <Button className="w-full" variant={plan.popular ? 'default' : 'outline'}>
+                    Get Started
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
 
-            {/* Empty State */}
-            {!isLoading && clients.length === 0 && (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="mb-2">No Clients Yet</h3>
-                  <p className="text-gray-500 mb-4">
-                    Start by creating your first client profile
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        ) : (
-          <ClientProfile
-            client={selectedClient}
-            onClose={() => setSelectedClient(null)}
-          />
-        )}
-      </main>
+      {/* CTA Section */}
+      <section className="container mx-auto px-4 py-20 text-center">
+        <Card className="max-w-3xl mx-auto bg-primary text-primary-foreground">
+          <CardHeader>
+            <CardTitle className="text-3xl mb-4">
+              Get Started Now
+            </CardTitle>
+            <CardDescription className="text-primary-foreground/90 text-lg">
+              Free sign-up with no credit card required. Try it for 7 days.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/register">
+              <Button size="lg" variant="secondary" className="text-lg px-8">
+                Sign Up Free
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </section>
 
-      <NewClientDialog
-        open={showNewClientDialog}
-        onOpenChange={setShowNewClientDialog}
-        onClientCreated={handleClientCreated}
-      />
+      {/* Footer */}
+      <footer className="border-t bg-gray-50 py-8">
+        <div className="container mx-auto px-4 text-center text-muted-foreground">
+          <p>© 2024 Digital Transaction Ledger CRM. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }

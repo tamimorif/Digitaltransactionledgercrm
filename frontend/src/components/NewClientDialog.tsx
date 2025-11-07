@@ -1,77 +1,77 @@
 'use client';
 
 import { useState } from 'react';
+import { useCreateClient } from '@/src/lib/queries/client.query';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-} from './ui/dialog';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Button } from './ui/button';
+} from '@/src/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/src/components/ui/form';
+import { Input } from '@/src/components/ui/input';
+import { Button } from '@/src/components/ui/button';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 
-interface Client {
-  id: string;
-  name: string;
-  phoneNumber: string;
-  email: string;
-  joinDate: string;
-}
+const clientSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  phone_number: z.string().min(5, 'Phone number is required'),
+  email: z.string().email('Invalid email').optional().or(z.literal('')),
+});
+
+type ClientFormValues = z.infer<typeof clientSchema>;
 
 interface NewClientDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onClientCreated: (client: Client) => void;
+  onClientCreated: (client: any) => void;
 }
 
-export function NewClientDialog({ open, onOpenChange, onClientCreated }: NewClientDialogProps) {
-  const [formData, setFormData] = useState({
-    name: '',
-    phoneNumber: '',
-    email: '',
+export function NewClientDialog({
+  open,
+  onOpenChange,
+  onClientCreated,
+}: NewClientDialogProps) {
+  const createClient = useCreateClient();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const form = useForm<ClientFormValues>({
+    resolver: zodResolver(clientSchema),
+    defaultValues: {
+      name: '',
+      phone_number: '',
+      email: '',
+    },
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.name.trim() || !formData.phoneNumber.trim()) {
-      toast.error('Name and phone number are required');
-      return;
-    }
-
-    setIsSubmitting(true);
+  async function onSubmit(data: ClientFormValues) {
     try {
-      // Call the Go backend API
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${API_BASE_URL}/api/clients`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create client');
-      }
-
-      const newClient = await response.json();
+      setIsLoading(true);
+      const client = await createClient.mutateAsync(data);
       toast.success('Client created successfully');
-      onClientCreated(newClient);
+      form.reset();
+      onClientCreated(client);
       onOpenChange(false);
-      setFormData({ name: '', phoneNumber: '', email: '' });
-    } catch (error) {
-      console.error('Error creating client:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create client. Make sure the backend is running on port 8080.');
+    } catch (error: any) {
+      toast.error('Failed to create client', {
+        description: error?.response?.data?.error || 'Please try again',
+      });
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
-  };
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -82,48 +82,79 @@ export function NewClientDialog({ open, onOpenChange, onClientCreated }: NewClie
             Create a new client profile. Phone number is the primary identifier.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Mohammad Khan"
-                required
-              />
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Full Name</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="John Doe"
+                      disabled={isLoading}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="phone_number"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone Number</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="+1234567890"
+                      disabled={isLoading}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email (Optional)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder="john@example.com"
+                      disabled={isLoading}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create Client
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="phoneNumber">Phone Number *</Label>
-              <Input
-                id="phoneNumber"
-                value={formData.phoneNumber}
-                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                placeholder="+905551234567"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email (Optional)</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="client@example.com"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating...' : 'Create Client'}
-            </Button>
-          </DialogFooter>
-        </form>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

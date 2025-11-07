@@ -49,11 +49,30 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 	}
 
 	// Auto-migrate the schema
-	log.Println("Running GORM auto-migrations for Client and Transaction models...")
-	err = db.AutoMigrate(&models.Client{}, &models.Transaction{})
+	log.Println("Running GORM auto-migrations for all models...")
+	err = db.AutoMigrate(
+		// Core models
+		&models.User{},
+		&models.Tenant{},
+		&models.License{},
+		&models.Role{},
+		&models.RolePermission{},
+		&models.OwnershipTransferLog{},
+		&models.AuditLog{},
+		// Existing models (now with TenantID)
+		&models.Client{},
+		&models.Transaction{},
+	)
 	if err != nil {
 		log.Printf("Warning: Failed to run auto-migrations: %v", err)
 		return nil, err
+	}
+
+	// Seed database with initial data
+	log.Println("Seeding database...")
+	if err := SeedDatabase(db); err != nil {
+		log.Printf("Warning: Failed to seed database: %v", err)
+		// Don't fail if seeding fails
 	}
 
 	log.Println("Database initialized successfully.")
