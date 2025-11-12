@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
 import {
   User,
   Phone,
@@ -19,9 +21,12 @@ import {
   Info,
   History,
   Loader2,
+  Filter,
+  FilterX,
 } from 'lucide-react';
 import { TransactionForm } from './TransactionForm';
 import { EditTransactionDialog } from './EditTransactionDialog';
+import { CurrencySummary } from './CurrencySummary';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { toast } from 'sonner';
 
@@ -61,9 +66,19 @@ interface ClientProfileProps {
 
 export function ClientProfile({ client, onClose }: ClientProfileProps) {
   const clientIdString = String(client.id);
-  const { data: transactions = [], isLoading, refetch } = useGetTransactions(clientIdString);
+  const [dateFilter, setDateFilter] = useState<{ startDate?: string; endDate?: string }>({});
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const { data: transactions = [], isLoading, refetch } = useGetTransactions(clientIdString, dateFilter);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+  const handleApplyDateFilter = (start?: string, end?: string) => {
+    setDateFilter({ startDate: start, endDate: end });
+  };
+
+  const handleClearDateFilter = () => {
+    setDateFilter({});
+  };
 
   const handleTransactionCreated = () => {
     refetch();
@@ -149,11 +164,89 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
             </Card>
           </div>
 
+          {/* Currency Summary */}
+          {transactions.length > 0 && (
+            <>
+              <Separator className="my-6" />
+              <CurrencySummary transactions={transactions} />
+            </>
+          )}
+
           <Separator className="my-6" />
 
           {/* Transaction History */}
           <div>
-            <h3 className="mb-4">Transaction History</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3>Transaction History</h3>
+              <Popover open={showDateFilter} onOpenChange={setShowDateFilter}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Filter className="h-4 w-4 mr-2" />
+                    Filter by Date
+                    {(dateFilter.startDate || dateFilter.endDate) && (
+                      <Badge variant="secondary" className="ml-2">
+                        Active
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80" align="end">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <h4 className="font-medium leading-none">Date Range Filter</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Filter transactions by date range
+                      </p>
+                    </div>
+                    <div className="grid gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="startDate">Start Date</Label>
+                        <Input
+                          id="startDate"
+                          type="date"
+                          value={dateFilter.startDate || ''}
+                          onChange={(e) =>
+                            handleApplyDateFilter(e.target.value, dateFilter.endDate)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="endDate">End Date</Label>
+                        <Input
+                          id="endDate"
+                          type="date"
+                          value={dateFilter.endDate || ''}
+                          onChange={(e) =>
+                            handleApplyDateFilter(dateFilter.startDate, e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            handleClearDateFilter();
+                            setShowDateFilter(false);
+                          }}
+                          className="flex-1"
+                        >
+                          <FilterX className="h-4 w-4 mr-2" />
+                          Clear
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => setShowDateFilter(false)}
+                          className="flex-1"
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
             {isLoading ? (
               <div className="text-center py-8 text-gray-500">Loading transactions...</div>
             ) : transactions.length === 0 ? (

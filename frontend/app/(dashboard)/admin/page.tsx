@@ -157,9 +157,13 @@ export default function AdminPage() {
               </TableHeader>
               <TableBody>
                 {tenants.map((tenant) => (
-                  <TableRow key={tenant.id}>
+                  <TableRow key={tenant.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/admin/tenants/${tenant.id}`)}>
                     <TableCell className="font-mono text-sm">{tenant.id}</TableCell>
-                    <TableCell className="font-medium">{tenant.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link href={`/admin/tenants/${tenant.id}`} className="text-primary hover:underline">
+                        {tenant.name}
+                      </Link>
+                    </TableCell>
                     <TableCell>{tenant.ownerEmail || 'N/A'}</TableCell>
                     <TableCell>
                       <Badge className={getStatusColor(tenant.status)}>

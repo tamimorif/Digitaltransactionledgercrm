@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -217,13 +218,69 @@ func (as *AuthService) ResendVerificationCode(email string) error {
 }
 
 // Login authenticates a user and returns a JWT token
+// Accepts email, username, OR branch username for login
 func (as *AuthService) Login(req LoginRequest) (string, *models.User, error) {
 	var user models.User
-	if err := as.DB.Preload("Tenant").Where("email = ?", req.Email).First(&user).Error; err != nil {
+
+	// Try to find user by email first, then by username
+	err := as.DB.Preload("Tenant").Preload("PrimaryBranch").Where("email = ?", req.Email).First(&user).Error
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", nil, errors.New("invalid email or password")
+			// Try finding by username in users table
+			err = as.DB.Preload("Tenant").Preload("PrimaryBranch").Where("username = ?", req.Email).First(&user).Error
+			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					// Try finding as branch login
+					var branch models.Branch
+					err = as.DB.Preload("Tenant").Where("username = ? AND status = ?", req.Email, models.BranchStatusActive).First(&branch).Error
+					if err == nil {
+						// Branch found, verify password
+						if err := bcrypt.CompareHashAndPassword([]byte(branch.PasswordHash), []byte(req.Password)); err != nil {
+							return "", nil, errors.New("invalid username or password")
+						}
+
+						// Find or create a user for this branch
+						var branchUser models.User
+						branchEmail := branch.Username + "@branch.local"
+						err = as.DB.Preload("Tenant").Preload("PrimaryBranch").Where("email = ?", branchEmail).First(&branchUser).Error
+
+						if errors.Is(err, gorm.ErrRecordNotFound) {
+							// Create a user for this branch
+							branchUser = models.User{
+								Username:        &branch.Username,
+								Email:           branchEmail,
+								PasswordHash:    branch.PasswordHash, // Use same password hash
+								EmailVerified:   true,
+								Role:            models.RoleTenantUser,
+								TenantID:        &branch.TenantID,
+								PrimaryBranchID: &branch.ID,
+								Status:          models.StatusActive,
+							}
+							if err := as.DB.Create(&branchUser).Error; err != nil {
+								return "", nil, fmt.Errorf("failed to create branch user: %w", err)
+							}
+							// Reload with associations
+							as.DB.Preload("Tenant").Preload("PrimaryBranch").First(&branchUser, branchUser.ID)
+						} else if err != nil {
+							return "", nil, fmt.Errorf("database error: %w", err)
+						}
+
+						// Generate token for branch login
+						token, err := as.GenerateJWT(&branchUser)
+						if err != nil {
+							return "", nil, fmt.Errorf("failed to generate token: %w", err)
+						}
+
+						log.Printf("✅ Branch logged in successfully: %s (Branch ID: %d, User ID: %d)", branch.Username, branch.ID, branchUser.ID)
+						return token, &branchUser, nil
+					}
+					return "", nil, errors.New("invalid email or password")
+				}
+				return "", nil, fmt.Errorf("database error: %w", err)
+			}
+		} else {
+			return "", nil, fmt.Errorf("database error: %w", err)
 		}
-		return "", nil, fmt.Errorf("database error: %w", err)
 	}
 
 	// Check if email is verified
@@ -306,4 +363,104 @@ func (as *AuthService) ValidateJWT(tokenString string) (*JWTClaims, error) {
 	}
 
 	return nil, errors.New("invalid token")
+}
+
+// ChangePassword changes a user's password
+func (as *AuthService) ChangePassword(userID uint, currentPassword, newPassword string) error {
+	var user models.User
+	if err := as.DB.First(&user, userID).Error; err != nil {
+		return errors.New("user not found")
+	}
+
+	// Verify current password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)); err != nil {
+		return errors.New("current password is incorrect")
+	}
+
+	// Hash new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.New("failed to hash new password")
+	}
+
+	// Update password
+	user.PasswordHash = string(hashedPassword)
+	if err := as.DB.Save(&user).Error; err != nil {
+		return errors.New("failed to update password")
+	}
+
+	log.Printf("✅ Password changed for user ID: %d", userID)
+	return nil
+}
+
+// SendPasswordResetCode generates and sends a password reset code
+func (as *AuthService) SendPasswordResetCode(emailOrPhone string) error {
+	// Find user by email
+	var user models.User
+	err := as.DB.Where("email = ?", emailOrPhone).First(&user).Error
+	if err != nil {
+		return errors.New("user not found")
+	}
+
+	// Generate a 6-digit code
+	code := fmt.Sprintf("%06d", rand.Intn(1000000))
+
+	// Create reset code record
+	resetCode := models.PasswordResetCode{
+		Email:     user.Email,
+		Code:      code,
+		ExpiresAt: time.Now().Add(15 * time.Minute), // Expires in 15 minutes
+		Used:      false,
+	}
+
+	if err := as.DB.Create(&resetCode).Error; err != nil {
+		return errors.New("failed to create reset code")
+	}
+
+	// TODO: Send code via email
+	// For now, just log it (in production, use email_service.go)
+	log.Printf("📧 Password reset code for %s: %s (Expires in 15 minutes)", emailOrPhone, code)
+	log.Printf("⚠️  In production, this should be sent via email")
+
+	return nil
+}
+
+// ResetPasswordWithCode resets password using verification code
+func (as *AuthService) ResetPasswordWithCode(emailOrPhone, code, newPassword string) error {
+	// Find user by email
+	var user models.User
+	err := as.DB.Where("email = ?", emailOrPhone).First(&user).Error
+	if err != nil {
+		return errors.New("user not found")
+	}
+
+	// Find valid reset code
+	var resetCode models.PasswordResetCode
+	err = as.DB.Where(
+		"email = ? AND code = ? AND used = ? AND expires_at > ?",
+		user.Email, code, false, time.Now(),
+	).First(&resetCode).Error
+
+	if err != nil {
+		return errors.New("invalid or expired reset code")
+	}
+
+	// Hash new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.New("failed to hash new password")
+	}
+
+	// Update password
+	user.PasswordHash = string(hashedPassword)
+	if err := as.DB.Save(&user).Error; err != nil {
+		return errors.New("failed to update password")
+	}
+
+	// Mark reset code as used
+	resetCode.Used = true
+	as.DB.Save(&resetCode)
+
+	log.Printf("✅ Password reset successfully for user: %s", emailOrPhone)
+	return nil
 }

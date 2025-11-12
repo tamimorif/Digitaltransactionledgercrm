@@ -28,6 +28,7 @@ func (Client) TableName() string {
 type Transaction struct {
 	ID                 string     `gorm:"primaryKey;type:text" json:"id"`
 	TenantID           uint       `gorm:"type:bigint;not null;index" json:"tenantId"` // *** ADDED FOR TENANT ISOLATION ***
+	BranchID           *uint      `gorm:"type:bigint;index" json:"branchId"`          // Which branch created this transaction
 	ClientID           string     `gorm:"column:client_id;type:text;not null;index" json:"clientId"`
 	Type               string     `gorm:"type:text;not null" json:"type"` // "CASH_EXCHANGE" or "BANK_TRANSFER"
 	SendCurrency       string     `gorm:"column:send_currency;type:text;not null" json:"sendCurrency"`
@@ -41,16 +42,35 @@ type Transaction struct {
 	UserNotes          *string    `gorm:"column:user_notes;type:text" json:"userNotes"`
 	IsEdited           bool       `gorm:"column:is_edited;type:boolean;default:false" json:"isEdited"`
 	LastEditedAt       *time.Time `gorm:"column:last_edited_at;type:datetime" json:"lastEditedAt"`
-	EditHistory        *string    `gorm:"column:edit_history;type:text" json:"editHistory"` // JSON string
+	EditHistory        *string    `gorm:"column:edit_history;type:text" json:"editHistory"`                // JSON string
+	Status             string     `gorm:"column:status;type:text;default:'COMPLETED';index" json:"status"` // COMPLETED or CANCELLED
+	CancellationReason *string    `gorm:"column:cancellation_reason;type:text" json:"cancellationReason,omitempty"`
+	CancelledAt        *time.Time `gorm:"column:cancelled_at;type:datetime" json:"cancelledAt,omitempty"`
+	CancelledBy        *uint      `gorm:"column:cancelled_by;type:bigint" json:"cancelledBy,omitempty"` // User ID who cancelled
 	TransactionDate    time.Time  `gorm:"column:transaction_date;type:datetime;default:CURRENT_TIMESTAMP;index" json:"transactionDate"`
 	CreatedAt          time.Time  `gorm:"column:created_at;type:datetime;default:CURRENT_TIMESTAMP;autoCreateTime" json:"createdAt"`
 	UpdatedAt          time.Time  `gorm:"column:updated_at;type:datetime;autoUpdateTime" json:"updatedAt"`
 
-	Client Client `gorm:"foreignKey:ClientID;constraint:OnDelete:CASCADE" json:"client"`
-	Tenant Tenant `gorm:"foreignKey:TenantID;constraint:OnDelete:RESTRICT" json:"tenant,omitempty"`
+	Client Client  `gorm:"foreignKey:ClientID;constraint:OnDelete:CASCADE" json:"client"`
+	Tenant Tenant  `gorm:"foreignKey:TenantID;constraint:OnDelete:RESTRICT" json:"tenant,omitempty"`
+	Branch *Branch `gorm:"foreignKey:BranchID;constraint:OnDelete:SET NULL" json:"branch,omitempty"`
 }
 
 // TableName specifies the table name for a Transaction model
 func (Transaction) TableName() string {
 	return "transactions"
 }
+
+// Transaction Type Constants
+const (
+	TypeCashExchange   = "CASH_EXCHANGE"
+	TypeBankTransfer   = "BANK_TRANSFER"
+	TypeMoneyPickup    = "MONEY_PICKUP"
+	TypeWalkInCustomer = "WALK_IN_CUSTOMER"
+)
+
+// Transaction Status Constants
+const (
+	StatusCompleted = "COMPLETED"
+	StatusCancelled = "CANCELLED"
+)

@@ -123,9 +123,9 @@ export function useLogout() {
     // Clear all queries
     queryClient.clear();
 
-    // Redirect to login
+    // Redirect to login page
     if (typeof window !== 'undefined') {
-      window.location.href = '/auth/login';
+      window.location.href = '/login';
     }
   };
 }

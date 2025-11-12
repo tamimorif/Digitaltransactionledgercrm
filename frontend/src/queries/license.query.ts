@@ -26,6 +26,15 @@ const licenseApi = {
     return response.data;
   },
 
+  getMyLicenses: async (): Promise<{
+    licenses: License[];
+    totalUserLimit: number;
+    currentUserCount: number;
+  }> => {
+    const response = await apiClient.get('/licenses/my-licenses');
+    return response.data;
+  },
+
   // SuperAdmin only
   generateLicense: async (data: GenerateLicenseRequest): Promise<License> => {
     const response = await apiClient.post('/admin/licenses/generate', data);
@@ -61,6 +70,14 @@ export function useGetLicenseStatus() {
   return useQuery({
     queryKey: licenseKeys.status(),
     queryFn: licenseApi.getLicenseStatus,
+    enabled: typeof window !== 'undefined' && !!localStorage.getItem('auth_token'),
+  });
+}
+
+export function useGetMyLicenses() {
+  return useQuery({
+    queryKey: [...licenseKeys.all, 'my-licenses'],
+    queryFn: licenseApi.getMyLicenses,
     enabled: typeof window !== 'undefined' && !!localStorage.getItem('auth_token'),
   });
 }

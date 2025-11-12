@@ -12,7 +12,7 @@ interface DailyRates {
   EUR: number;
   USD: number;
   GBP: number;
-  CAD: number;
+  IRR: number;
   updatedAt?: string;
 }
 
@@ -22,7 +22,7 @@ export function DailyRatesWidget() {
     EUR: 0,
     USD: 0,
     GBP: 0,
-    CAD: 0,
+    IRR: 0,
   });
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -65,7 +65,7 @@ export function DailyRatesWidget() {
     }
   };
 
-  const handleInputChange = (currency: 'EUR' | 'USD' | 'GBP' | 'CAD', value: string) => {
+  const handleInputChange = (currency: 'EUR' | 'USD' | 'GBP' | 'IRR', value: string) => {
     const numValue = parseFloat(value) || 0;
     setRates(prev => ({ ...prev, [currency]: numValue }));
   };
@@ -75,7 +75,7 @@ export function DailyRatesWidget() {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5" />
-          Daily Reference Rates (IRR)
+          Daily Reference Rates (1 CAD =)
         </CardTitle>
         {!isEditing ? (
           <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
@@ -110,11 +110,12 @@ export function DailyRatesWidget() {
                 value={rates.EUR}
                 onChange={(e) => handleInputChange('EUR', e.target.value)}
                 className="mt-1"
-                step="0.01"
+                step="0.0001"
+                placeholder="e.g., 0.6789"
               />
             ) : (
               <div className="mt-1">
-                {rates.EUR > 0 ? rates.EUR.toLocaleString() : 'Not set'}
+                {rates.EUR > 0 ? rates.EUR.toFixed(4) : 'Not set'}
               </div>
             )}
           </div>
@@ -126,11 +127,12 @@ export function DailyRatesWidget() {
                 value={rates.USD}
                 onChange={(e) => handleInputChange('USD', e.target.value)}
                 className="mt-1"
-                step="0.01"
+                step="0.0001"
+                placeholder="e.g., 0.7234"
               />
             ) : (
               <div className="mt-1">
-                {rates.USD > 0 ? rates.USD.toLocaleString() : 'Not set'}
+                {rates.USD > 0 ? rates.USD.toFixed(4) : 'Not set'}
               </div>
             )}
           </div>
@@ -142,27 +144,29 @@ export function DailyRatesWidget() {
                 value={rates.GBP}
                 onChange={(e) => handleInputChange('GBP', e.target.value)}
                 className="mt-1"
-                step="0.01"
+                step="0.0001"
+                placeholder="e.g., 0.5821"
               />
             ) : (
               <div className="mt-1">
-                {rates.GBP > 0 ? rates.GBP.toLocaleString() : 'Not set'}
+                {rates.GBP > 0 ? rates.GBP.toFixed(4) : 'Not set'}
               </div>
             )}
           </div>
           <div>
-            <label className="text-sm text-gray-500">CAD</label>
+            <label className="text-sm text-gray-500">IRR</label>
             {isEditing ? (
               <Input
                 type="number"
-                value={rates.CAD}
-                onChange={(e) => handleInputChange('CAD', e.target.value)}
+                value={rates.IRR}
+                onChange={(e) => handleInputChange('IRR', e.target.value)}
                 className="mt-1"
-                step="0.01"
+                step="1"
+                placeholder="e.g., 37500"
               />
             ) : (
               <div className="mt-1">
-                {rates.CAD > 0 ? rates.CAD.toLocaleString() : 'Not set'}
+                {rates.IRR > 0 ? rates.IRR.toLocaleString() : 'Not set'}
               </div>
             )}
           </div>

@@ -29,7 +29,7 @@ export interface Transaction {
   id: string;
   clientId: string;
   tenantId: number;
-  type: 'CASH_EXCHANGE' | 'BANK_TRANSFER';
+  type: 'CASH_EXCHANGE' | 'BANK_TRANSFER' | 'MONEY_PICKUP' | 'WALK_IN_CUSTOMER';
   sendCurrency: string;
   sendAmount: number;
   receiveCurrency: string;
@@ -49,7 +49,7 @@ export interface Transaction {
 
 export interface CreateTransactionRequest {
   clientId: string;
-  type: 'CASH_EXCHANGE' | 'BANK_TRANSFER';
+  type: 'CASH_EXCHANGE' | 'BANK_TRANSFER' | 'MONEY_PICKUP' | 'WALK_IN_CUSTOMER';
   sendCurrency: string;
   sendAmount: number;
   receiveCurrency: string;
@@ -63,7 +63,7 @@ export interface CreateTransactionRequest {
 }
 
 export interface UpdateTransactionRequest {
-  type?: 'CASH_EXCHANGE' | 'BANK_TRANSFER';
+  type?: 'CASH_EXCHANGE' | 'BANK_TRANSFER' | 'MONEY_PICKUP' | 'WALK_IN_CUSTOMER';
   sendCurrency?: string;
   sendAmount?: number;
   receiveCurrency?: string;

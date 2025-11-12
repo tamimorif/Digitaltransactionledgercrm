@@ -77,15 +77,32 @@ export function useDeleteClient() {
 
 // ==================== Transaction Queries ====================
 
-export function useGetTransactions(clientId?: string | number) {
+export function useGetTransactions(
+  clientId?: string | number,
+  filters?: { startDate?: string; endDate?: string }
+) {
   return useQuery<Transaction[]>({
-    queryKey: clientId ? ['transactions', clientId] : ['transactions'],
+    queryKey: clientId
+      ? ['transactions', clientId, filters]
+      : ['transactions', filters],
     queryFn: async () => {
       const url = clientId ? `/clients/${clientId}/transactions` : '/transactions';
-      const response = await axiosInstance.get(url);
+      const params = new URLSearchParams();
+
+      if (filters?.startDate) {
+        params.append('startDate', filters.startDate);
+      }
+      if (filters?.endDate) {
+        params.append('endDate', filters.endDate);
+      }
+
+      const queryString = params.toString();
+      const fullUrl = queryString ? `${url}?${queryString}` : url;
+
+      const response = await axiosInstance.get(fullUrl);
       return response.data;
     },
-    enabled: !!clientId,
+    enabled: clientId ? !!clientId : true,
   });
 }
 
@@ -111,6 +128,20 @@ export function useUpdateTransaction(transactionId: string) {
   return useMutation({
     mutationFn: async (data: UpdateTransactionRequest) => {
       const response = await axiosInstance.put(`/transactions/${transactionId}`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+}
+
+export function useCancelTransaction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ transactionId, reason }: { transactionId: string; reason: string }) => {
+      const response = await axiosInstance.post(`/transactions/${transactionId}/cancel`, { reason });
       return response.data;
     },
     onSuccess: () => {

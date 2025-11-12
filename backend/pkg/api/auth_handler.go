@@ -168,7 +168,7 @@ func (ah *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Email == "" || req.Password == "" {
-		respondWithError(w, http.StatusBadRequest, "Email and password are required")
+		respondWithError(w, http.StatusBadRequest, "Email/username and password are required")
 		return
 	}
 
@@ -190,19 +190,33 @@ func (ah *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Prepare user response with branch info if exists
+	userResponse := map[string]interface{}{
+		"id":              user.ID,
+		"email":           user.Email,
+		"username":        user.Username,
+		"role":            user.Role,
+		"tenantId":        user.TenantID,
+		"primaryBranchId": user.PrimaryBranchID,
+		"status":          user.Status,
+		"trialEndsAt":     user.TrialEndsAt,
+		"emailVerified":   user.EmailVerified,
+	}
+
+	// Add primary branch info if exists
+	if user.PrimaryBranch != nil {
+		userResponse["primaryBranch"] = map[string]interface{}{
+			"id":       user.PrimaryBranch.ID,
+			"name":     user.PrimaryBranch.Name,
+			"location": user.PrimaryBranch.Location,
+		}
+	}
+
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{
 		"message": "Login successful",
 		"token":   token,
-		"user": map[string]interface{}{
-			"id":            user.ID,
-			"email":         user.Email,
-			"role":          user.Role,
-			"tenantId":      user.TenantID,
-			"status":        user.Status,
-			"trialEndsAt":   user.TrialEndsAt,
-			"emailVerified": user.EmailVerified,
-		},
-		"tenant": tenantInfo,
+		"user":    userResponse,
+		"tenant":  tenantInfo,
 	})
 }
 
@@ -224,15 +238,166 @@ func (ah *AuthHandler) GetMeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, map[string]interface{}{
-		"id":            user.ID,
-		"email":         user.Email,
-		"role":          user.Role,
-		"tenantId":      user.TenantID,
-		"status":        user.Status,
-		"trialEndsAt":   user.TrialEndsAt,
-		"emailVerified": user.EmailVerified,
-		"createdAt":     user.CreatedAt,
+	// Reload user with relationships
+	var fullUser models.User
+	if err := ah.AuthService.DB.Preload("Tenant").Preload("PrimaryBranch").First(&fullUser, user.ID).Error; err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to load user data")
+		return
+	}
+
+	// Get tenant info if exists
+	var tenantInfo map[string]interface{}
+	if fullUser.TenantID != nil && fullUser.Tenant != nil {
+		tenantInfo = map[string]interface{}{
+			"id":        fullUser.Tenant.ID,
+			"name":      fullUser.Tenant.Name,
+			"status":    fullUser.Tenant.Status,
+			"userLimit": fullUser.Tenant.UserLimit,
+		}
+	}
+
+	response := map[string]interface{}{
+		"id":              fullUser.ID,
+		"email":           fullUser.Email,
+		"username":        fullUser.Username,
+		"role":            fullUser.Role,
+		"tenantId":        fullUser.TenantID,
+		"primaryBranchId": fullUser.PrimaryBranchID,
+		"status":          fullUser.Status,
+		"trialEndsAt":     fullUser.TrialEndsAt,
+		"emailVerified":   fullUser.EmailVerified,
+		"createdAt":       fullUser.CreatedAt,
+	}
+
+	// Add primary branch info if exists
+	if fullUser.PrimaryBranch != nil {
+		response["primaryBranch"] = map[string]interface{}{
+			"id":       fullUser.PrimaryBranch.ID,
+			"name":     fullUser.PrimaryBranch.Name,
+			"location": fullUser.PrimaryBranch.Location,
+		}
+	}
+
+	if tenantInfo != nil {
+		response["tenant"] = tenantInfo
+	}
+
+	respondWithJSON(w, http.StatusOK, response)
+}
+
+// ChangePasswordHandler changes user password
+// POST /api/auth/change-password
+func (ah *AuthHandler) ChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+
+	var req struct {
+		CurrentPassword string `json:"currentPassword"`
+		NewPassword     string `json:"newPassword"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.CurrentPassword == "" || req.NewPassword == "" {
+		respondWithError(w, http.StatusBadRequest, "Current password and new password are required")
+		return
+	}
+
+	if len(req.NewPassword) < 6 {
+		respondWithError(w, http.StatusBadRequest, "New password must be at least 6 characters")
+		return
+	}
+
+	// Change password through auth service
+	if err := ah.AuthService.ChangePassword(user.ID, req.CurrentPassword, req.NewPassword); err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Password changed successfully",
+	})
+}
+
+// ForgotPasswordHandler godoc
+// @Summary Request password reset
+// @Description Send a password reset code to user's email or phone
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body map[string]string true "Email or phone"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /auth/forgot-password [post]
+func (ah *AuthHandler) ForgotPasswordHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		EmailOrPhone string `json:"emailOrPhone"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.EmailOrPhone == "" {
+		respondWithError(w, http.StatusBadRequest, "Email or phone is required")
+		return
+	}
+
+	// Send reset code through auth service
+	if err := ah.AuthService.SendPasswordResetCode(req.EmailOrPhone); err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Password reset code sent successfully",
+	})
+}
+
+// ResetPasswordHandler godoc
+// @Summary Reset password with code
+// @Description Reset password using verification code
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body map[string]string true "Reset details"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Router /auth/reset-password [post]
+func (ah *AuthHandler) ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		EmailOrPhone string `json:"emailOrPhone"`
+		Code         string `json:"code"`
+		NewPassword  string `json:"newPassword"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.EmailOrPhone == "" || req.Code == "" || req.NewPassword == "" {
+		respondWithError(w, http.StatusBadRequest, "Email/phone, code, and new password are required")
+		return
+	}
+
+	if len(req.NewPassword) < 6 {
+		respondWithError(w, http.StatusBadRequest, "New password must be at least 6 characters")
+		return
+	}
+
+	// Reset password through auth service
+	if err := ah.AuthService.ResetPasswordWithCode(req.EmailOrPhone, req.Code, req.NewPassword); err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Password reset successfully",
 	})
 }
 

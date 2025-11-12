@@ -12,40 +12,60 @@ import (
 // SeedDatabase seeds the database with initial data
 func SeedDatabase(db *gorm.DB) error {
 	// Check if SuperAdmin already exists
-	var adminCount int64
-	if err := db.Model(&models.User{}).Where("role = ?", models.RoleSuperAdmin).Count(&adminCount).Error; err != nil {
-		return err
+	var superAdmin models.User
+	err := db.Where("email = ?", "admin@digitaltransactionledger.com").First(&superAdmin).Error
+
+	if err == nil {
+		// SuperAdmin exists, verify/update password
+		log.Println("✅ SuperAdmin already exists. Verifying credentials...")
+
+		// Re-hash password to ensure it's correct
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("Admin@123456"), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+
+		// Update SuperAdmin with correct password
+		superAdmin.PasswordHash = string(hashedPassword)
+		superAdmin.EmailVerified = true
+		superAdmin.Role = models.RoleSuperAdmin
+		superAdmin.Status = models.StatusActive
+
+		if err := db.Save(&superAdmin).Error; err != nil {
+			return err
+		}
+
+		log.Printf("✅ SuperAdmin credentials updated:")
+		log.Printf("   Email: %s", superAdmin.Email)
+		log.Printf("   Password: Admin@123456")
+		log.Printf("   ⚠️  PLEASE CHANGE THE PASSWORD AFTER FIRST LOGIN!")
+	} else {
+		// Create new SuperAdmin
+		log.Println("🌱 Seeding database with initial SuperAdmin...")
+
+		// Create SuperAdmin user
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("Admin@123456"), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+
+		superAdmin = models.User{
+			Email:         "admin@digitaltransactionledger.com",
+			PasswordHash:  string(hashedPassword),
+			EmailVerified: true,
+			Role:          models.RoleSuperAdmin,
+			Status:        models.StatusActive,
+		}
+
+		if err := db.Create(&superAdmin).Error; err != nil {
+			return err
+		}
+
+		log.Printf("✅ SuperAdmin created:")
+		log.Printf("   Email: %s", superAdmin.Email)
+		log.Printf("   Password: Admin@123456")
+		log.Printf("   ⚠️  PLEASE CHANGE THE PASSWORD AFTER FIRST LOGIN!")
 	}
-
-	if adminCount > 0 {
-		log.Println("✅ SuperAdmin already exists. Skipping seed.")
-		return nil
-	}
-
-	log.Println("🌱 Seeding database with initial SuperAdmin...")
-
-	// Create SuperAdmin user
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("Admin@123456"), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-
-	superAdmin := &models.User{
-		Email:         "admin@digitaltransactionledger.com",
-		PasswordHash:  string(hashedPassword),
-		EmailVerified: true,
-		Role:          models.RoleSuperAdmin,
-		Status:        models.StatusActive,
-	}
-
-	if err := db.Create(superAdmin).Error; err != nil {
-		return err
-	}
-
-	log.Printf("✅ SuperAdmin created:")
-	log.Printf("   Email: %s", superAdmin.Email)
-	log.Printf("   Password: Admin@123456")
-	log.Printf("   ⚠️  PLEASE CHANGE THE PASSWORD AFTER FIRST LOGIN!")
 
 	// Seed default roles
 	if err := seedRoles(db); err != nil {

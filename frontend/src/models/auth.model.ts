@@ -46,10 +46,18 @@ export interface LoginResponse {
 export interface User {
   id: number;
   email: string;
+  username?: string;
   role: UserRole;
   tenantId: number | null;
+  primaryBranchId?: number | null;
+  primaryBranch?: {
+    id: number;
+    name: string;
+    location: string;
+  };
   status: UserStatus;
   trialEndsAt: string | null;
+  licenseActivatedAt?: string | null;
   emailVerified: boolean;
   createdAt?: string;
 }

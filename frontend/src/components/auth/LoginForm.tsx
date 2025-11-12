@@ -18,13 +18,13 @@ import {
 import { Input } from '@/src/components/ui/input';
 import { useAuth } from '@/src/components/providers/auth-provider';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/src/components/ui/alert';
 
 const loginSchema = z.object({
   email: z
     .string()
-    .min(1, 'Email is required')
-    .email('Invalid email format'),
+    .min(1, 'Email or Username is required'),
   password: z
     .string()
     .min(6, 'Password must be at least 6 characters'),
@@ -36,6 +36,7 @@ export function LoginForm() {
   const router = useRouter();
   const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string>('');
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -48,15 +49,16 @@ export function LoginForm() {
   async function onSubmit(data: LoginFormValues) {
     try {
       setIsLoading(true);
+      setError(''); // Clear any previous errors
       await login(data.email, data.password);
       toast.success('Welcome!', {
         description: 'Successfully logged in',
       });
       router.push('/dashboard');
     } catch (error: any) {
-      toast.error('Login Error', {
-        description: error?.response?.data?.error || 'Invalid email or password',
-      });
+      // Display error on the card instead of toast
+      const errorMessage = error?.response?.data?.error || 'Invalid email or password';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -64,6 +66,13 @@ export function LoginForm() {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
@@ -71,13 +80,17 @@ export function LoginForm() {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>Email or Username</FormLabel>
                 <FormControl>
                   <Input
-                    type="email"
-                    placeholder="example@email.com"
+                    type="text"
+                    placeholder="Enter your email or username"
                     disabled={isLoading}
                     {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                      if (error) setError(''); // Clear error when user types
+                    }}
                   />
                 </FormControl>
                 <FormMessage />
@@ -89,13 +102,25 @@ export function LoginForm() {
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <div className="flex items-center justify-between">
+                  <FormLabel>Password</FormLabel>
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Forgot Password?
+                  </Link>
+                </div>
                 <FormControl>
                   <Input
                     type="password"
                     placeholder="••••••••"
                     disabled={isLoading}
                     {...field}
+                    onChange={(e) => {
+                      field.onChange(e);
+                      if (error) setError(''); // Clear error when user types
+                    }}
                   />
                 </FormControl>
                 <FormMessage />

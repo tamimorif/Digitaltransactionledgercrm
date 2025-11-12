@@ -1,12 +1,14 @@
 package main
 
 import (
+	_ "api/docs" // Import generated docs
 	"api/pkg/api"
 	"api/pkg/database"
-	_ "api/docs" // Import generated docs
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 // @title Transaction Ledger & Client CRM API
@@ -29,6 +31,11 @@ import (
 // @name Authorization
 
 func main() {
+	// Load environment variables from .env file if it exists
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using system environment variables")
+	}
+
 	// Initialize database
 	dbPath := os.Getenv("DATABASE_URL")
 	if dbPath == "" {

@@ -1,0 +1,48 @@
+2025/11/11 19:18:29 Connecting to SQLite database at: ./transactions.db
+2025/11/11 19:18:29 Connected to SQLite database
+2025/11/11 19:18:29 Running GORM auto-migrations for all models...
+2025/11/11 19:18:29 Seeding database...
+2025/11/11 19:18:29 ✅ SuperAdmin already exists. Verifying credentials...
+2025/11/11 19:18:29 ✅ SuperAdmin credentials updated:
+2025/11/11 19:18:29    Email: admin@digitaltransactionledger.com
+2025/11/11 19:18:29    Password: Admin@123456
+2025/11/11 19:18:29    ⚠️  PLEASE CHANGE THE PASSWORD AFTER FIRST LOGIN!
+2025/11/11 19:18:29 🌱 Seeding default roles...
+2025/11/11 19:18:29 Database initialized successfully.
+2025/11/11 19:18:29 Starting server on :8080
+2025/11/11 19:18:29 API available at http://localhost:8080/api
+
+2025/11/11 19:18:32 [31;1m/Users/tamimorif/Documents/GitHub/Digitaltransactionledgercrm/backend/pkg/services/auth_service.go:226 [35;1mrecord not found
+[0m[33m[0.300ms] [34;1m[rows:0][0m SELECT * FROM `users` WHERE email = "nemat_branch" ORDER BY `users`.`id` LIMIT 1
+
+2025/11/11 19:18:32 [31;1m/Users/tamimorif/Documents/GitHub/Digitaltransactionledgercrm/backend/pkg/services/auth_service.go:230 [35;1mrecord not found
+[0m[33m[0.062ms] [34;1m[rows:0][0m SELECT * FROM `users` WHERE username = "nemat_branch" ORDER BY `users`.`id` LIMIT 1
+2025/11/11 19:18:32 Login error: invalid username or password
+
+2025/11/11 19:18:46 [31;1m/Users/tamimorif/Documents/GitHub/Digitaltransactionledgercrm/backend/pkg/services/auth_service.go:226 [35;1mrecord not found
+[0m[33m[0.445ms] [34;1m[rows:0][0m SELECT * FROM `users` WHERE email = "nemat_branch" ORDER BY `users`.`id` LIMIT 1
+
+2025/11/11 19:18:46 [31;1m/Users/tamimorif/Documents/GitHub/Digitaltransactionledgercrm/backend/pkg/services/auth_service.go:230 [35;1mrecord not found
+[0m[33m[0.150ms] [34;1m[rows:0][0m SELECT * FROM `users` WHERE username = "nemat_branch" ORDER BY `users`.`id` LIMIT 1
+
+2025/11/11 19:18:46 [31;1m/Users/tamimorif/Documents/GitHub/Digitaltransactionledgercrm/backend/pkg/services/auth_service.go:245 [35;1mrecord not found
+[0m[33m[0.134ms] [34;1m[rows:0][0m SELECT * FROM `users` WHERE email = "nemat_branch@branch.local" ORDER BY `users`.`id` LIMIT 1
+2025/11/11 19:18:46 ✅ Branch logged in successfully: nemat_branch (Branch ID: 1, User ID: 17)
+
+2025/11/11 19:22:41 [31;1m/Users/tamimorif/Documents/GitHub/Digitaltransactionledgercrm/backend/pkg/services/auth_service.go:226 [35;1mrecord not found
+[0m[33m[0.412ms] [34;1m[rows:0][0m SELECT * FROM `users` WHERE email = "Tamim_Oshawa" ORDER BY `users`.`id` LIMIT 1
+
+2025/11/11 19:22:41 [31;1m/Users/tamimorif/Documents/GitHub/Digitaltransactionledgercrm/backend/pkg/services/auth_service.go:230 [35;1mrecord not found
+[0m[33m[0.127ms] [34;1m[rows:0][0m SELECT * FROM `users` WHERE username = "Tamim_Oshawa" ORDER BY `users`.`id` LIMIT 1
+
+2025/11/11 19:22:42 [31;1m/Users/tamimorif/Documents/GitHub/Digitaltransactionledgercrm/backend/pkg/services/auth_service.go:245 [35;1mrecord not found
+[0m[33m[0.156ms] [34;1m[rows:0][0m SELECT * FROM `users` WHERE email = "Tamim_Oshawa@branch.local" ORDER BY `users`.`id` LIMIT 1
+2025/11/11 19:22:42 ✅ Branch logged in successfully: Tamim_Oshawa (Branch ID: 2, User ID: 18)
+
+2025/11/11 19:23:10 [31;1m/Users/tamimorif/Documents/GitHub/Digitaltransactionledgercrm/backend/pkg/services/auth_service.go:226 [35;1mrecord not found
+[0m[33m[0.330ms] [34;1m[rows:0][0m SELECT * FROM `users` WHERE email = "nemat_branch" ORDER BY `users`.`id` LIMIT 1
+2025/11/11 19:23:10 ✅ User logged in successfully: nemat_branch@branch.local
+
+2025/11/11 19:23:27 [31;1m/Users/tamimorif/Documents/GitHub/Digitaltransactionledgercrm/backend/pkg/services/auth_service.go:226 [35;1mrecord not found
+[0m[33m[0.326ms] [34;1m[rows:0][0m SELECT * FROM `users` WHERE email = "Tamim_Oshawa" ORDER BY `users`.`id` LIMIT 1
+2025/11/11 19:23:27 ✅ User logged in successfully: Tamim_Oshawa@branch.local

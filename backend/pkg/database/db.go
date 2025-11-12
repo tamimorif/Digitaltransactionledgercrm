@@ -21,16 +21,16 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 
 	// Check for DATABASE_URL environment variable (production)
 	databaseURL := os.Getenv("DATABASE_URL")
-	
+
 	if databaseURL != "" {
 		// Production: Use PostgreSQL
 		log.Printf("Connecting to PostgreSQL database...")
-		
+
 		// Handle Render.com's DATABASE_URL format (postgres:// -> postgresql://)
 		if strings.HasPrefix(databaseURL, "postgres://") {
 			databaseURL = strings.Replace(databaseURL, "postgres://", "postgresql://", 1)
 		}
-		
+
 		db, err = gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
 		if err != nil {
 			log.Printf("Failed to connect to PostgreSQL: %v", err)
@@ -55,13 +55,23 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 		&models.User{},
 		&models.Tenant{},
 		&models.License{},
+		&models.Branch{},
+		&models.UserBranch{},
 		&models.Role{},
 		&models.RolePermission{},
 		&models.OwnershipTransferLog{},
 		&models.AuditLog{},
+		&models.PasswordResetCode{},
 		// Existing models (now with TenantID)
 		&models.Client{},
 		&models.Transaction{},
+		&models.PickupTransaction{},
+		// Global models (NOT tenant-scoped)
+		&models.Customer{},
+		&models.CustomerTenantLink{},
+		// Cash management
+		&models.CashBalance{},
+		&models.CashAdjustment{},
 	)
 	if err != nil {
 		log.Printf("Warning: Failed to run auto-migrations: %v", err)

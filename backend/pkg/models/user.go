@@ -6,21 +6,26 @@ import (
 
 // User represents a user in the system
 type User struct {
-	ID               uint       `gorm:"primaryKey;autoIncrement" json:"id"`
-	Email            string     `gorm:"type:varchar(255);uniqueIndex;not null" json:"email"`
-	PasswordHash     string     `gorm:"type:varchar(255);not null" json:"-"` // Never send password in JSON
-	EmailVerified    bool       `gorm:"type:boolean;default:false" json:"emailVerified"`
-	VerificationCode *string    `gorm:"type:varchar(10)" json:"-"` // 6-digit code
-	CodeExpiresAt    *time.Time `gorm:"type:timestamp" json:"-"`
-	TenantID         *uint      `gorm:"type:bigint;index" json:"tenantId"` // Nullable for SuperAdmin
-	Role             string     `gorm:"type:varchar(50);not null;default:'tenant_user'" json:"role"` // superadmin, tenant_owner, tenant_admin, tenant_user
-	TrialEndsAt      *time.Time `gorm:"type:timestamp" json:"trialEndsAt"`
-	Status           string     `gorm:"type:varchar(50);not null;default:'active'" json:"status"` // active, suspended, trial_expired, license_expired
-	CreatedAt        time.Time  `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"createdAt"`
-	UpdatedAt        time.Time  `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"updatedAt"`
+	ID                 uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	Email              string     `gorm:"type:varchar(255);uniqueIndex;not null" json:"email"`
+	Username           *string    `gorm:"type:varchar(50);uniqueIndex" json:"username,omitempty"` // Optional username for login
+	PasswordHash       string     `gorm:"type:varchar(255);not null" json:"-"`                    // Never send password in JSON
+	EmailVerified      bool       `gorm:"type:boolean;default:false" json:"emailVerified"`
+	VerificationCode   *string    `gorm:"type:varchar(10)" json:"-"` // 6-digit code
+	CodeExpiresAt      *time.Time `gorm:"type:timestamp" json:"-"`
+	TenantID           *uint      `gorm:"type:bigint;index" json:"tenantId"`                           // Nullable for SuperAdmin
+	PrimaryBranchID    *uint      `gorm:"type:bigint;index" json:"primaryBranchId"`                    // User's main branch
+	Role               string     `gorm:"type:varchar(50);not null;default:'tenant_user'" json:"role"` // superadmin, tenant_owner, tenant_admin, tenant_user
+	TrialEndsAt        *time.Time `gorm:"type:timestamp" json:"trialEndsAt"`
+	LicenseActivatedAt *time.Time `gorm:"type:timestamp" json:"licenseActivatedAt"`                 // When license was first activated
+	Status             string     `gorm:"type:varchar(50);not null;default:'active'" json:"status"` // active, suspended, trial_expired, license_expired
+	CreatedAt          time.Time  `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"createdAt"`
+	UpdatedAt          time.Time  `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"updatedAt"`
 
 	// Relations
-	Tenant *Tenant `gorm:"foreignKey:TenantID;constraint:OnDelete:SET NULL" json:"tenant,omitempty"`
+	Tenant        *Tenant   `gorm:"foreignKey:TenantID;constraint:OnDelete:SET NULL" json:"tenant,omitempty"`
+	PrimaryBranch *Branch   `gorm:"foreignKey:PrimaryBranchID;constraint:OnDelete:SET NULL" json:"primaryBranch,omitempty"`
+	Branches      []*Branch `gorm:"many2many:user_branches" json:"branches,omitempty"`
 }
 
 // TableName specifies the table name for User model

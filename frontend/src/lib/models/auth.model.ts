@@ -29,6 +29,7 @@ export interface User {
   tenantId: number | null;
   status: 'active' | 'suspended' | 'trial_expired' | 'license_expired';
   trialEndsAt: string | null;
+  licenseActivatedAt?: string | null;
   emailVerified: boolean;
   createdAt: string;
 }
