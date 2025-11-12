@@ -35,6 +35,10 @@ yarn-error.log*
 dev.db
 dev.db-journal
 
+# Log files
+*.log
+server.log
+
 # vercel
 .vercel
 
