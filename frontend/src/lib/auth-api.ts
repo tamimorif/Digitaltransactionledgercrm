@@ -9,6 +9,7 @@ export interface User {
   tenantId?: number;
   status: string;
   trialEndsAt?: string;
+  licenseActivatedAt?: string | null;
   emailVerified: boolean;
 }
 
@@ -39,12 +40,12 @@ export const authAPI = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, name }),
     });
-    
+
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'Registration failed');
     }
-    
+
     return res.json();
   },
 
@@ -54,12 +55,12 @@ export const authAPI = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, code }),
     });
-    
+
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'Verification failed');
     }
-    
+
     return res.json();
   },
 
@@ -69,12 +70,12 @@ export const authAPI = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     });
-    
+
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'Failed to resend code');
     }
-    
+
     return res.json();
   },
 
@@ -84,26 +85,26 @@ export const authAPI = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    
+
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'Login failed');
     }
-    
+
     return res.json();
   },
 
   async getMe(token: string): Promise<User> {
     const res = await fetch(`${API_BASE_URL}/auth/me`, {
-      headers: { 
+      headers: {
         'Authorization': `Bearer ${token}`,
       },
     });
-    
+
     if (!res.ok) {
       throw new Error('Failed to get user info');
     }
-    
+
     return res.json();
   },
 };
@@ -119,12 +120,12 @@ export const licenseAPI = {
       },
       body: JSON.stringify({ licenseKey }),
     });
-    
+
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'License activation failed');
     }
-    
+
     return res.json();
   },
 
@@ -134,11 +135,11 @@ export const licenseAPI = {
         'Authorization': `Bearer ${token}`,
       },
     });
-    
+
     if (!res.ok) {
       throw new Error('Failed to get license status');
     }
-    
+
     return res.json();
   },
 };
@@ -148,28 +149,28 @@ export const storage = {
   setToken(token: string) {
     localStorage.setItem('token', token);
   },
-  
+
   getToken(): string | null {
     return localStorage.getItem('token');
   },
-  
+
   removeToken() {
     localStorage.removeItem('token');
   },
-  
+
   setUser(user: User) {
     localStorage.setItem('user', JSON.stringify(user));
   },
-  
+
   getUser(): User | null {
     const user = localStorage.getItem('user');
     return user ? JSON.parse(user) : null;
   },
-  
+
   removeUser() {
     localStorage.removeItem('user');
   },
-  
+
   clear() {
     this.removeToken();
     this.removeUser();

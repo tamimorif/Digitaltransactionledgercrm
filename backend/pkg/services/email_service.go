@@ -8,6 +8,8 @@ import (
 	"net/smtp"
 	"os"
 	"time"
+
+	"github.com/resend/resend-go/v2"
 )
 
 // EmailService handles email sending operations
@@ -17,16 +19,30 @@ type EmailService struct {
 	SMTPUsername string
 	SMTPPassword string
 	FromEmail    string
+	ResendAPIKey string
+	Provider     string // "smtp", "resend", or "dev"
 }
 
 // NewEmailService creates a new email service instance
 func NewEmailService() *EmailService {
+	resendKey := getEnv("RESEND_API_KEY", "")
+	smtpUsername := getEnv("SMTP_USERNAME", "")
+
+	provider := "dev"
+	if resendKey != "" {
+		provider = "resend"
+	} else if smtpUsername != "" {
+		provider = "smtp"
+	}
+
 	return &EmailService{
 		SMTPHost:     getEnv("SMTP_HOST", "smtp.gmail.com"),
 		SMTPPort:     getEnv("SMTP_PORT", "587"),
-		SMTPUsername: getEnv("SMTP_USERNAME", ""),
+		SMTPUsername: smtpUsername,
 		SMTPPassword: getEnv("SMTP_PASSWORD", ""),
 		FromEmail:    getEnv("FROM_EMAIL", "noreply@digitaltransactionledger.com"),
+		ResendAPIKey: resendKey,
+		Provider:     provider,
 	}
 }
 
@@ -45,15 +61,27 @@ func GenerateVerificationCode() (string, error) {
 
 // SendVerificationEmail sends a verification code to the user's email
 func (es *EmailService) SendVerificationEmail(toEmail, code string) error {
-	// For development: Just log the code if SMTP is not configured
-	if es.SMTPUsername == "" || es.SMTPPassword == "" {
+	subject := "Email Verification Code - Digital Transaction Ledger"
+	body := es.getVerificationEmailHTML(code)
+
+	// Development mode: Just log the code
+	if es.Provider == "dev" {
 		log.Printf("📧 [DEV MODE] Verification code for %s: %s", toEmail, code)
-		log.Printf("⚠️  SMTP not configured. Email not sent. Set SMTP_USERNAME and SMTP_PASSWORD env vars.")
+		log.Printf("⚠️  Email provider not configured. Set RESEND_API_KEY or SMTP credentials.")
 		return nil
 	}
 
-	subject := "Email Verification Code - Digital Transaction Ledger"
-	body := fmt.Sprintf(`
+	// Send via configured provider
+	if es.Provider == "resend" {
+		return es.sendViaResend(toEmail, subject, body)
+	}
+
+	return es.sendViasmtp(toEmail, subject, body)
+}
+
+// getVerificationEmailHTML returns the HTML template for verification email
+func (es *EmailService) getVerificationEmailHTML(code string) string {
+	return fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
 <head>
@@ -85,12 +113,31 @@ func (es *EmailService) SendVerificationEmail(toEmail, code string) error {
 </body>
 </html>
 	`, code, time.Now().Year())
-
-	return es.sendEmail(toEmail, subject, body)
 }
 
-// sendEmail sends an email using SMTP
-func (es *EmailService) sendEmail(to, subject, body string) error {
+// sendViaResend sends email using Resend SDK
+func (es *EmailService) sendViaResend(to, subject, body string) error {
+	client := resend.NewClient(es.ResendAPIKey)
+
+	params := &resend.SendEmailRequest{
+		From:    es.FromEmail,
+		To:      []string{to},
+		Subject: subject,
+		Html:    body,
+	}
+
+	sent, err := client.Emails.Send(params)
+	if err != nil {
+		log.Printf("Failed to send email via Resend to %s: %v", to, err)
+		return fmt.Errorf("failed to send email: %w", err)
+	}
+
+	log.Printf("✅ Email sent via Resend to %s (ID: %s)", to, sent.Id)
+	return nil
+}
+
+// sendViasmtp sends an email using SMTP
+func (es *EmailService) sendViasmtp(to, subject, body string) error {
 	auth := smtp.PlainAuth("", es.SMTPUsername, es.SMTPPassword, es.SMTPHost)
 
 	msg := []byte(fmt.Sprintf("From: %s\r\n"+
@@ -114,21 +161,22 @@ func (es *EmailService) sendEmail(to, subject, body string) error {
 		return fmt.Errorf("failed to send email: %w", err)
 	}
 
-	log.Printf("✅ Email sent successfully to %s", to)
+	log.Printf("✅ Email sent via SMTP to %s", to)
 	return nil
 }
 
 // SendPasswordResetEmail sends a password reset email (for future use)
 func (es *EmailService) SendPasswordResetEmail(toEmail, resetToken string) error {
-	// For development
-	if es.SMTPUsername == "" || es.SMTPPassword == "" {
+	subject := "Password Reset Request - Digital Transaction Ledger"
+	resetURL := fmt.Sprintf("%s/reset-password?token=%s", getEnv("FRONTEND_URL", "http://localhost:3000"), resetToken)
+
+	// Development mode: Just log the token
+	if es.Provider == "dev" {
 		log.Printf("📧 [DEV MODE] Password reset token for %s: %s", toEmail, resetToken)
+		log.Printf("Reset URL: %s", resetURL)
 		return nil
 	}
 
-	subject := "Password Reset Request - Digital Transaction Ledger"
-	resetURL := fmt.Sprintf("%s/reset-password?token=%s", getEnv("FRONTEND_URL", "http://localhost:3000"), resetToken)
-	
 	body := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
@@ -162,7 +210,12 @@ func (es *EmailService) SendPasswordResetEmail(toEmail, resetToken string) error
 </html>
 	`, resetURL, time.Now().Year())
 
-	return es.sendEmail(toEmail, subject, body)
+	// Send via configured provider
+	if es.Provider == "resend" {
+		return es.sendViaResend(toEmail, subject, body)
+	}
+
+	return es.sendViasmtp(toEmail, subject, body)
 }
 
 // getEnv gets environment variable with a default fallback

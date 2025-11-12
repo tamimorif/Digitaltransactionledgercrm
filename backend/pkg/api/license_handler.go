@@ -151,17 +151,17 @@ func (lh *LicenseHandler) GetLicenseStatusHandler(w http.ResponseWriter, r *http
 
 	if tenant.CurrentLicenseID == nil || tenant.CurrentLicense == nil {
 		respondWithJSON(w, http.StatusOK, map[string]interface{}{
-			"hasLicense": false,
-			"status":     tenant.Status,
+			"hasLicense":  false,
+			"status":      tenant.Status,
 			"trialEndsAt": user.TrialEndsAt,
 		})
 		return
 	}
 
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{
-		"hasLicense":  true,
-		"license":     tenant.CurrentLicense,
-		"userLimit":   tenant.UserLimit,
+		"hasLicense":   true,
+		"license":      tenant.CurrentLicense,
+		"userLimit":    tenant.UserLimit,
 		"tenantStatus": tenant.Status,
 	})
 }
@@ -231,5 +231,52 @@ func (lh *LicenseHandler) RevokeLicenseHandler(w http.ResponseWriter, r *http.Re
 
 	respondWithJSON(w, http.StatusOK, map[string]string{
 		"message": "License revoked successfully",
+	})
+}
+
+// GetMyLicensesHandler gets all active licenses for the current tenant
+// @Summary Get tenant's active licenses
+// @Description Get all active licenses for the current user's tenant
+// @Tags licenses
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string]interface{} "Active licenses"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /licenses/my-licenses [get]
+func (lh *LicenseHandler) GetMyLicensesHandler(w http.ResponseWriter, r *http.Request) {
+	// Get user from context
+	user, ok := r.Context().Value("user").(*models.User)
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	if user.TenantID == nil {
+		respondWithError(w, http.StatusBadRequest, "User has no tenant assigned")
+		return
+	}
+
+	licenses, totalUsers, err := lh.LicenseService.GetTenantActiveLicenses(*user.TenantID)
+	if err != nil {
+		log.Printf("Error fetching tenant licenses: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to fetch licenses")
+		return
+	}
+
+	// Get current user count
+	var currentUserCount int64
+	if err := lh.DB.Model(&models.User{}).
+		Where("tenant_id = ? AND status = ?", user.TenantID, models.StatusActive).
+		Count(&currentUserCount).Error; err != nil {
+		log.Printf("Error counting users: %v", err)
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{
+		"licenses":         licenses,
+		"totalLicenses":    len(licenses),
+		"totalUserLimit":   totalUsers,
+		"currentUserCount": currentUserCount,
+		"remainingSlots":   totalUsers - int(currentUserCount),
 	})
 }

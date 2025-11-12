@@ -313,3 +313,149 @@ func (ah *AdminHandler) GetDashboardStatsHandler(w http.ResponseWriter, r *http.
 
 	respondWithJSON(w, http.StatusOK, stats)
 }
+
+// GetAllTransactionsHandler returns all transactions including cancelled ones (SuperAdmin only)
+// @Summary Get all transactions (SuperAdmin)
+// @Description Get all transactions across all tenants, including cancelled ones (SuperAdmin only)
+// @Tags admin
+// @Produce json
+// @Security BearerAuth
+// @Param status query string false "Filter by status (COMPLETED, CANCELLED)"
+// @Param tenantId query int false "Filter by tenant ID"
+// @Success 200 {array} models.Transaction "List of all transactions"
+// @Failure 403 {object} map[string]string "Forbidden"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /admin/transactions [get]
+func (ah *AdminHandler) GetAllTransactionsHandler(w http.ResponseWriter, r *http.Request) {
+	// Get user from context
+	user, ok := r.Context().Value("user").(*models.User)
+	if !ok || user.Role != models.RoleSuperAdmin {
+		respondWithError(w, http.StatusForbidden, "Only SuperAdmin can view all transactions")
+		return
+	}
+
+	var transactions []models.Transaction
+	query := ah.DB.Preload("Client").Preload("Tenant").Preload("Branch")
+
+	// Apply filters
+	status := r.URL.Query().Get("status")
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	tenantIDStr := r.URL.Query().Get("tenantId")
+	if tenantIDStr != "" {
+		tenantID, err := strconv.ParseUint(tenantIDStr, 10, 32)
+		if err == nil {
+			query = query.Where("tenant_id = ?", tenantID)
+		}
+	}
+
+	if err := query.Order("created_at DESC").Find(&transactions).Error; err != nil {
+		log.Printf("Get all transactions error: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to get transactions")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, transactions)
+}
+
+// GetTenantCashBalancesHandler returns all cash balances for a specific tenant (SuperAdmin only)
+// @Summary Get tenant cash balances
+// @Description Get all cash balances for a specific tenant (SuperAdmin only)
+// @Tags admin
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Tenant ID"
+// @Success 200 {array} models.CashBalance "List of cash balances"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 403 {object} map[string]string "Forbidden"
+// @Failure 404 {object} map[string]string "Not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /admin/tenants/{id}/cash-balances [get]
+func (ah *AdminHandler) GetTenantCashBalancesHandler(w http.ResponseWriter, r *http.Request) {
+	// Get user from context
+	user, ok := r.Context().Value("user").(*models.User)
+	if !ok || user.Role != models.RoleSuperAdmin {
+		respondWithError(w, http.StatusForbidden, "Only SuperAdmin can view tenant cash balances")
+		return
+	}
+
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	tenantID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid tenant ID")
+		return
+	}
+
+	// Verify tenant exists
+	var tenant models.Tenant
+	if err := ah.DB.First(&tenant, tenantID).Error; err != nil {
+		respondWithError(w, http.StatusNotFound, "Tenant not found")
+		return
+	}
+
+	// Get all cash balances for this tenant
+	var cashBalances []models.CashBalance
+	if err := ah.DB.Where("tenant_id = ?", tenantID).
+		Preload("Branch").
+		Find(&cashBalances).Error; err != nil {
+		log.Printf("Get tenant cash balances error: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to get cash balances")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, cashBalances)
+}
+
+// GetTenantCustomerCountHandler returns the customer count for a specific tenant (SuperAdmin only)
+// @Summary Get tenant customer count
+// @Description Get the number of customers for a specific tenant (SuperAdmin only)
+// @Tags admin
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Tenant ID"
+// @Success 200 {object} map[string]int "Customer count"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 403 {object} map[string]string "Forbidden"
+// @Failure 404 {object} map[string]string "Not found"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /admin/tenants/{id}/customer-count [get]
+func (ah *AdminHandler) GetTenantCustomerCountHandler(w http.ResponseWriter, r *http.Request) {
+	// Get user from context
+	user, ok := r.Context().Value("user").(*models.User)
+	if !ok || user.Role != models.RoleSuperAdmin {
+		respondWithError(w, http.StatusForbidden, "Only SuperAdmin can view tenant customer count")
+		return
+	}
+
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	tenantID, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid tenant ID")
+		return
+	}
+
+	// Verify tenant exists
+	var tenant models.Tenant
+	if err := ah.DB.First(&tenant, tenantID).Error; err != nil {
+		respondWithError(w, http.StatusNotFound, "Tenant not found")
+		return
+	}
+
+	// Count unique customers for this tenant via customer_tenant_links
+	var count int64
+	if err := ah.DB.Model(&models.CustomerTenantLink{}).
+		Where("tenant_id = ?", tenantID).
+		Count(&count).Error; err != nil {
+		log.Printf("Get tenant customer count error: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to get customer count")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]int64{
+		"count": count,
+	})
+}

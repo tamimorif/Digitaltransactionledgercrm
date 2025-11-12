@@ -26,11 +26,11 @@ func NewLicenseService(db *gorm.DB) *LicenseService {
 
 // GenerateLicenseRequest represents a request to generate a license
 type GenerateLicenseRequest struct {
-	LicenseType   string `json:"licenseType"` // trial, starter, professional, business, enterprise, custom
-	UserLimit     *int   `json:"userLimit"`   // Optional, uses default if not provided
-	DurationType  string `json:"durationType"` // lifetime, monthly, yearly, custom_days
+	LicenseType   string `json:"licenseType"`   // trial, starter, professional, business, enterprise, custom
+	UserLimit     *int   `json:"userLimit"`     // Optional, uses default if not provided
+	DurationType  string `json:"durationType"`  // lifetime, monthly, yearly, custom_days
 	DurationValue *int   `json:"durationValue"` // Number of days for custom duration
-	Notes         string `json:"notes"`       // Custom notes for custom licenses
+	Notes         string `json:"notes"`         // Custom notes for custom licenses
 }
 
 // ActivateLicenseRequest represents a request to activate a license
@@ -49,12 +49,12 @@ func GenerateLicenseKey() (string, error) {
 
 	// Encode to base64 and format as XXXX-XXXX-XXXX-XXXX-XXXX-XXXX
 	encoded := base64.URLEncoding.EncodeToString(bytes)
-	
+
 	// Take first 24 characters and format
 	key := encoded[:24]
 	formatted := fmt.Sprintf("%s-%s-%s-%s-%s-%s",
 		key[0:4], key[4:8], key[8:12], key[12:16], key[16:20], key[20:24])
-	
+
 	return formatted, nil
 }
 
@@ -167,7 +167,7 @@ func (ls *LicenseService) ActivateLicense(licenseKey string, tenantID uint) erro
 	license.Status = models.LicenseStatusActive
 	license.TenantID = &tenantID
 	license.ActivatedAt = &now
-	
+
 	// Calculate new expiration if it's a time-based license
 	if license.DurationType != models.DurationLifetime {
 		expiration := calculateExpiration(license.DurationType, license.DurationValue)
@@ -179,9 +179,23 @@ func (ls *LicenseService) ActivateLicense(licenseKey string, tenantID uint) erro
 		return fmt.Errorf("failed to update license: %w", err)
 	}
 
-	// Update tenant
+	// Calculate TOTAL user limit from ALL active licenses for this tenant
+	var totalUserLimit int
+	var activeLicenses []models.License
+	if err := tx.Where("tenant_id = ? AND status = ?", tenantID, models.LicenseStatusActive).
+		Find(&activeLicenses).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to get active licenses: %w", err)
+	}
+
+	// Sum up all user limits from active licenses (stackable)
+	for _, lic := range activeLicenses {
+		totalUserLimit += lic.UserLimit
+	}
+
+	// Update tenant with accumulated user limit
 	tenant.CurrentLicenseID = &license.ID
-	tenant.UserLimit = license.UserLimit
+	tenant.UserLimit = totalUserLimit // Total from all licenses
 	tenant.Status = models.TenantStatusActive
 
 	if err := tx.Save(&tenant).Error; err != nil {
@@ -189,9 +203,16 @@ func (ls *LicenseService) ActivateLicense(licenseKey string, tenantID uint) erro
 		return fmt.Errorf("failed to update tenant: %w", err)
 	}
 
-	// Update all users in tenant
+	log.Printf("📊 Tenant %d now has %d total users from %d active license(s)",
+		tenantID, totalUserLimit, len(activeLicenses))
+
+	// Update all users in tenant - remove trial, set license activated date
 	if err := tx.Model(&models.User{}).Where("tenant_id = ?", tenantID).
-		Update("status", models.StatusActive).Error; err != nil {
+		Updates(map[string]interface{}{
+			"status":               models.StatusActive,
+			"trial_ends_at":        nil, // Remove trial period after license activation
+			"license_activated_at": now,
+		}).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("failed to update users: %w", err)
 	}
@@ -273,16 +294,16 @@ func (ls *LicenseService) RevokeLicense(licenseID uint) error {
 // CheckExpiredLicenses checks for expired licenses and updates status
 func (ls *LicenseService) CheckExpiredLicenses() error {
 	var licenses []models.License
-	
+
 	// Find all active licenses that have expired
-	if err := ls.DB.Where("status = ? AND expires_at IS NOT NULL AND expires_at < ?", 
+	if err := ls.DB.Where("status = ? AND expires_at IS NOT NULL AND expires_at < ?",
 		models.LicenseStatusActive, time.Now()).Find(&licenses).Error; err != nil {
 		return fmt.Errorf("failed to query licenses: %w", err)
 	}
 
 	for _, license := range licenses {
 		tx := ls.DB.Begin()
-		
+
 		// Update license status
 		license.Status = models.LicenseStatusExpired
 		tx.Save(&license)
@@ -307,10 +328,28 @@ func (ls *LicenseService) CheckExpiredLicenses() error {
 	return nil
 }
 
+// GetTenantActiveLicenses retrieves all active licenses for a tenant
+func (ls *LicenseService) GetTenantActiveLicenses(tenantID uint) ([]models.License, int, error) {
+	var licenses []models.License
+	if err := ls.DB.Where("tenant_id = ? AND status = ?", tenantID, models.LicenseStatusActive).
+		Order("activated_at DESC").
+		Find(&licenses).Error; err != nil {
+		return nil, 0, fmt.Errorf("database error: %w", err)
+	}
+
+	// Calculate total user limit
+	totalUsers := 0
+	for _, license := range licenses {
+		totalUsers += license.UserLimit
+	}
+
+	return licenses, totalUsers, nil
+}
+
 // calculateExpiration calculates the expiration date based on duration type
 func calculateExpiration(durationType string, durationValue *int) time.Time {
 	now := time.Now()
-	
+
 	switch durationType {
 	case models.DurationMonthly:
 		return now.AddDate(0, 1, 0) // Add 1 month

@@ -16,6 +16,13 @@ import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Card, CardContent } from './ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 import { toast } from 'sonner';
 import { ArrowRight, Calculator, Loader2 } from 'lucide-react';
 
@@ -32,6 +39,10 @@ interface Transaction {
   beneficiaryName?: string;
   beneficiaryDetails?: string;
   userNotes?: string;
+  status?: string;
+  cancellationReason?: string;
+  cancelledAt?: string;
+  cancelledBy?: number;
   transactionDate: string;
   createdAt: string;
   updatedAt: string;
@@ -45,9 +56,9 @@ interface TransactionFormProps {
   onTransactionCreated: (transaction: Transaction) => void;
 }
 
-type TransactionType = 'CASH_EXCHANGE' | 'BANK_TRANSFER';
+type TransactionType = 'CASH_EXCHANGE' | 'BANK_TRANSFER' | 'MONEY_PICKUP' | 'WALK_IN_CUSTOMER';
 
-const CURRENCIES = ['EUR', 'USD', 'GBP', 'CAD', 'IRR'];
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'IRR', 'AED', 'TRY'];
 
 export function TransactionForm({
   open,
@@ -58,12 +69,12 @@ export function TransactionForm({
 }: TransactionFormProps) {
   const [transactionType, setTransactionType] = useState<TransactionType>('CASH_EXCHANGE');
   const [formData, setFormData] = useState({
-    sendCurrency: 'EUR',
+    sendCurrency: '',
     sendAmount: '',
-    receiveCurrency: 'IRR',
+    receiveCurrency: '',
     receiveAmount: '',
     rateApplied: '',
-    feeCharged: '',
+    feeCharged: '0',
     beneficiaryName: '',
     beneficiaryDetails: '',
     userNotes: '',
@@ -122,19 +133,19 @@ export function TransactionForm({
         beneficiaryDetails: formData.beneficiaryDetails || undefined,
         userNotes: formData.userNotes || undefined,
       });
-      
+
       toast.success('Transaction created successfully');
       onTransactionCreated(newTransaction);
       onOpenChange(false);
-      
+
       // Reset form
       setFormData({
-        sendCurrency: 'EUR',
+        sendCurrency: '',
         sendAmount: '',
-        receiveCurrency: 'IRR',
+        receiveCurrency: '',
         receiveAmount: '',
         rateApplied: '',
-        feeCharged: '',
+        feeCharged: '0',
         beneficiaryName: '',
         beneficiaryDetails: '',
         userNotes: '',
@@ -179,6 +190,18 @@ export function TransactionForm({
                     Bank Transfer (Remittance) - Send money to Iranian bank account
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="MONEY_PICKUP" id="pickup" />
+                  <Label htmlFor="pickup" className="cursor-pointer">
+                    Money Pickup - Customer receives money sent from another branch
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="WALK_IN_CUSTOMER" id="walkin" />
+                  <Label htmlFor="walkin" className="cursor-pointer">
+                    Walk-in Customer - One-time cash exchange
+                  </Label>
+                </div>
               </RadioGroup>
             </div>
 
@@ -188,20 +211,23 @@ export function TransactionForm({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="sendCurrency">Send Currency *</Label>
-                    <select
-                      id="sendCurrency"
+                    <Select
                       value={formData.sendCurrency}
-                      onChange={(e) =>
-                        setFormData({ ...formData, sendCurrency: e.target.value })
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, sendCurrency: value })
                       }
-                      className="w-full rounded-md border border-gray-300 px-3 py-2"
                     >
-                      {CURRENCIES.map((curr) => (
-                        <option key={curr} value={curr}>
-                          {curr}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger id="sendCurrency">
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CURRENCIES.map((curr) => (
+                          <SelectItem key={curr} value={curr}>
+                            {curr}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="sendAmount">Send Amount *</Label>
@@ -266,20 +292,23 @@ export function TransactionForm({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="receiveCurrency">Receive Currency *</Label>
-                    <select
-                      id="receiveCurrency"
+                    <Select
                       value={formData.receiveCurrency}
-                      onChange={(e) =>
-                        setFormData({ ...formData, receiveCurrency: e.target.value })
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, receiveCurrency: value })
                       }
-                      className="w-full rounded-md border border-gray-300 px-3 py-2"
                     >
-                      {CURRENCIES.map((curr) => (
-                        <option key={curr} value={curr}>
-                          {curr}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger id="receiveCurrency">
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CURRENCIES.map((curr) => (
+                          <SelectItem key={curr} value={curr}>
+                            {curr}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="receiveAmount">Receive Amount *</Label>
@@ -324,6 +353,39 @@ export function TransactionForm({
                       }
                       placeholder="IR120123456789012345678901"
                       required
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Walk-in Customer Optional Details */}
+            {transactionType === 'WALK_IN_CUSTOMER' && (
+              <Card className="bg-yellow-50 border-yellow-200">
+                <CardContent className="pt-6 space-y-4">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Optional: Add customer details for future reference
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="beneficiaryName">Customer Name (Optional)</Label>
+                    <Input
+                      id="beneficiaryName"
+                      value={formData.beneficiaryName}
+                      onChange={(e) =>
+                        setFormData({ ...formData, beneficiaryName: e.target.value })
+                      }
+                      placeholder="John Doe"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="beneficiaryDetails">Phone / ID (Optional)</Label>
+                    <Input
+                      id="beneficiaryDetails"
+                      value={formData.beneficiaryDetails}
+                      onChange={(e) =>
+                        setFormData({ ...formData, beneficiaryDetails: e.target.value })
+                      }
+                      placeholder="+1-555-1234 or ID number"
                     />
                   </div>
                 </CardContent>

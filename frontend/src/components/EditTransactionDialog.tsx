@@ -16,6 +16,13 @@ import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Card, CardContent } from './ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 import { toast } from 'sonner';
 import { Calculator, AlertCircle, History, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
@@ -55,7 +62,7 @@ interface EditTransactionDialogProps {
 
 type TransactionType = 'CASH_EXCHANGE' | 'BANK_TRANSFER';
 
-const CURRENCIES = ['EUR', 'USD', 'GBP', 'CAD', 'IRR'];
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'IRR', 'AED', 'TRY'];
 
 export function EditTransactionDialog({
   open,
@@ -173,7 +180,7 @@ export function EditTransactionDialog({
         beneficiaryDetails: formData.beneficiaryDetails || undefined,
         userNotes: formData.userNotes || undefined,
       });
-      
+
       toast.success('Transaction updated successfully');
       onTransactionUpdated(updatedTransaction);
       onOpenChange(false);
@@ -353,20 +360,23 @@ export function EditTransactionDialog({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="sendCurrency">Send Currency *</Label>
-                    <select
-                      id="sendCurrency"
+                    <Select
                       value={formData.sendCurrency}
-                      onChange={(e) =>
-                        setFormData({ ...formData, sendCurrency: e.target.value })
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, sendCurrency: value })
                       }
-                      className="w-full rounded-md border border-gray-300 px-3 py-2"
                     >
-                      {CURRENCIES.map((curr) => (
-                        <option key={curr} value={curr}>
-                          {curr}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger id="sendCurrency">
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CURRENCIES.map((curr) => (
+                          <SelectItem key={curr} value={curr}>
+                            {curr}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="sendAmount">Send Amount *</Label>
@@ -431,20 +441,23 @@ export function EditTransactionDialog({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="receiveCurrency">Receive Currency *</Label>
-                    <select
-                      id="receiveCurrency"
+                    <Select
                       value={formData.receiveCurrency}
-                      onChange={(e) =>
-                        setFormData({ ...formData, receiveCurrency: e.target.value })
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, receiveCurrency: value })
                       }
-                      className="w-full rounded-md border border-gray-300 px-3 py-2"
                     >
-                      {CURRENCIES.map((curr) => (
-                        <option key={curr} value={curr}>
-                          {curr}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger id="receiveCurrency">
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CURRENCIES.map((curr) => (
+                          <SelectItem key={curr} value={curr}>
+                            {curr}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="receiveAmount">Receive Amount *</Label>

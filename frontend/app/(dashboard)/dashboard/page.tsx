@@ -5,9 +5,15 @@ import { useGetLicenseStatus } from '@/src/queries/license.query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Badge } from '@/src/components/ui/badge';
 import { Button } from '@/src/components/ui/button';
-import { Loader2, Building2, Mail, Calendar, Crown, Users, AlertTriangle } from 'lucide-react';
+import { Loader2, Building2, Mail, Calendar, Crown, Users, AlertTriangle, DollarSign, Package } from 'lucide-react';
 import { LicenseActivationCard } from '@/src/components/dashboard/LicenseActivationCard';
+import { MyLicensesCard } from '@/src/components/dashboard/MyLicensesCard';
+import { BuySellRatesWidget } from '@/src/components/BuySellRatesWidget';
+import { CashOnHandWidget } from '@/src/components/CashOnHandWidget';
 import { formatDistanceToNow } from 'date-fns';
+import { useQuery } from '@tanstack/react-query';
+import apiClient from '@/src/lib/api-client';
+import Link from 'next/link';
 
 export default function DashboardPage() {
   const { user, tenant, logout } = useAuth();
@@ -16,6 +22,24 @@ export default function DashboardPage() {
   const isTrialExpired = user?.status === 'trial_expired';
   const isLicenseExpired = user?.status === 'license_expired';
   const needsActivation = isTrialExpired || isLicenseExpired;
+
+  // Fetch cash balances
+  const { data: balances, isLoading: isBalancesLoading } = useQuery({
+    queryKey: ['cash-balances'],
+    queryFn: async () => {
+      const response = await apiClient.get('/cash-balances');
+      return response.data;
+    },
+  });
+
+  // Fetch pending pickups count
+  const { data: pendingCount, isLoading: isPendingCountLoading } = useQuery({
+    queryKey: ['pending-pickups-count'],
+    queryFn: async () => {
+      const response = await apiClient.get('/pickups/pending/count');
+      return response.data;
+    },
+  });
 
   const getRoleLabel = (role: string) => {
     const roles: Record<string, string> = {
@@ -42,16 +66,11 @@ export default function DashboardPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Welcome, {user?.email}
-          </p>
-        </div>
-        <Button onClick={logout} variant="outline">
-          Logout
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <p className="text-muted-foreground mt-1">
+          Welcome, {user?.email}
+        </p>
       </div>
 
       {/* Warning for expired trial/license */}
@@ -71,112 +90,11 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* User Info Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
-              User Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Email:</span>
-              <span className="font-medium">{user?.email}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Role:</span>
-              <Badge variant="outline">{getRoleLabel(user?.role || '')}</Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Status:</span>
-              {getStatusBadge(user?.status || '')}
-            </div>
-            {user?.trialEndsAt && (
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Trial Ends:</span>
-                <span className="text-sm">
-                  {formatDistanceToNow(new Date(user.trialEndsAt), {
-                    addSuffix: true,
-                  })}
-                </span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Buy and Sell Rates Widget */}
+      <BuySellRatesWidget />
 
-        {/* Tenant Info Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Company Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Name:</span>
-              <span className="font-medium">{tenant?.name}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Status:</span>
-              {getStatusBadge(tenant?.status || '')}
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">User Limit:</span>
-              <span className="font-medium">
-                {tenant?.userLimit === 0 ? 'Unlimited' : tenant?.userLimit}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* License Status Card */}
-      {isLicenseLoading ? (
-        <Card>
-          <CardContent className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </CardContent>
-        </Card>
-      ) : licenseStatus && licenseStatus.hasActiveLicense ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Crown className="h-5 w-5 text-yellow-500" />
-              Active License
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">License Key:</span>
-              <span className="font-mono font-medium">
-                {licenseStatus.currentLicense?.licenseKey}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Type:</span>
-              <Badge>{licenseStatus.currentLicense?.licenseType}</Badge>
-            </div>
-            {licenseStatus.currentLicense?.expiresAt && (
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Expires:</span>
-                <span className="text-sm">
-                  {formatDistanceToNow(
-                    new Date(licenseStatus.currentLicense.expiresAt),
-                    {
-                      addSuffix: true,
-                    }
-                  )}
-                </span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <LicenseActivationCard />
-      )}
+      {/* Cash on Hand Widget */}
+      <CashOnHandWidget />
     </div>
   );
 }

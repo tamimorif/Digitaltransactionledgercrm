@@ -31,10 +31,19 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      // Token منقضی شده - پاک کردن و redirect به login
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+      // Only redirect to login if we're not already on auth pages and we have a token stored
+      // This prevents redirect during failed login attempts
+      const hasToken = localStorage.getItem('auth_token');
+      const isAuthPage = typeof window !== 'undefined' &&
+        (window.location.pathname.includes('/login') ||
+          window.location.pathname.includes('/register') ||
+          window.location.pathname.includes('/verify-email'));
+
+      if (hasToken && !isAuthPage) {
+        // Token expired - clear and redirect to login
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('tenant');
         window.location.href = '/login';
       }
     }
