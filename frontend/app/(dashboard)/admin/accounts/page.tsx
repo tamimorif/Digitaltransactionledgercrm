@@ -22,7 +22,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/src/components/ui/dialog';
-import { Loader2, Users, Search, Eye, Building2, Mail, Calendar, Shield, UserCheck } from 'lucide-react';
+import { Loader2, Users, Search, Eye, Building2, Mail, Shield, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import axiosInstance from '@/src/lib/axios-config';
 

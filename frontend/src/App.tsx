@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { Building2, TrendingUp } from 'lucide-react';
 
 interface Client {
-  id: string;
+  id: number;
   name: string;
   phoneNumber: string;
   email: string;

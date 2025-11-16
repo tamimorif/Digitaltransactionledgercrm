@@ -4,7 +4,7 @@ import { useAuth } from '@/src/components/providers/auth-provider';
 import { useGetLicenseStatus } from '@/src/queries/license.query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Badge } from '@/src/components/ui/badge';
-import { Loader2, Building2, Mail, Crown, AlertTriangle, Shield, User } from 'lucide-react';
+import { Loader2, Building2, Crown, AlertTriangle, User } from 'lucide-react';
 import { LicenseActivationCard } from '@/src/components/dashboard/LicenseActivationCard';
 import { MyLicensesCard } from '@/src/components/dashboard/MyLicensesCard';
 import { formatDistanceToNow } from 'date-fns';

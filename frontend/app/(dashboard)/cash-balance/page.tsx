@@ -191,7 +191,7 @@ export default function CashBalancePage() {
                                 <div className="text-center text-muted-foreground">
                                     <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
                                     <p className="text-lg font-medium">No cash balances yet</p>
-                                    <p className="text-sm mb-4">Click "Add/Adjust Cash" above to set your opening balance or add cash to the system</p>
+                                    <p className="text-sm mb-4">Click &quot;Add/Adjust Cash&quot; above to set your opening balance or add cash to the system</p>
                                     <Button onClick={handleOpenAdjustDialog} size="sm">
                                         <Plus className="mr-2 h-4 w-4" />
                                         Add Opening Balance

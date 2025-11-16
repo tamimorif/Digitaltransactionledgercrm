@@ -57,6 +57,9 @@ export interface CreatePickupTransactionRequest {
     recipientPhone: string;
     amount: number;
     currency: string;
+    receiverCurrency?: string;
+    receiverAmount?: number;
+    exchangeRate?: number;
     fees: number;
     notes?: string;
 }

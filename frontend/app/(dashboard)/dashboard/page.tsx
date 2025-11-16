@@ -2,21 +2,18 @@
 
 import { useAuth } from '@/src/components/providers/auth-provider';
 import { useGetLicenseStatus } from '@/src/queries/license.query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Badge } from '@/src/components/ui/badge';
-import { Button } from '@/src/components/ui/button';
-import { Loader2, Building2, Mail, Calendar, Crown, Users, AlertTriangle, DollarSign, Package } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { LicenseActivationCard } from '@/src/components/dashboard/LicenseActivationCard';
 import { MyLicensesCard } from '@/src/components/dashboard/MyLicensesCard';
 import { BuySellRatesWidget } from '@/src/components/BuySellRatesWidget';
 import { CashOnHandWidget } from '@/src/components/CashOnHandWidget';
-import { formatDistanceToNow } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/src/lib/api-client';
-import Link from 'next/link';
 
 export default function DashboardPage() {
-  const { user, tenant, logout } = useAuth();
+  const { user } = useAuth();
   const { data: licenseStatus, isLoading: isLicenseLoading } = useGetLicenseStatus();
 
   const isTrialExpired = user?.status === 'trial_expired';

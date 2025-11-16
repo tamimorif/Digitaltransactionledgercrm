@@ -103,7 +103,7 @@ export function LicenseActivationCard() {
                       {...field}
                       onChange={(e) => {
                         // Auto-format license key with dashes
-                        let value = e.target.value.replace(/[^A-Za-z0-9-]/g, '');
+                        const value = e.target.value.replace(/[^A-Za-z0-9-]/g, '');
                         field.onChange(value);
                       }}
                     />

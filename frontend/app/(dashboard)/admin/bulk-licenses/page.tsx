@@ -41,25 +41,6 @@ export default function BulkLicenseGenerator() {
     const generateLicense = useGenerateLicense();
     const [activeTab, setActiveTab] = useState('single');
 
-    // Check authentication and role
-    useEffect(() => {
-        if (!authLoading && user?.role !== 'superadmin') {
-            toast.error('Access Denied', {
-                description: 'Only SuperAdmin can access this page',
-            });
-            router.push('/dashboard');
-        }
-    }, [user, authLoading, router]);
-
-    // Show loading state while checking auth
-    if (authLoading || user?.role !== 'superadmin') {
-        return (
-            <div className="flex min-h-screen items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-        );
-    }
-
     // Single license state
     const [singleFormData, setSingleFormData] = useState({
         licenseType: 'starter' as any,
@@ -82,6 +63,25 @@ export default function BulkLicenseGenerator() {
     const [bulkGenerating, setBulkGenerating] = useState(false);
     const [generatedLicenses, setGeneratedLicenses] = useState<GeneratedLicense[]>([]);
     const [showBulkResults, setShowBulkResults] = useState(false);
+
+    // Check authentication and role
+    useEffect(() => {
+        if (!authLoading && user?.role !== 'superadmin') {
+            toast.error('Access Denied', {
+                description: 'Only SuperAdmin can access this page',
+            });
+            router.push('/dashboard');
+        }
+    }, [user, authLoading, router]);
+
+    // Show loading state while checking auth
+    if (authLoading || user?.role !== 'superadmin') {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     // Single License Generation
     const handleSingleSubmit = async (e: React.FormEvent) => {

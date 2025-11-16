@@ -147,7 +147,7 @@ export function ManageBranchUsersDialog({ open, onOpenChange, branchId, branchNa
                                     <div className="text-center">
                                         <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
                                         <p className="mb-2">No users assigned to this branch</p>
-                                        <p className="text-sm">Click "Add User" above to create a user account with username and password</p>
+                                        <p className="text-sm">Click &quot;Add User&quot; above to create a user account with username and password</p>
                                     </div>
                                 </CardContent>
                             </Card>

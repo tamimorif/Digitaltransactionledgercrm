@@ -370,7 +370,7 @@ export default function PickupSearchPage() {
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-2 text-yellow-700">
                             <Search className="h-5 w-5" />
-                            <p className="font-medium">No pending pickups found matching "{activeQuery}"</p>
+                            <p className="font-medium">No pending pickups found matching &quot;{activeQuery}&quot;</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -582,7 +582,7 @@ export default function PickupSearchPage() {
                         <AlertDialogTitle>Verify Identity & Complete Pickup</AlertDialogTitle>
                         <AlertDialogDescription asChild>
                             <div className="space-y-4 pt-2">
-                                <p>Please verify the following information matches the recipient's ID:</p>
+                                <p>Please verify the following information matches the recipient&apos;s ID:</p>
                                 <div className="bg-muted p-4 rounded-lg space-y-2">
                                     <div>
                                         <Label className="text-xs font-semibold">Pickup Code</Label>
@@ -604,7 +604,7 @@ export default function PickupSearchPage() {
                                     </div>
                                 </div>
                                 <p className="text-sm text-muted-foreground">
-                                    ⚠️ Ensure you have verified the recipient's government-issued ID before proceeding.
+                                    ⚠️ Ensure you have verified the recipient&apos;s government-issued ID before proceeding.
                                 </p>
                             </div>
                         </AlertDialogDescription>

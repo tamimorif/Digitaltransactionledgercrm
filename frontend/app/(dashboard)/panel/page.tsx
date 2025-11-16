@@ -31,22 +31,6 @@ export default function PanelPage() {
   const [showWalkInDialog, setShowWalkInDialog] = useState(false);
   const [panelMode, setPanelMode] = useState<PanelMode>('client');
 
-  // Redirect SuperAdmin to admin dashboard
-  useEffect(() => {
-    if (user?.role === 'superadmin') {
-      router.push('/admin');
-    }
-  }, [user, router]);
-
-  const handleClientSelect = (client: any) => {
-    setSelectedClient(client);
-  };
-
-  // Don't render for SuperAdmin
-  if (user?.role === 'superadmin') {
-    return null;
-  }
-
   // Fetch cash balances
   const { data: balances, isLoading: isBalancesLoading } = useQuery({
     queryKey: ['cash-balances'],
@@ -65,6 +49,22 @@ export default function PanelPage() {
     },
   });
 
+  // Redirect SuperAdmin to admin dashboard
+  useEffect(() => {
+    if (user?.role === 'superadmin') {
+      router.push('/admin');
+    }
+  }, [user, router]);
+
+  const handleClientSelect = (client: any) => {
+    setSelectedClient(client);
+  };
+
+  // Don't render for SuperAdmin
+  if (user?.role === 'superadmin') {
+    return null;
+  }
+
   return (
     <div className="container mx-auto px-6 py-8">
       {/* Today's Cash Balance by Currency */}
@@ -72,7 +72,7 @@ export default function PanelPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
-            Today's Cash Balance by Currency
+            Today&apos;s Cash Balance by Currency
           </CardTitle>
           <CardDescription>Current cash on hand across all branches</CardDescription>
         </CardHeader>

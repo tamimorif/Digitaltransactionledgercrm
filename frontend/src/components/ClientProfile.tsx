@@ -31,7 +31,7 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { toast } from 'sonner';
 
 interface Client {
-  id: number | string;
+  id: number;
   name: string;
   phoneNumber: string;
   email: string;

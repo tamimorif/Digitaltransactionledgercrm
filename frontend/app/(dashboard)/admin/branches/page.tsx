@@ -13,15 +13,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/src/components/ui/alert-dialog';
 import { Checkbox } from '@/src/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Building2, MapPin, Plus, Edit2, Power, PowerOff, Loader2, Crown, Users, Key } from 'lucide-react';
+import { Building2, MapPin, Plus, Edit2, Power, PowerOff, Loader2, Key } from 'lucide-react';
 import type { Branch } from '@/src/lib/models/branch.model';
-import { useRouter } from 'next/navigation';
 import { ManageBranchUsersDialog } from '@/src/components/branch/ManageBranchUsersDialog';
 import { SetBranchCredentialsDialog } from '@/src/components/branch/SetBranchCredentialsDialog';
 
 export default function BranchesPage() {
     const { user } = useAuth();
-    const router = useRouter();
     const { data: branches = [], isLoading } = useGetBranches();
     const createBranch = useCreateBranch();
     const createBranchUser = useCreateBranchUser();
@@ -191,7 +189,7 @@ export default function BranchesPage() {
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Branch Management</h1>
                     <p className="text-muted-foreground">
-                        Manage your organization's branches and locations
+                        Manage your organization&apos;s branches and locations
                     </p>
                 </div>
                 <Button onClick={() => setShowCreateDialog(true)} disabled={isLoading}>

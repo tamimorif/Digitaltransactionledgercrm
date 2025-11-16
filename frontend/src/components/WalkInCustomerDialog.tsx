@@ -245,7 +245,7 @@ export function WalkInCustomerDialog({
                                                 <SelectContent>
                                                     <SelectItem value="passport">Passport</SelectItem>
                                                     <SelectItem value="national_id">National ID</SelectItem>
-                                                    <SelectItem value="drivers_license">Driver's License</SelectItem>
+                                                    <SelectItem value="drivers_license">Driver&apos;s License</SelectItem>
                                                     <SelectItem value="other">Other</SelectItem>
                                                 </SelectContent>
                                             </Select>
