@@ -1,11 +1,8 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '../src/components/ui/sonner';
 import { ReactQueryProvider } from '@/src/components/providers/react-query-provider';
 import { AuthProvider } from '@/src/components/providers/auth-provider';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Digital Transaction Ledger CRM',
@@ -19,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className="font-sans antialiased">
         <ReactQueryProvider>
           <AuthProvider>
             {children}

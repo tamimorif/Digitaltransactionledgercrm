@@ -1,4 +1,4 @@
-import axiosInstance from './axios-instance';
+import axiosInstance from './axios-config';
 import {
     Payment,
     CreatePaymentRequest,
