@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
-import { Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, CheckCircle, AlertTriangle, Wallet } from 'lucide-react';
 import { formatCurrency } from '@/src/lib/format';
 
 interface TransactionPreviewProps {
@@ -24,6 +24,7 @@ interface TransactionPreviewProps {
         notes?: string;
         senderBranch?: string;
         receiverBranch?: string;
+        allowPartialPayment?: boolean;
     };
 }
 
@@ -170,12 +171,25 @@ export function TransactionPreviewDialog({
                         </div>
                     )}
 
+                    {/* Payment Mode Info */}
+                    {data.allowPartialPayment && (
+                        <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
+                            <Wallet className="h-5 w-5 text-blue-600 mt-0.5" />
+                            <div className="text-sm text-blue-900 dark:text-blue-100">
+                                <p className="font-medium">Multi-Payment Transaction</p>
+                                <p className="text-blue-700 dark:text-blue-300">
+                                    This transaction allows partial payments. You can add multiple payments in different currencies until the full amount is received.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Warning */}
                     <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-950 rounded border border-yellow-200 dark:border-yellow-800">
                         <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
                         <div className="text-sm text-yellow-900 dark:text-yellow-100">
                             <p className="font-medium">Please verify all information</p>
-                            <p className="text-yellow-700 dark:text-yellow-300">This transaction cannot be undone once confirmed.</p>
+                            <p className="text-yellow-700 dark:text-yellow-300">This creates the initial transaction record. {data.allowPartialPayment ? 'Payments can be added after creation.' : 'Payment will be recorded immediately.'}</p>
                         </div>
                     </div>
                 </div>

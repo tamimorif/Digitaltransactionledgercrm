@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/components/providers/auth-provider';
-import { Search, Package, Phone, User, MapPin, Calendar, CheckCircle, XCircle } from 'lucide-react';
+import { Search, Package, Phone, User, MapPin, Calendar, CheckCircle, XCircle, Wallet } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Input } from '@/src/components/ui/input';
 import { Button } from '@/src/components/ui/button';
@@ -16,6 +16,7 @@ import { Textarea } from '@/src/components/ui/textarea';
 import { useSearchPickupByCode, useMarkAsPickedUp, useCancelPickupTransaction } from '@/src/lib/queries/pickup.query';
 import { PickupTransaction } from '@/src/lib/models/pickup.model';
 import { toast } from 'sonner';
+import { TransactionPaymentsSection } from '@/src/components/payments/TransactionPaymentsSection';
 
 export default function PickupSearchPage() {
     const router = useRouter();
@@ -681,6 +682,31 @@ export default function PickupSearchPage() {
                                         <span className="font-medium">Reason:</span> {pickup.cancellationReason}
                                     </p>
                                 )}
+                            </div>
+                        )}
+
+                        {/* Payment Management Section */}
+                        {pickup.allowPartialPayment && (
+                            <div className="border-t pt-6">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <Wallet className="h-5 w-5 text-blue-600" />
+                                    <h3 className="text-lg font-semibold">Payment Management</h3>
+                                    <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                                        Multi-Payment Mode
+                                    </Badge>
+                                </div>
+                                <TransactionPaymentsSection 
+                                    transaction={{
+                                        id: pickup.id,
+                                        totalReceived: pickup.totalReceived || 0,
+                                        receivedCurrency: pickup.receivedCurrency || pickup.receiverCurrency || pickup.currency,
+                                        totalPaid: pickup.totalPaid || 0,
+                                        remainingBalance: pickup.remainingBalance || 0,
+                                        paymentStatus: pickup.paymentStatus || 'OPEN',
+                                        allowPartialPayment: true,
+                                        payments: pickup.payments || []
+                                    } as any}
+                                />
                             </div>
                         )}
 

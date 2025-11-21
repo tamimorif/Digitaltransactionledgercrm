@@ -45,7 +45,21 @@ export interface Transaction {
   transactionDate: string;
   createdAt: string;
   updatedAt: string;
+  
+  // Multi-Payment Support (NEW)
+  totalReceived?: number;
+  receivedCurrency?: string;
+  totalPaid?: number;
+  remainingBalance?: number;
+  paymentStatus?: 'SINGLE' | 'OPEN' | 'PARTIAL' | 'FULLY_PAID';
+  allowPartialPayment?: boolean;
+  
+  // Relations
+  payments?: Payment[];
 }
+
+// Import Payment type
+import { Payment } from './payment.model';
 
 export interface CreateTransactionRequest {
   clientId: string;

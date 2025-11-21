@@ -40,6 +40,14 @@ type Transaction struct {
 	BeneficiaryName    *string    `gorm:"column:beneficiary_name;type:text" json:"beneficiaryName"`
 	BeneficiaryDetails *string    `gorm:"column:beneficiary_details;type:text" json:"beneficiaryDetails"`
 	UserNotes          *string    `gorm:"column:user_notes;type:text" json:"userNotes"`
+	
+	// Multi-Payment Support (NEW)
+	TotalReceived      float64 `gorm:"column:total_received;type:real" json:"totalReceived"`           // Total amount client gave us
+	ReceivedCurrency   string  `gorm:"column:received_currency;type:varchar(10)" json:"receivedCurrency"` // Currency of total received
+	TotalPaid          float64 `gorm:"column:total_paid;type:real;default:0" json:"totalPaid"`         // Sum of all payments made
+	RemainingBalance   float64 `gorm:"column:remaining_balance;type:real;default:0" json:"remainingBalance"` // Total - Paid
+	PaymentStatus      string  `gorm:"column:payment_status;type:varchar(50);default:'SINGLE'" json:"paymentStatus"` // SINGLE, OPEN, PARTIAL, COMPLETED
+	AllowPartialPayment bool   `gorm:"column:allow_partial_payment;type:boolean;default:false" json:"allowPartialPayment"` // Enable multi-payment mode
 	IsEdited           bool       `gorm:"column:is_edited;type:boolean;default:false" json:"isEdited"`
 	LastEditedAt       *time.Time `gorm:"column:last_edited_at;type:datetime" json:"lastEditedAt"`
 	EditedByBranchID   *uint      `gorm:"column:edited_by_branch_id;type:bigint" json:"editedByBranchId"`  // *** ADDED FOR AUDIT ***
@@ -52,9 +60,10 @@ type Transaction struct {
 	CreatedAt          time.Time  `gorm:"column:created_at;type:datetime;default:CURRENT_TIMESTAMP;autoCreateTime" json:"createdAt"`
 	UpdatedAt          time.Time  `gorm:"column:updated_at;type:datetime;autoUpdateTime" json:"updatedAt"`
 
-	Client Client  `gorm:"foreignKey:ClientID;constraint:OnDelete:CASCADE" json:"client"`
-	Tenant Tenant  `gorm:"foreignKey:TenantID;constraint:OnDelete:RESTRICT" json:"tenant,omitempty"`
-	Branch *Branch `gorm:"foreignKey:BranchID;constraint:OnDelete:SET NULL" json:"branch,omitempty"`
+	Client   Client    `gorm:"foreignKey:ClientID;constraint:OnDelete:CASCADE" json:"client"`
+	Tenant   Tenant    `gorm:"foreignKey:TenantID;constraint:OnDelete:RESTRICT" json:"tenant,omitempty"`
+	Branch   *Branch   `gorm:"foreignKey:BranchID;constraint:OnDelete:SET NULL" json:"branch,omitempty"`
+	Payments []Payment `gorm:"foreignKey:TransactionID;constraint:OnDelete:CASCADE" json:"payments,omitempty"` // NEW: List of partial payments
 }
 
 // TableName specifies the table name for a Transaction model
@@ -74,4 +83,12 @@ const (
 const (
 	StatusCompleted = "COMPLETED"
 	StatusCancelled = "CANCELLED"
+)
+
+// PaymentStatus constants for multi-payment transactions
+const (
+	PaymentStatusSingle       = "SINGLE"    // Regular single-payment transaction (default)
+	PaymentStatusOpen         = "OPEN"      // Multi-payment: No payments yet
+	PaymentStatusPartial      = "PARTIAL"   // Multi-payment: Some payments made
+	PaymentStatusFullyPaid    = "FULLY_PAID" // Multi-payment: Fully paid
 )
