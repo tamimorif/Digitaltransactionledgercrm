@@ -40,6 +40,12 @@ interface PendingPickup {
     editedAt?: string;
     editedByBranch?: { id: number; name: string; branchCode: string };
     editReason?: string;
+    allowPartialPayment?: boolean;
+    totalReceived?: number;
+    receivedCurrency?: string;
+    totalPaid?: number;
+    remainingBalance?: number;
+    paymentStatus?: 'SINGLE' | 'OPEN' | 'PARTIAL' | 'FULLY_PAID';
 }
 
 export default function PendingPickupsPage() {
@@ -261,19 +267,35 @@ export default function PendingPickupsPage() {
                                                                 {format(new Date(pickup.createdAt), 'MMM dd, yyyy HH:mm')}
                                                             </p>
                                                         </div>
-                                                        <Badge
-                                                            variant="secondary"
-                                                            className={
-                                                                pickup.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                                                    pickup.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                                                                        pickup.status === 'PICKED_UP' ? 'bg-blue-100 text-blue-800' :
-                                                                            'bg-red-100 text-red-800'
-                                                            }
-                                                        >
-                                                            {pickup.status === 'PENDING' ? 'Pending' :
-                                                                pickup.status === 'COMPLETED' || pickup.status === 'PICKED_UP' ? 'Verified & Given' :
+                                                        <div className="flex flex-col gap-1 items-end">
+                                                            <Badge
+                                                                variant="secondary"
+                                                                className={
+                                                                    pickup.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                                                                        pickup.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                                                                            pickup.status === 'PICKED_UP' ? 'bg-blue-100 text-blue-800' :
+                                                                                'bg-red-100 text-red-800'
+                                                                }
+                                                            >
+                                                                {pickup.status === 'PENDING' ? 'Pending' :
+                                                                    pickup.status === 'COMPLETED' || pickup.status === 'PICKED_UP' ? 'Verified & Given' :
                                                                     'Cancelled'}
-                                                        </Badge>
+                                                            </Badge>
+                                                            {pickup.allowPartialPayment && pickup.paymentStatus && (
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className={
+                                                                        pickup.paymentStatus === 'FULLY_PAID' ? 'bg-green-50 text-green-700 border-green-300' :
+                                                                            pickup.paymentStatus === 'PARTIAL' ? 'bg-blue-50 text-blue-700 border-blue-300' :
+                                                                                'bg-orange-50 text-orange-700 border-orange-300'
+                                                                    }
+                                                                >
+                                                                    💳 {pickup.paymentStatus === 'FULLY_PAID' ? 'Fully Paid' :
+                                                                        pickup.paymentStatus === 'PARTIAL' ? `Partial (${pickup.totalPaid?.toFixed(0)}/${pickup.totalReceived?.toFixed(0)})` :
+                                                                            'Payment Pending'}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
                                                     </div>
 
                                                     <div className="space-y-2">

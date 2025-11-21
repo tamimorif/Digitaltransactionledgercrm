@@ -33,6 +33,14 @@ export interface PickupTransaction {
     notes?: string;
     createdAt: string;
     updatedAt: string;
+    // Payment fields
+    allowPartialPayment?: boolean;
+    totalReceived?: number;
+    receivedCurrency?: string;
+    totalPaid?: number;
+    remainingBalance?: number;
+    paymentStatus?: 'SINGLE' | 'OPEN' | 'PARTIAL' | 'FULLY_PAID';
+    payments?: any[];
 
     // Relations
     senderBranch?: {
@@ -81,6 +89,9 @@ export interface CreatePickupTransactionRequest {
     receiverAmount?: number;
     fees: number;
     notes?: string;
+    allowPartialPayment?: boolean;
+    totalReceived?: number;
+    receivedCurrency?: string;
 }
 
 export interface EditPickupTransactionRequest {

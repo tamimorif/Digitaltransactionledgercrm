@@ -72,6 +72,8 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 		// Cash management
 		&models.CashBalance{},
 		&models.CashAdjustment{},
+		// Payment system (NEW)
+		&models.Payment{},
 	)
 	if err != nil {
 		log.Printf("Warning: Failed to run auto-migrations: %v", err)

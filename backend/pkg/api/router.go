@@ -33,6 +33,7 @@ func NewRouter(db *gorm.DB) http.Handler {
 	statisticsHandler := NewStatisticsHandler(statisticsService)
 	migrationHandler := NewMigrationHandler(db)
 	ledgerHandler := NewLedgerHandler(db)
+	paymentHandler := NewPaymentHandler(db)
 
 	// API routes
 	api := router.PathPrefix("/api").Subrouter()
@@ -78,6 +79,15 @@ func NewRouter(db *gorm.DB) http.Handler {
 	protected.HandleFunc("/transactions/{id}/cancel", handler.CancelTransaction).Methods("POST")
 	protected.HandleFunc("/transactions/{id}", handler.DeleteTransaction).Methods("DELETE")
 	protected.HandleFunc("/transactions/search", handler.SearchTransactions).Methods("GET")
+	
+	// Payment routes (protected) - NEW
+	protected.HandleFunc("/transactions/{id}/payments", paymentHandler.CreatePaymentHandler).Methods("POST")
+	protected.HandleFunc("/transactions/{id}/payments", paymentHandler.GetPaymentsHandler).Methods("GET")
+	protected.HandleFunc("/transactions/{id}/complete", paymentHandler.CompleteTransactionHandler).Methods("POST")
+	protected.HandleFunc("/payments/{id}", paymentHandler.GetPaymentHandler).Methods("GET")
+	protected.HandleFunc("/payments/{id}", paymentHandler.UpdatePaymentHandler).Methods("PUT")
+	protected.HandleFunc("/payments/{id}", paymentHandler.DeletePaymentHandler).Methods("DELETE")
+	protected.HandleFunc("/payments/{id}/cancel", paymentHandler.CancelPaymentHandler).Methods("POST")
 
 	// Client routes (protected)
 	protected.HandleFunc("/clients", handler.GetClients).Methods("GET")

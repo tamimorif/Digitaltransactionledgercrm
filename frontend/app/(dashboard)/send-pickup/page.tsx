@@ -71,6 +71,7 @@ export default function SendMoneyPickupPage() {
         notes: '',
         idType: 'passport' as 'passport' | 'national_id' | 'drivers_license' | 'other',
         idNumber: '',
+        allowPartialPayment: false,
     });
 
     // Search states
@@ -425,6 +426,7 @@ export default function SendMoneyPickupPage() {
             notes: '',
             idType: 'passport',
             idNumber: '',
+            allowPartialPayment: false,
         });
         setSenderExists(null);
         setRecipientExists(null);
@@ -552,6 +554,9 @@ export default function SendMoneyPickupPage() {
                 receiverAmount: receiverAmount,
                 fees: parseFloat(formData.fees),
                 notes: formData.notes || undefined,
+                allowPartialPayment: formData.allowPartialPayment,
+                totalReceived: formData.allowPartialPayment ? receiverAmount : undefined,
+                receivedCurrency: formData.allowPartialPayment ? formData.receiverCurrency : undefined,
             });
 
             // Save rate to history for future reuse
@@ -751,7 +756,6 @@ export default function SendMoneyPickupPage() {
                                 <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     id="senderPhone"
-                                    type="tel"
                                     value={formData.senderPhone}
                                     onChange={(e) => handleSenderPhoneSearch(e.target.value)}
                                     placeholder={t('transaction.placeholders.phone')}
@@ -1314,6 +1318,41 @@ export default function SendMoneyPickupPage() {
                             </p>
                         </div>
 
+                        {/* Payment Mode Selection */}
+                        <Card className="border-2 border-dashed">
+                            <CardContent className="pt-4">
+                                <div className="flex items-start gap-3">
+                                    <input
+                                        type="checkbox"
+                                        id="allowPartialPayment"
+                                        checked={formData.allowPartialPayment}
+                                        onChange={(e) => setFormData({ ...formData, allowPartialPayment: e.target.checked })}
+                                        className="mt-1"
+                                    />
+                                    <div className="flex-1">
+                                        <Label htmlFor="allowPartialPayment" className="cursor-pointer font-semibold">
+                                            💳 Enable Multi-Payment Mode
+                                        </Label>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Check this if the customer will pay in multiple installments or different currencies. 
+                                            You can add payments after creating the transaction.
+                                        </p>
+                                        {formData.allowPartialPayment && (
+                                            <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200">
+                                                <p className="text-sm text-blue-900 dark:text-blue-100 font-medium">
+                                                    ℹ️ This transaction will be created in <strong>OPEN</strong> status
+                                                </p>
+                                                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                                                    After creation, you can manage multiple payments in the transaction detail page. 
+                                                    The transaction will automatically track total received, remaining balance, and allow completion when fully paid.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
                         {/* Notes */}
                         <div className="space-y-2">
                             <Label htmlFor="notes">Notes (Optional)</Label>
@@ -1419,6 +1458,7 @@ export default function SendMoneyPickupPage() {
                     notes: formData.notes,
                     senderBranch: branches?.find((b: any) => b.id === user?.primaryBranchId)?.name,
                     receiverBranch: branches?.find((b: any) => b.id === parseInt(formData.receiverBranchId))?.name,
+                    allowPartialPayment: formData.allowPartialPayment,
                 }}
             />
         </div >
