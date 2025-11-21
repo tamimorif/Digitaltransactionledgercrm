@@ -52,9 +52,15 @@ export default function BulkLicenseGenerator() {
     }, [user, authLoading, router]);
 
     // Single license state - must be before any conditional returns
-    const [singleFormData, setSingleFormData] = useState({
-        licenseType: 'starter' as any,
-        durationType: 'yearly' as any,
+    const [singleFormData, setSingleFormData] = useState<{
+        licenseType: 'starter' | 'professional' | 'enterprise' | 'custom';
+        durationType: 'monthly' | 'yearly' | 'lifetime' | 'custom_days';
+        userLimit: string;
+        durationValue: string;
+        notes: string;
+    }>({
+        licenseType: 'starter',
+        durationType: 'yearly',
         userLimit: '5',
         durationValue: '',
         notes: '',
