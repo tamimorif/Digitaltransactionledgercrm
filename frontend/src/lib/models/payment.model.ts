@@ -1,5 +1,5 @@
 import { Branch } from './branch.model';
-import { User } from './user.model';
+import { User } from './auth.model';
 
 export interface Payment {
     id: number;

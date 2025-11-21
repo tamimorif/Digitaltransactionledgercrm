@@ -16,7 +16,7 @@ import { Textarea } from '@/src/components/ui/textarea';
 import { useSearchPickupByCode, useMarkAsPickedUp, useCancelPickupTransaction } from '@/src/lib/queries/pickup.query';
 import { PickupTransaction } from '@/src/lib/models/pickup.model';
 import { toast } from 'sonner';
-import { TransactionPaymentsSection } from '@/src/components/payments/TransactionPaymentsSection';
+import TransactionPaymentsSection from '@/src/components/payments/TransactionPaymentsSection';
 
 export default function PickupSearchPage() {
     const router = useRouter();
