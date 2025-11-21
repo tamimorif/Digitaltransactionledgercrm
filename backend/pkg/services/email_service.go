@@ -165,6 +165,69 @@ func (es *EmailService) sendViasmtp(to, subject, body string) error {
 	return nil
 }
 
+// SendPasswordResetCode sends a password reset code to the user's email
+func (es *EmailService) SendPasswordResetCode(toEmail, code string) error {
+	subject := "Password Reset Code - Digital Transaction Ledger"
+	body := es.getPasswordResetEmailHTML(code)
+
+	// Development mode: Just log the code
+	if es.Provider == "dev" {
+		log.Printf("📧 [DEV MODE] Password reset code for %s: %s", toEmail, code)
+		log.Printf("⚠️  Email provider not configured. Set RESEND_API_KEY or SMTP credentials.")
+		return nil
+	}
+
+	// Send via configured provider
+	if es.Provider == "resend" {
+		return es.sendViaResend(toEmail, subject, body)
+	}
+
+	return es.sendViasmtp(toEmail, subject, body)
+}
+
+// getPasswordResetEmailHTML returns the HTML template for password reset email
+func (es *EmailService) getPasswordResetEmailHTML(code string) string {
+	return fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #4F46E5; color: white; padding: 20px; text-align: center; }
+        .content { background-color: #f9f9f9; padding: 30px; border-radius: 5px; margin-top: 20px; }
+        .code { font-size: 32px; font-weight: bold; color: #4F46E5; text-align: center; letter-spacing: 5px; margin: 20px 0; }
+        .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
+        .warning { background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 12px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Password Reset</h1>
+        </div>
+        <div class="content">
+            <p>You requested to reset your password.</p>
+            <p>Use the verification code below to reset your password:</p>
+            <div class="code">%s</div>
+            <div class="warning">
+                <strong>⚠️ Important:</strong>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>This code will expire in <strong>15 minutes</strong></li>
+                    <li>Do not share this code with anyone</li>
+                    <li>If you didn't request this, please ignore this email</li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer">
+            <p>© %d Digital Transaction Ledger. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+	`, code, time.Now().Year())
+}
+
 // SendPasswordResetEmail sends a password reset email (for future use)
 func (es *EmailService) SendPasswordResetEmail(toEmail, resetToken string) error {
 	subject := "Password Reset Request - Digital Transaction Ledger"

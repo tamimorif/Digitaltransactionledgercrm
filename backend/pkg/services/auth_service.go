@@ -125,6 +125,33 @@ func (as *AuthService) Register(req RegisterRequest) (*models.User, error) {
 		return nil, fmt.Errorf("failed to update user tenant: %w", err)
 	}
 
+	// Create primary branch (Head Office) for the owner
+	hashedPasswordStr := string(hashedPassword)
+	ownerBranch := &models.Branch{
+		TenantID:     tenant.ID,
+		Name:         "Head Office",
+		Location:     "",
+		BranchCode:   "HQ",
+		IsPrimary:    true,
+		Status:       models.BranchStatusActive,
+		Username:     &req.Email,         // Set username to email as requested
+		PasswordHash: &hashedPasswordStr, // Set password to same as user
+	}
+
+	if err := tx.Create(ownerBranch).Error; err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to create owner branch: %w", err)
+	}
+
+	// Assign the primary branch to the owner user
+	user.PrimaryBranchID = &ownerBranch.ID
+	if err := tx.Save(user).Error; err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("failed to assign primary branch: %w", err)
+	}
+
+	log.Printf("✅ Created Head Office branch (ID: %d) for owner: %s", ownerBranch.ID, user.Email)
+
 	// Commit transaction
 	if err := tx.Commit().Error; err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
@@ -235,21 +262,24 @@ func (as *AuthService) Login(req LoginRequest) (string, *models.User, error) {
 					err = as.DB.Preload("Tenant").Where("username = ? AND status = ?", req.Email, models.BranchStatusActive).First(&branch).Error
 					if err == nil {
 						// Branch found, verify password
-						if err := bcrypt.CompareHashAndPassword([]byte(branch.PasswordHash), []byte(req.Password)); err != nil {
+						if branch.PasswordHash == nil || *branch.PasswordHash == "" {
+							return "", nil, errors.New("branch credentials not set")
+						}
+						if err := bcrypt.CompareHashAndPassword([]byte(*branch.PasswordHash), []byte(req.Password)); err != nil {
 							return "", nil, errors.New("invalid username or password")
 						}
 
 						// Find or create a user for this branch
 						var branchUser models.User
-						branchEmail := branch.Username + "@branch.local"
+						branchEmail := *branch.Username + "@branch.local"
 						err = as.DB.Preload("Tenant").Preload("PrimaryBranch").Where("email = ?", branchEmail).First(&branchUser).Error
 
 						if errors.Is(err, gorm.ErrRecordNotFound) {
 							// Create a user for this branch
 							branchUser = models.User{
-								Username:        &branch.Username,
+								Username:        branch.Username,
 								Email:           branchEmail,
-								PasswordHash:    branch.PasswordHash, // Use same password hash
+								PasswordHash:    *branch.PasswordHash, // Use same password hash
 								EmailVerified:   true,
 								Role:            models.RoleTenantUser,
 								TenantID:        &branch.TenantID,
@@ -271,7 +301,11 @@ func (as *AuthService) Login(req LoginRequest) (string, *models.User, error) {
 							return "", nil, fmt.Errorf("failed to generate token: %w", err)
 						}
 
-						log.Printf("✅ Branch logged in successfully: %s (Branch ID: %d, User ID: %d)", branch.Username, branch.ID, branchUser.ID)
+						branchUsername := "unknown"
+						if branch.Username != nil {
+							branchUsername = *branch.Username
+						}
+						log.Printf("✅ Branch logged in successfully: %s (Branch ID: %d, User ID: %d)", branchUsername, branch.ID, branchUser.ID)
 						return token, &branchUser, nil
 					}
 					return "", nil, errors.New("invalid email or password")
@@ -417,10 +451,14 @@ func (as *AuthService) SendPasswordResetCode(emailOrPhone string) error {
 		return errors.New("failed to create reset code")
 	}
 
-	// TODO: Send code via email
-	// For now, just log it (in production, use email_service.go)
-	log.Printf("📧 Password reset code for %s: %s (Expires in 15 minutes)", emailOrPhone, code)
-	log.Printf("⚠️  In production, this should be sent via email")
+	// Send code via email
+	if err := as.EmailService.SendPasswordResetCode(user.Email, code); err != nil {
+		log.Printf("⚠️  Failed to send password reset email to %s: %v", user.Email, err)
+		log.Printf("📧 [FALLBACK] Password reset code: %s (Expires in 15 minutes)", code)
+		// Don't fail the request even if email fails - code is logged
+	} else {
+		log.Printf("✅ Password reset code sent to %s", user.Email)
+	}
 
 	return nil
 }

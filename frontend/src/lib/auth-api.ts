@@ -7,6 +7,11 @@ export interface User {
   email: string;
   role: string;
   tenantId?: number;
+  primaryBranchId?: number;
+  primaryBranch?: {
+    id: number;
+    name: string;
+  };
   status: string;
   trialEndsAt?: string;
   licenseActivatedAt?: string | null;

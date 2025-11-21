@@ -15,6 +15,8 @@ export interface Branch {
 export interface CreateBranchRequest {
     name: string;
     location?: string;
+    username?: string;
+    password?: string;
 }
 
 export interface UpdateBranchRequest {

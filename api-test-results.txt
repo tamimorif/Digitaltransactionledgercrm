@@ -1,0 +1,96 @@
+
+[1;33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[1;33m    Digital Transaction Ledger CRM - API Tests[0m
+[1;33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+
+
+[1;33m[1] Health Check[0m
+[0;32m✓[0m Health check - Status: 200
+
+[1;33m[2] Authentication Endpoints[0m
+[0;32m✓[0m Login as SuperAdmin - Token obtained
+[0;32m✓[0m Get current user info (/auth/me) - Status: 200
+[0;31m✗[0m Register new user - Expected one of: 201 200, Got: 400
+   Response: {"error":"Email, password, and name are required"}
+[0;31m✗[0m Forgot password request - Expected one of: 200 201, Got: 400
+   Response: {"error":"Email or phone is required"}
+
+[1;33m[3] Tenant Endpoints[0m
+[0;31m✗[0m Get tenant info - Expected one of: 200, Got: 400
+   Response: User must belong to a tenant
+[0;32m✓[0m Update tenant name (owner only) - Status: 403
+
+[1;33m[4] Client Endpoints[0m
+[0;32m✓[0m Get all clients - Status: 200
+[0;31m✗[0m Create client - Expected: 201/200, Got: 400
+[0;31m✗[0m Search clients - Expected one of: 200, Got: 404
+   Response: Client not found
+
+[1;33m[5] Transaction Endpoints[0m
+[0;32m✓[0m Get all transactions - Status: 200
+[0;32m✓[0m Get transactions with date filter - Status: 200
+[0;31m✗[0m Search transactions - Expected one of: 200, Got: 404
+   Response: Transaction not found
+
+[1;33m[6] Branch Endpoints[0m
+[0;31m✗[0m Get all branches - Expected one of: 200, Got: 401
+   Response: {"error":"Unauthorized"}
+[0;32m✓[0m Get my branches - Status: 200
+
+[1;33m[7] User Management Endpoints[0m
+[0;31m✗[0m Get all users - Expected one of: 200, Got: 400
+   Response: {"error":"User must belong to a tenant"}
+[0;32m✓[0m Check username availability - Status: 200
+
+[1;33m[8] Ledger Endpoints[0m
+
+[1;33m[9] Pickup Transaction Endpoints[0m
+[0;31m✗[0m Get all pickup transactions - Expected one of: 200, Got: 400
+   Response: Tenant ID required
+[0;31m✗[0m Get pending pickups count - Expected one of: 200, Got: 400
+   Response: Tenant ID required
+
+[1;33m[10] Customer Endpoints[0m
+[0;31m✗[0m Get all customers - Expected one of: 200, Got: 400
+   Response: Tenant ID required
+[0;32m✓[0m Search customers - Status: 200
+
+[1;33m[11] Cash Balance Endpoints[0m
+[0;31m✗[0m Get all cash balances - Expected one of: 200, Got: 400
+   Response: Tenant ID required
+[0;31m✗[0m Get active currencies - Expected one of: 200, Got: 400
+   Response: Tenant ID required
+
+[1;33m[12] Statistics & Export Endpoints[0m
+[0;31m✗[0m Get statistics - Expected one of: 200, Got: 000
+   Response: 
+[0;31m✗[0m Export CSV - Expected one of: 200, Got: 000
+   Response: 
+[0;31m✗[0m Export JSON - Expected one of: 200, Got: 000
+   Response: 
+
+[1;33m[13] Audit Log Endpoints[0m
+[0;32m✓[0m Get audit logs - Status: 200
+
+[1;33m[14] License Endpoints[0m
+[0;31m✗[0m Get license status - Expected one of: 200, Got: 404
+   Response: {"error":"No tenant assigned"}
+[0;31m✗[0m Get my licenses - Expected one of: 200, Got: 400
+   Response: {"error":"User has no tenant assigned"}
+
+[1;33m[15] SuperAdmin Endpoints[0m
+[0;32m✓[0m Get all tenants (SuperAdmin) - Status: 200
+[0;32m✓[0m Get all users (SuperAdmin) - Status: 200
+[0;32m✓[0m Get all transactions (SuperAdmin) - Status: 200
+[0;32m✓[0m Get dashboard stats (SuperAdmin) - Status: 200
+
+[1;33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[1;33m    Test Results[0m
+[1;33m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+
+Total Tests: 33
+[0;32mPassed: 15[0m
+[0;31mFailed: 18[0m
+
+[1;33m⚠ Pass rate: 45%[0m
+

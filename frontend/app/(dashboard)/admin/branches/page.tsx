@@ -81,32 +81,15 @@ export default function BranchesPage() {
 
         setIsSubmitting(true);
         try {
-            // Create the branch first
-            const newBranch = await createBranch.mutateAsync({
+            // Create the branch with credentials
+            await createBranch.mutateAsync({
                 name: formData.name,
                 location: formData.location || undefined,
+                username: formData.createLogin ? formData.username : undefined,
+                password: formData.createLogin ? formData.password : undefined,
             });
 
-            // If createLogin is checked, create a user for this branch
-            if (formData.createLogin && newBranch) {
-                try {
-                    await createBranchUser.mutateAsync({
-                        email: `${formData.username}@branch.local`, // Placeholder email
-                        username: formData.username,
-                        password: formData.password,
-                        role: 'tenant_user',
-                        primaryBranchId: newBranch.id,
-                    });
-                    toast.success('Branch and login created successfully');
-                } catch (userError: any) {
-                    console.error('Failed to create user:', userError);
-                    toast.warning('Branch created, but failed to create login', {
-                        description: userError?.response?.data?.error || 'You can create it manually from Users page',
-                    });
-                }
-            } else {
-                toast.success('Branch created successfully');
-            }
+            toast.success('Branch created successfully');
 
             setShowCreateDialog(false);
             setFormData({ name: '', location: '', createLogin: false, username: '', password: '' });

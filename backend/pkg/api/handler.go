@@ -336,9 +336,23 @@ func (h *Handler) UpdateTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user from context to track who edited
+	userVal := r.Context().Value("user")
+	user := userVal.(*models.User)
+
+	var branchName string
+	if user.PrimaryBranchID != nil {
+		var branch models.Branch
+		if err := h.db.First(&branch, *user.PrimaryBranchID).Error; err == nil {
+			branchName = branch.Name
+		}
+	}
+
 	// Save current state to edit history before updating
 	editHistoryEntry := map[string]interface{}{
 		"editedAt":           existingTransaction.UpdatedAt,
+		"editedByBranchId":   user.PrimaryBranchID, // Track which branch made the edit
+		"editedByBranchName": branchName,           // Store name for easier display
 		"type":               existingTransaction.Type,
 		"sendCurrency":       existingTransaction.SendCurrency,
 		"sendAmount":         existingTransaction.SendAmount,
@@ -389,6 +403,7 @@ func (h *Handler) UpdateTransaction(w http.ResponseWriter, r *http.Request) {
 		"user_notes":          updatedTransaction.UserNotes,
 		"is_edited":           true,
 		"last_edited_at":      now,
+		"edited_by_branch_id": user.PrimaryBranchID, // Set the current branch as editor
 		"edit_history":        historyStr,
 		"updated_at":          now,
 	}

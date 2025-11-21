@@ -14,9 +14,9 @@ type Branch struct {
 	IsPrimary  bool   `gorm:"type:boolean;default:false" json:"isPrimary"`                           // Main branch
 	Status     string `gorm:"type:varchar(50);not null;default:'active'" json:"status"`              // active or inactive
 
-	// Branch Login Credentials
-	Username     string `gorm:"type:varchar(100);uniqueIndex" json:"username,omitempty"` // Branch login username
-	PasswordHash string `gorm:"type:varchar(255)" json:"-"`                              // Hashed password (hidden from JSON)
+	// Branch Login Credentials (optional - can be NULL)
+	Username     *string `gorm:"type:varchar(100);uniqueIndex" json:"username,omitempty"` // Branch login username (nullable)
+	PasswordHash *string `gorm:"type:varchar(255)" json:"-"`                              // Hashed password (hidden from JSON, nullable)
 
 	CreatedAt time.Time `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"createdAt"`
 	UpdatedAt time.Time `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"updatedAt"`

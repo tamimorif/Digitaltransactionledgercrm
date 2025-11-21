@@ -4,6 +4,7 @@ import (
 	"api/pkg/models"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"time"
 
@@ -65,15 +66,36 @@ func (s *PickupService) CreatePickupTransaction(pickup *models.PickupTransaction
 	if pickup.SenderBranchID == 0 {
 		return errors.New("sender_branch_id is required")
 	}
+	// Allow receiver to be omitted for in-person transactions (treat as same branch)
+	inPerson := pickup.TransactionType == "CASH_PICKUP" || pickup.TransactionType == "CARD_SWAP_IRR"
 	if pickup.ReceiverBranchID == 0 {
-		return errors.New("receiver_branch_id is required")
+		if inPerson || pickup.TransactionType == "CASH_EXCHANGE" {
+			pickup.ReceiverBranchID = pickup.SenderBranchID
+		} else {
+			return errors.New("receiver_branch_id is required")
+		}
 	}
-	if pickup.RecipientName == "" {
+
+	// Recipient name is optional for in-person exchanges (CASH_PICKUP, CARD_SWAP_IRR)
+	// Required for transfers (CASH_EXCHANGE, BANK_TRANSFER)
+	if !inPerson && pickup.RecipientName == "" {
 		return errors.New("recipient_name is required")
 	}
-	if pickup.RecipientPhone == "" {
-		return errors.New("recipient_phone is required")
+
+	// Phone is required for transfers (CASH_EXCHANGE), optional for in-person (CASH_PICKUP, CARD_SWAP_IRR) and BANK_TRANSFER
+	if pickup.TransactionType == "CASH_EXCHANGE" {
+		if pickup.RecipientPhone == nil || *pickup.RecipientPhone == "" {
+			return errors.New("recipient_phone is required")
+		}
 	}
+
+	// IBAN is required for BANK_TRANSFER
+	if pickup.TransactionType == "BANK_TRANSFER" {
+		if pickup.RecipientIBAN == nil || *pickup.RecipientIBAN == "" {
+			return errors.New("recipient_iban is required for bank transfers")
+		}
+	}
+
 	if pickup.Amount <= 0 {
 		return errors.New("amount must be greater than zero")
 	}
@@ -98,8 +120,8 @@ func (s *PickupService) CreatePickupTransaction(pickup *models.PickupTransaction
 		return errors.New("receiver branch is not active")
 	}
 
-	// Validate sender and receiver branches are different
-	if pickup.SenderBranchID == pickup.ReceiverBranchID {
+	// For non in-person transfers, sender and receiver must be different.
+	if !inPerson && pickup.SenderBranchID == pickup.ReceiverBranchID {
 		return errors.New("sender and receiver branches must be different")
 	}
 
@@ -147,6 +169,8 @@ func (s *PickupService) GetPickupTransactions(tenantID uint, branchID *uint, sta
 	err := query.
 		Preload("SenderBranch").
 		Preload("ReceiverBranch").
+		Preload("EditedByBranch").
+		Preload("EditedByUser").
 		Preload("PickedUpByUser").
 		Preload("CancelledByUser").
 		Order("created_at DESC").
@@ -167,6 +191,8 @@ func (s *PickupService) GetPickupTransactionByID(id uint, tenantID uint) (*model
 	err := s.DB.Where("id = ? AND tenant_id = ?", id, tenantID).
 		Preload("SenderBranch").
 		Preload("ReceiverBranch").
+		Preload("EditedByBranch").
+		Preload("EditedByUser").
 		Preload("PickedUpByUser").
 		Preload("CancelledByUser").
 		First(&pickup).Error
@@ -187,6 +213,8 @@ func (s *PickupService) SearchPickupByCode(code string, tenantID uint) (*models.
 	err := s.DB.Where("pickup_code = ? AND tenant_id = ?", code, tenantID).
 		Preload("SenderBranch").
 		Preload("ReceiverBranch").
+		Preload("EditedByBranch").
+		Preload("EditedByUser").
 		Preload("PickedUpByUser").
 		Preload("CancelledByUser").
 		First(&pickup).Error
@@ -212,6 +240,8 @@ func (s *PickupService) SearchPickupsByQuery(query string, tenantID uint) ([]mod
 		Where("status = ?", models.PickupStatusPending).
 		Preload("SenderBranch").
 		Preload("ReceiverBranch").
+		Preload("EditedByBranch").
+		Preload("EditedByUser").
 		Order("created_at DESC").
 		Limit(20).
 		Find(&pickups).Error
@@ -283,6 +313,61 @@ func (s *PickupService) CancelPickupTransaction(id uint, tenantID uint, userID u
 		return err
 	}
 
+	return nil
+}
+
+// EditPickupTransaction edits a pickup transaction (amount, currency, fees, etc.)
+func (s *PickupService) EditPickupTransaction(id uint, tenantID uint, userID uint, branchID *uint, amount *float64, currency *string, receiverCurrency *string, exchangeRate *float64, receiverAmount *float64, fees *float64, editReason string) error {
+	var pickup models.PickupTransaction
+	if err := s.DB.Where("id = ? AND tenant_id = ?", id, tenantID).First(&pickup).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("pickup transaction not found")
+		}
+		return err
+	}
+
+	// Only allow editing PENDING pickups
+	if pickup.Status != models.PickupStatusPending {
+		return fmt.Errorf("cannot edit: current status is %s (only PENDING pickups can be edited)", pickup.Status)
+	}
+
+	// Build updates map
+	updates := map[string]interface{}{
+		"updated_at": time.Now(),
+	}
+
+	now := time.Now()
+	updates["edited_at"] = &now
+	updates["edited_by_user_id"] = &userID
+	if branchID != nil {
+		updates["edited_by_branch_id"] = branchID
+	}
+	updates["edit_reason"] = &editReason
+
+	if amount != nil {
+		updates["amount"] = *amount
+	}
+	if currency != nil {
+		updates["currency"] = *currency
+	}
+	if receiverCurrency != nil {
+		updates["receiver_currency"] = *receiverCurrency
+	}
+	if exchangeRate != nil {
+		updates["exchange_rate"] = *exchangeRate
+	}
+	if receiverAmount != nil {
+		updates["receiver_amount"] = *receiverAmount
+	}
+	if fees != nil {
+		updates["fees"] = *fees
+	}
+
+	if err := s.DB.Model(&pickup).Updates(updates).Error; err != nil {
+		return err
+	}
+
+	log.Printf("✏️ Pickup #%d edited by user #%d. Reason: %s", id, userID, editReason)
 	return nil
 }
 

@@ -38,7 +38,9 @@ func (h *PickupHandler) CreatePickupTransactionHandler(w http.ResponseWriter, r 
 		SenderName       string   `json:"senderName"`
 		SenderPhone      string   `json:"senderPhone"`
 		RecipientName    string   `json:"recipientName"`
-		RecipientPhone   string   `json:"recipientPhone"`
+		RecipientPhone   *string  `json:"recipientPhone"`  // Optional for bank transfers
+		RecipientIBAN    *string  `json:"recipientIban"`   // For bank transfers
+		TransactionType  string   `json:"transactionType"` // CASH_PICKUP, CASH_EXCHANGE, BANK_TRANSFER, CARD_SWAP_IRR
 		Amount           float64  `json:"amount"`
 		Currency         string   `json:"currency"`
 		ReceiverCurrency *string  `json:"receiverCurrency"`
@@ -58,9 +60,22 @@ func (h *PickupHandler) CreatePickupTransactionHandler(w http.ResponseWriter, r 
 		respondWithError(w, http.StatusBadRequest, "Sender branch ID is required")
 		return
 	}
+
+	// Default transaction type if not provided (treat as in-person pickup)
+	if req.TransactionType == "" {
+		req.TransactionType = "CASH_PICKUP"
+	}
+
+	// If receiver branch is not provided, for in-person transaction types we
+	// auto-assign the sender branch as the receiver (no transfer between branches).
+	inPersonTypes := map[string]bool{"CASH_PICKUP": true, "CASH_EXCHANGE": true, "CARD_SWAP_IRR": true}
 	if req.ReceiverBranchID == 0 {
-		respondWithError(w, http.StatusBadRequest, "Receiver branch ID is required")
-		return
+		if inPersonTypes[req.TransactionType] {
+			req.ReceiverBranchID = req.SenderBranchID
+		} else {
+			respondWithError(w, http.StatusBadRequest, "Receiver branch ID is required")
+			return
+		}
 	}
 	if req.SenderName == "" {
 		respondWithError(w, http.StatusBadRequest, "Sender name is required")
@@ -70,14 +85,35 @@ func (h *PickupHandler) CreatePickupTransactionHandler(w http.ResponseWriter, r 
 		respondWithError(w, http.StatusBadRequest, "Sender phone is required")
 		return
 	}
-	if req.RecipientName == "" {
+	// Recipient name is optional for in-person exchanges (CASH_PICKUP, CARD_SWAP_IRR)
+	if req.TransactionType != "CASH_PICKUP" && req.TransactionType != "CARD_SWAP_IRR" && req.RecipientName == "" {
 		respondWithError(w, http.StatusBadRequest, "Recipient name is required")
 		return
 	}
-	if req.RecipientPhone == "" {
-		respondWithError(w, http.StatusBadRequest, "Recipient phone is required")
+
+	// Validate transaction type
+	validTypes := map[string]bool{"CASH_PICKUP": true, "CASH_EXCHANGE": true, "BANK_TRANSFER": true, "CARD_SWAP_IRR": true}
+	if !validTypes[req.TransactionType] {
+		respondWithError(w, http.StatusBadRequest, "Invalid transaction type")
 		return
 	}
+
+	// Phone is optional for in-person exchanges (CASH_PICKUP, CARD_SWAP_IRR) and required for transfers (CASH_EXCHANGE, BANK_TRANSFER)
+	if req.TransactionType == "CASH_EXCHANGE" {
+		if req.RecipientPhone == nil || *req.RecipientPhone == "" {
+			respondWithError(w, http.StatusBadRequest, "Recipient phone is required")
+			return
+		}
+	}
+
+	// IBAN is required for BANK_TRANSFER
+	if req.TransactionType == "BANK_TRANSFER" {
+		if req.RecipientIBAN == nil || *req.RecipientIBAN == "" {
+			respondWithError(w, http.StatusBadRequest, "Recipient IBAN is required for bank transfers")
+			return
+		}
+	}
+
 	if req.Amount <= 0 {
 		respondWithError(w, http.StatusBadRequest, "Amount must be greater than zero")
 		return
@@ -96,6 +132,8 @@ func (h *PickupHandler) CreatePickupTransactionHandler(w http.ResponseWriter, r 
 		SenderPhone:      req.SenderPhone,
 		RecipientName:    req.RecipientName,
 		RecipientPhone:   req.RecipientPhone,
+		RecipientIBAN:    req.RecipientIBAN,
+		TransactionType:  req.TransactionType,
 		Amount:           req.Amount,
 		Currency:         req.Currency,
 		ReceiverCurrency: req.ReceiverCurrency,
@@ -315,6 +353,59 @@ func (h *PickupHandler) CancelPickupTransactionHandler(w http.ResponseWriter, r 
 	}
 
 	respondJSON(w, http.StatusOK, map[string]string{"message": "Pickup cancelled successfully"})
+}
+
+// EditPickupTransactionHandler edits a pickup transaction
+// PUT /pickups/:id/edit
+func (h *PickupHandler) EditPickupTransactionHandler(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Tenant ID required", http.StatusBadRequest)
+		return
+	}
+
+	userVal := r.Context().Value("user")
+	if userVal == nil {
+		http.Error(w, "User ID required", http.StatusUnauthorized)
+		return
+	}
+	user := userVal.(*models.User)
+	userID := user.ID
+	branchID := user.PrimaryBranchID // Track which branch is editing
+
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid pickup ID", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		Amount           *float64 `json:"amount"`
+		Currency         *string  `json:"currency"`
+		ReceiverCurrency *string  `json:"receiverCurrency"`
+		ExchangeRate     *float64 `json:"exchangeRate"`
+		ReceiverAmount   *float64 `json:"receiverAmount"`
+		Fees             *float64 `json:"fees"`
+		EditReason       string   `json:"editReason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.EditReason == "" {
+		http.Error(w, "Edit reason is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.PickupService.EditPickupTransaction(uint(id), *tenantID, userID, branchID, req.Amount, req.Currency, req.ReceiverCurrency, req.ExchangeRate, req.ReceiverAmount, req.Fees, req.EditReason); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"message": "Pickup edited successfully"})
 }
 
 // GetPendingPickupsCountHandler returns count of pending pickups for a branch

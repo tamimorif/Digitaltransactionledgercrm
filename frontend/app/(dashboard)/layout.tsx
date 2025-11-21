@@ -69,20 +69,17 @@ export default function DashboardLayout({
                 ) : (
                   // Regular user navigation - transaction features
                   <>
-                    <Link href="/panel">
-                      <Button variant="ghost">Panel</Button>
-                    </Link>
                     <Link href="/dashboard">
                       <Button variant="ghost">Dashboard</Button>
                     </Link>
                     <Link href="/send-pickup">
-                      <Button variant="ghost">Send Money</Button>
+                      <Button variant="ghost">New Transaction</Button>
                     </Link>
                     <Link href="/pickup-search">
-                      <Button variant="ghost">Receive Money</Button>
+                      <Button variant="ghost">Search Pickups</Button>
                     </Link>
                     <Link href="/pending-pickups">
-                      <Button variant="ghost">Orders</Button>
+                      <Button variant="ghost">Pending Pickups</Button>
                     </Link>
                     {(user?.role === 'tenant_owner' || user?.role === 'tenant_admin') && (
                       <>

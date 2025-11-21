@@ -1,4 +1,6 @@
 // Pickup Transaction Models
+export type TransactionType = 'CASH_PICKUP' | 'CASH_EXCHANGE' | 'BANK_TRANSFER' | 'CARD_SWAP_IRR';
+
 export interface PickupTransaction {
     id: number;
     transactionId?: string;
@@ -9,7 +11,9 @@ export interface PickupTransaction {
     senderName: string;
     senderPhone: string;
     recipientName: string;
-    recipientPhone: string;
+    recipientPhone?: string;  // Optional for bank transfers
+    recipientIban?: string;   // For bank transfers
+    transactionType: TransactionType;
     amount: number;
     currency: string;
     receiverCurrency?: string;
@@ -22,6 +26,10 @@ export interface PickupTransaction {
     cancelledAt?: string;
     cancelledByUserId?: number;
     cancellationReason?: string;
+    editedAt?: string;
+    editedByUserId?: number;
+    editedByBranchId?: number;
+    editReason?: string;
     notes?: string;
     createdAt: string;
     updatedAt: string;
@@ -33,6 +41,15 @@ export interface PickupTransaction {
         branchCode: string;
     };
     receiverBranch?: {
+        id: number;
+        name: string;
+        branchCode: string;
+    };
+    editedByUser?: {
+        id: number;
+        email: string;
+    };
+    editedByBranch?: {
         id: number;
         name: string;
         branchCode: string;
@@ -54,11 +71,26 @@ export interface CreatePickupTransactionRequest {
     senderName: string;
     senderPhone: string;
     recipientName: string;
-    recipientPhone: string;
+    recipientPhone?: string;   // Optional for bank transfers
+    recipientIban?: string;    // For bank transfers
+    transactionType: TransactionType;
     amount: number;
     currency: string;
+    receiverCurrency?: string;
+    exchangeRate?: number;
+    receiverAmount?: number;
     fees: number;
     notes?: string;
+}
+
+export interface EditPickupTransactionRequest {
+    amount: number;
+    currency: string;
+    receiverCurrency?: string;
+    exchangeRate?: number;
+    receiverAmount?: number;
+    fees: number;
+    editReason: string;
 }
 
 export interface PickupTransactionsResponse {

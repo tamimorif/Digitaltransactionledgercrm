@@ -15,7 +15,9 @@ type PickupTransaction struct {
 	SenderName         string     `gorm:"type:varchar(255);not null" json:"senderName"`
 	SenderPhone        string     `gorm:"type:varchar(50)" json:"senderPhone"`
 	RecipientName      string     `gorm:"type:varchar(255);not null" json:"recipientName"`
-	RecipientPhone     string     `gorm:"type:varchar(50);not null" json:"recipientPhone"`
+	RecipientPhone     *string    `gorm:"type:varchar(50)" json:"recipientPhone"`                                 // Optional for bank transfers
+	RecipientIBAN      *string    `gorm:"type:varchar(50)" json:"recipientIban"`                                  // For bank transfers to Iran
+	TransactionType    string     `gorm:"type:varchar(50);not null;default:'CASH_PICKUP'" json:"transactionType"` // CASH_PICKUP, CASH_EXCHANGE, BANK_TRANSFER, CARD_SWAP_IRR
 	Amount             float64    `gorm:"type:real;not null" json:"amount"`
 	Currency           string     `gorm:"type:varchar(10);not null" json:"currency"`
 	ReceiverCurrency   *string    `gorm:"type:varchar(10)" json:"receiverCurrency"` // Currency receiver will get
@@ -23,6 +25,10 @@ type PickupTransaction struct {
 	ReceiverAmount     *float64   `gorm:"type:real" json:"receiverAmount"`          // Amount in receiver currency
 	Fees               float64    `gorm:"type:real;default:0" json:"fees"`
 	Status             string     `gorm:"type:varchar(50);not null;default:'PENDING'" json:"status"` // PENDING, PICKED_UP, CANCELLED
+	EditedAt           *time.Time `gorm:"type:timestamp" json:"editedAt"`
+	EditedByUserID     *uint      `gorm:"type:bigint" json:"editedByUserId"`
+	EditedByBranchID   *uint      `gorm:"type:bigint" json:"editedByBranchId"` // Branch that performed the edit
+	EditReason         *string    `gorm:"type:text" json:"editReason"`
 	PickedUpAt         *time.Time `gorm:"type:timestamp" json:"pickedUpAt"`
 	PickedUpByUserID   *uint      `gorm:"type:bigint" json:"pickedUpByUserId"`
 	CancelledAt        *time.Time `gorm:"type:timestamp" json:"cancelledAt"`
@@ -36,15 +42,25 @@ type PickupTransaction struct {
 	Tenant          *Tenant      `gorm:"foreignKey:TenantID;constraint:OnDelete:CASCADE" json:"tenant,omitempty"`
 	SenderBranch    *Branch      `gorm:"foreignKey:SenderBranchID;constraint:OnDelete:RESTRICT" json:"senderBranch,omitempty"`
 	ReceiverBranch  *Branch      `gorm:"foreignKey:ReceiverBranchID;constraint:OnDelete:RESTRICT" json:"receiverBranch,omitempty"`
+	EditedByBranch  *Branch      `gorm:"foreignKey:EditedByBranchID;constraint:OnDelete:SET NULL" json:"editedByBranch,omitempty"`
 	Transaction     *Transaction `gorm:"foreignKey:TransactionID;constraint:OnDelete:SET NULL" json:"transaction,omitempty"`
 	PickedUpByUser  *User        `gorm:"foreignKey:PickedUpByUserID;constraint:OnDelete:SET NULL" json:"pickedUpByUser,omitempty"`
 	CancelledByUser *User        `gorm:"foreignKey:CancelledByUserID;constraint:OnDelete:SET NULL" json:"cancelledByUser,omitempty"`
+	EditedByUser    *User        `gorm:"foreignKey:EditedByUserID;constraint:OnDelete:SET NULL" json:"editedByUser,omitempty"`
 }
 
 // TableName specifies the table name for PickupTransaction model
 func (PickupTransaction) TableName() string {
 	return "pickup_transactions"
 }
+
+// TransactionType constants
+const (
+	TransactionTypeCashPickup   = "CASH_PICKUP"
+	TransactionTypeCashExchange = "CASH_EXCHANGE"
+	TransactionTypeBankTransfer = "BANK_TRANSFER"
+	TransactionTypeCardSwapIRR  = "CARD_SWAP_IRR"
+)
 
 // PickupStatus constants
 const (

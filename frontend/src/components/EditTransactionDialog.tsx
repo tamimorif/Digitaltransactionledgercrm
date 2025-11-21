@@ -256,13 +256,20 @@ export function EditTransactionDialog({
                               {edit.type === 'CASH_EXCHANGE' ? '💵 Cash Exchange' : '🏦 Bank Transfer'}
                             </span>
                           </div>
-                          <span className="text-xs text-gray-400 font-medium">
-                            {new Date(edit.editedAt).toLocaleDateString()} at{' '}
-                            {new Date(edit.editedAt).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </span>
+                          <div className="text-right">
+                            <div className="text-xs text-gray-400 font-medium">
+                              {new Date(edit.editedAt).toLocaleDateString()} at{' '}
+                              {new Date(edit.editedAt).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                            {edit.editedByBranchName && (
+                              <div className="text-xs text-blue-600 font-medium mt-0.5">
+                                Edited by: {edit.editedByBranchName}
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         {/* Transaction Details */}
