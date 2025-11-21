@@ -21,8 +21,8 @@
 *.pem
 
 # IDE
-.idea
-.vscode
+.idea/
+.vscode/
 
 # debug
 npm-debug.log*
