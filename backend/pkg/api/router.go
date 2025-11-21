@@ -31,6 +31,8 @@ func NewRouter(db *gorm.DB) http.Handler {
 	customerHandler := NewCustomerHandler(db)
 	cashBalanceHandler := NewCashBalanceHandler(db)
 	statisticsHandler := NewStatisticsHandler(statisticsService)
+	migrationHandler := NewMigrationHandler(db)
+	ledgerHandler := NewLedgerHandler(db)
 
 	// API routes
 	api := router.PathPrefix("/api").Subrouter()
@@ -59,6 +61,9 @@ func NewRouter(db *gorm.DB) http.Handler {
 	// Auth routes (protected)
 	protected.HandleFunc("/auth/me", authHandler.GetMeHandler).Methods("GET")
 	protected.HandleFunc("/auth/change-password", authHandler.ChangePasswordHandler).Methods("POST")
+
+	// Migration routes (protected - tenant owner only)
+	protected.HandleFunc("/migrations/fix-owner-branch", migrationHandler.FixOwnerBranchHandler).Methods("POST")
 
 	// License routes (protected)
 	protected.HandleFunc("/licenses/activate", licenseHandler.ActivateLicenseHandler).Methods("POST")
@@ -114,6 +119,7 @@ func NewRouter(db *gorm.DB) http.Handler {
 	protected.HandleFunc("/pickups/search", pickupHandler.SearchPickupsByQueryHandler).Methods("GET")
 	protected.HandleFunc("/pickups/search/{code}", pickupHandler.SearchPickupByCodeHandler).Methods("GET")
 	protected.HandleFunc("/pickups/{id}", pickupHandler.GetPickupTransactionHandler).Methods("GET")
+	protected.HandleFunc("/pickups/{id}/edit", pickupHandler.EditPickupTransactionHandler).Methods("PUT")
 	protected.HandleFunc("/pickups/{id}/pickup", pickupHandler.MarkAsPickedUpHandler).Methods("POST")
 	protected.HandleFunc("/pickups/{id}/cancel", pickupHandler.CancelPickupTransactionHandler).Methods("POST")
 
@@ -123,6 +129,12 @@ func NewRouter(db *gorm.DB) http.Handler {
 	protected.HandleFunc("/customers/phone/{phone}", customerHandler.GetCustomerByPhoneHandler).Methods("GET")
 	protected.HandleFunc("/customers/find-or-create", customerHandler.FindOrCreateCustomerHandler).Methods("POST")
 	protected.HandleFunc("/customers/{id}", customerHandler.UpdateCustomerHandler).Methods("PUT")
+
+	// Ledger routes (protected)
+	protected.HandleFunc("/clients/{id}/ledger/balance", ledgerHandler.GetClientBalances).Methods("GET")
+	protected.HandleFunc("/clients/{id}/ledger/entries", ledgerHandler.GetClientEntries).Methods("GET")
+	protected.HandleFunc("/clients/{id}/ledger/entry", ledgerHandler.AddEntry).Methods("POST")
+	protected.HandleFunc("/clients/{id}/ledger/exchange", ledgerHandler.Exchange).Methods("POST")
 
 	// Cash balance routes (protected)
 	protected.HandleFunc("/cash-balances", cashBalanceHandler.GetAllBalancesHandler).Methods("GET")

@@ -28,12 +28,16 @@ func NewBranchService(db *gorm.DB) *BranchService {
 type CreateBranchRequest struct {
 	Name     string `json:"name" binding:"required"`
 	Location string `json:"location"`
+	Username string `json:"username"` // Optional: for branch login
+	Password string `json:"password"` // Optional: for branch login
 }
 
 // UpdateBranchRequest represents a request to update a branch
 type UpdateBranchRequest struct {
 	Name     string `json:"name"`
 	Location string `json:"location"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 // CreateBranch creates a new branch for a tenant
@@ -68,6 +72,14 @@ func (bs *BranchService) CreateBranch(tenantID uint, req CreateBranchRequest, cr
 		return nil, fmt.Errorf("branch limit reached: your license allows %d branch(es)", maxBranches)
 	}
 
+	// Validate username if provided
+	if req.Username != "" {
+		var existingBranch models.Branch
+		if err := bs.DB.Where("username = ?", req.Username).First(&existingBranch).Error; err == nil {
+			return nil, errors.New("username already taken")
+		}
+	}
+
 	// Generate branch code
 	branchCode := bs.generateBranchCode(tenantID, req.Name)
 
@@ -81,6 +93,17 @@ func (bs *BranchService) CreateBranch(tenantID uint, req CreateBranchRequest, cr
 		BranchCode: branchCode,
 		IsPrimary:  isPrimary,
 		Status:     models.BranchStatusActive,
+	}
+
+	// Set credentials if provided
+	if req.Username != "" && req.Password != "" {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, fmt.Errorf("failed to hash password: %w", err)
+		}
+		hashedPasswordStr := string(hashedPassword)
+		branch.Username = &req.Username
+		branch.PasswordHash = &hashedPasswordStr
 	}
 
 	if err := bs.DB.Create(branch).Error; err != nil {
@@ -300,10 +323,12 @@ func (bs *BranchService) SetBranchCredentials(branchID, tenantID uint, username,
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
+	hashedPasswordStr := string(hashedPassword)
+
 	// Update branch credentials
 	if err := bs.DB.Model(&branch).Updates(map[string]interface{}{
-		"username":      username,
-		"password_hash": string(hashedPassword),
+		"username":      &username,
+		"password_hash": &hashedPasswordStr,
 		"updated_at":    time.Now(),
 	}).Error; err != nil {
 		return fmt.Errorf("failed to update branch credentials: %w", err)

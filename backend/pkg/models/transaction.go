@@ -42,6 +42,7 @@ type Transaction struct {
 	UserNotes          *string    `gorm:"column:user_notes;type:text" json:"userNotes"`
 	IsEdited           bool       `gorm:"column:is_edited;type:boolean;default:false" json:"isEdited"`
 	LastEditedAt       *time.Time `gorm:"column:last_edited_at;type:datetime" json:"lastEditedAt"`
+	EditedByBranchID   *uint      `gorm:"column:edited_by_branch_id;type:bigint" json:"editedByBranchId"`  // *** ADDED FOR AUDIT ***
 	EditHistory        *string    `gorm:"column:edit_history;type:text" json:"editHistory"`                // JSON string
 	Status             string     `gorm:"column:status;type:text;default:'COMPLETED';index" json:"status"` // COMPLETED or CANCELLED
 	CancellationReason *string    `gorm:"column:cancellation_reason;type:text" json:"cancellationReason,omitempty"`

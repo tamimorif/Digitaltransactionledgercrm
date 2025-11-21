@@ -23,6 +23,7 @@ import {
   Loader2,
   Filter,
   FilterX,
+  Wallet,
 } from 'lucide-react';
 import { TransactionForm } from './TransactionForm';
 import { EditTransactionDialog } from './EditTransactionDialog';
@@ -113,6 +114,10 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
             </div>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => window.location.href = `/clients/${client.id}/ledger`}>
+              <Wallet className="h-4 w-4 mr-2" />
+              View Ledger
+            </Button>
             <Button onClick={() => setShowTransactionForm(true)}>
               <Plus className="h-4 w-4 mr-2" />
               New Transaction

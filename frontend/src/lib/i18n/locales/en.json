@@ -1,0 +1,146 @@
+{
+  "transaction": {
+    "types": {
+      "CASH_PICKUP": "Walk-In Exchange",
+      "CARD_SWAP_IRR": "Iranian Card Cash-Out",
+      "CASH_EXCHANGE": "Branch-to-Branch Transfer",
+      "BANK_TRANSFER": "Bank Deposit (Iran)"
+    },
+    "descriptions": {
+      "CASH_PICKUP": "Customer exchanges currency and receives cash immediately",
+      "CARD_SWAP_IRR": "Customer swipes Iranian card and receives cash in their chosen currency",
+      "CASH_EXCHANGE": "Send money to another branch for recipient to pick up later",
+      "BANK_TRANSFER": "Transfer money directly to recipient's Iranian bank account"
+    },
+    "labels": {
+      "customerName": "Customer Name",
+      "customerPhone": "Customer Phone",
+      "cardholderName": "Cardholder Name",
+      "cardholderPhone": "Cardholder Phone",
+      "senderName": "Sender Name",
+      "senderPhone": "Sender Phone",
+      "recipientName": "Recipient Name",
+      "recipientPhone": "Recipient Phone",
+      "recipientPhoneOptional": "Recipient Phone (Optional)",
+      "recipientIban": "Recipient IBAN",
+      "transactionType": "Transaction Type",
+      "amountReceivedFromCustomer": "Amount Received from Customer",
+      "currencyReceived": "Currency Received",
+      "currencyToProvide": "Currency to Provide",
+      "cardSwipeAmount": "Card Swipe Amount (Toman)",
+      "cashPayoutCurrency": "Cash Payout Currency",
+      "amountToSend": "Amount to Send",
+      "currency": "Currency",
+      "amountToTransfer": "Amount to Transfer",
+      "sourceCurrency": "Source Currency",
+      "recipientReceives": "Recipient Receives (Currency)",
+      "exchangeRate": "Exchange Rate",
+      "exchangeRatePerCAD": "Exchange Rate (Toman per 1 {{currency}})",
+      "transactionFee": "Transaction Fee",
+      "transferFee": "Transfer Fee",
+      "notes": "Notes (Optional)",
+      "receivingBranch": "Receiving Branch",
+      "idType": "ID Type",
+      "idNumber": "ID Number"
+    },
+    "placeholders": {
+      "searchCustomer": "Type name to search existing customers (e.g., Nemat)",
+      "phone": "+1234567890",
+      "amount": "1,000.00",
+      "rate": "80,300",
+      "iban": "IR123456789012345678901234",
+      "notes": "Any additional information...",
+      "selectBranch": "Select branch where money will be picked up",
+      "selectCurrency": "Select currency",
+      "idNumber": "ID12345678"
+    },
+    "buttons": {
+      "completeExchange": "Complete Exchange",
+      "completeCashOut": "Complete Cash-Out",
+      "createTransfer": "Create Transfer",
+      "sendToBankAccount": "Send to Bank Account",
+      "clear": "Clear",
+      "cancel": "Cancel",
+      "createAnother": "Create Another Transaction",
+      "showCalculator": "Show Calculator",
+      "hideCalculator": "Hide Calculator",
+      "useLastRate": "Use Last Rate",
+      "printReceipt": "Print Receipt"
+    },
+    "success": {
+      "CASH_PICKUP": "Exchange Complete!",
+      "CARD_SWAP_IRR": "Cash-Out Complete!",
+      "CASH_EXCHANGE": "Transfer Created!",
+      "BANK_TRANSFER": "Bank Transfer Initiated!",
+      "description": "Transaction completed successfully"
+    },
+    "helpers": {
+      "customerExists": "✓ Found in system",
+      "newCustomer": "⚠️ New customer will be created",
+      "recipientPhoneHelper": "This will be used for verification at pickup",
+      "recipientPhoneOptionalHelper": "Optional contact number for the recipient",
+      "ibanHelper": "Iranian IBAN (must start with IR, 26 characters)",
+      "rateHelper": "Rate: 1 {{from}} = X {{to}}",
+      "customerReceives": "Customer gets: {{amount}} {{currency}}",
+      "recipientReceives": "Recipient gets: {{amount}} {{currency}}",
+      "cashOnHand": "Cash on Hand",
+      "todayStats": "Today's Statistics",
+      "totalTransactions": "Total Transactions",
+      "totalFees": "Total Fees Collected",
+      "recentRecipients": "Recent Recipients"
+    },
+    "sections": {
+      "customerInfo": "Customer Information",
+      "cardholderInfo": "Cardholder Information",
+      "senderRecipientInfo": "Sender & Recipient Information",
+      "customerInfoDesc": "Enter customer details for currency exchange",
+      "cardholderInfoDesc": "Enter cardholder details for card cash-out",
+      "senderRecipientDesc": "Enter sender and recipient details"
+    },
+    "notices": {
+      "walkInExchange": "Walk-In Exchange",
+      "walkInExchangeDesc": "Customer brings one currency, leaves with another currency in cash",
+      "cardCashOut": "Card Cash-Out (In-Person)",
+      "cardCashOutDesc": "Customer swipes their Iranian card, you provide cash in their chosen currency",
+      "cardSwiped": "Step 1: Card Swiped",
+      "sameCurrencyTransfer": "Recipient will receive: {{amount}} {{currency}}",
+      "sameCurrencyDesc": "Same currency transfer - No exchange rate applied",
+      "duplicateWarning": "⚠️ Similar transaction detected",
+      "duplicateDesc": "{{name}} - {{amount}} {{currency}} - {{time}} ago"
+    },
+    "quickAmounts": {
+      "title": "Quick Amounts",
+      "custom": "Custom"
+    },
+    "keyboard": {
+      "title": "⌨️ Keyboard Shortcuts:",
+      "submit": "Review transaction",
+      "calculator": "Toggle calculator",
+      "clear": "Clear form",
+      "autoSave": "Auto-saves every second"
+    },
+    "validation": {
+      "fillRequired": "Please fill in all required fields",
+      "invalidPhone": "Please enter a valid phone number",
+      "invalidIban": "Please enter a valid 26-character Iranian IBAN",
+      "ibanMustStartIR": "IBAN must start with IR",
+      "selectBranch": "Please select a receiving branch",
+      "sameBranch": "Cannot send money to the same branch. Please select a different receiving branch.",
+      "noBranches": "No branches available. Please create your Head Office branch first."
+    },
+    "idTypes": {
+      "passport": "Passport",
+      "national_id": "National ID",
+      "drivers_license": "Driver's License",
+      "other": "Other"
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "language": "Language",
+    "english": "English",
+    "persian": "فارسی"
+  }
+}

@@ -38,6 +38,15 @@ export default function PickupSearchPage() {
     const [cancelReason, setCancelReason] = useState('');
     const [selectedPickup, setSelectedPickup] = useState<PickupTransaction | null>(null);
     const [queryResults, setQueryResults] = useState<PickupTransaction[]>([]);
+    const [showFilters, setShowFilters] = useState(false);
+    const [filters, setFilters] = useState({
+        dateFrom: '',
+        dateTo: '',
+        amountMin: '',
+        amountMax: '',
+        status: 'ALL',
+        currency: 'ALL',
+    });
 
     const { data: pickup, isLoading, error, refetch } = useSearchPickupByCode(activeCode);
     const markAsPickedUpMutation = useMarkAsPickedUp();
@@ -68,14 +77,40 @@ export default function PickupSearchPage() {
     const fetchPickupsByQuery = async (query: string) => {
         try {
             const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-            const response = await fetch(`${API_BASE_URL}/api/pickups/search?q=${encodeURIComponent(query)}`, {
+
+            // Build query string with filters
+            const params = new URLSearchParams();
+            params.append('q', query);
+            if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
+            if (filters.dateTo) params.append('dateTo', filters.dateTo);
+            if (filters.amountMin) params.append('amountMin', filters.amountMin);
+            if (filters.amountMax) params.append('amountMax', filters.amountMax);
+            if (filters.status !== 'ALL') params.append('status', filters.status);
+            if (filters.currency !== 'ALL') params.append('currency', filters.currency);
+
+            const response = await fetch(`${API_BASE_URL}/api/pickups/search?${params.toString()}`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
                 },
             });
             if (response.ok) {
                 const data = await response.json();
-                setQueryResults(data);
+                // Apply client-side filtering as fallback
+                let filtered = data;
+                if (filters.amountMin) {
+                    filtered = filtered.filter((p: any) => p.amount >= parseFloat(filters.amountMin));
+                }
+                if (filters.amountMax) {
+                    filtered = filtered.filter((p: any) => p.amount <= parseFloat(filters.amountMax));
+                }
+                if (filters.status !== 'ALL') {
+                    filtered = filtered.filter((p: any) => p.status === filters.status);
+                }
+                if (filters.currency !== 'ALL') {
+                    filtered = filtered.filter((p: any) => p.currency === filters.currency);
+                }
+                setQueryResults(filtered);
+                toast.success(`Found ${filtered.length} results`);
             } else {
                 toast.error('Failed to search pickups');
             }
@@ -188,7 +223,108 @@ export default function PickupSearchPage() {
                             >
                                 By Phone/Name
                             </Button>
+                            {searchMode === 'query' && (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowFilters(!showFilters)}
+                                    className="rounded-b-none ml-auto"
+                                    size="sm"
+                                >
+                                    {showFilters ? 'Hide' : 'Show'} Filters
+                                </Button>
+                            )}
                         </div>
+
+                        {/* Advanced Filters */}
+                        {showFilters && searchMode === 'query' && (
+                            <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border space-y-4">
+                                <p className="text-sm font-medium">Advanced Filters</p>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <Label htmlFor="dateFrom" className="text-xs">Date From</Label>
+                                        <Input
+                                            id="dateFrom"
+                                            type="date"
+                                            value={filters.dateFrom}
+                                            onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="dateTo" className="text-xs">Date To</Label>
+                                        <Input
+                                            id="dateTo"
+                                            type="date"
+                                            value={filters.dateTo}
+                                            onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="status" className="text-xs">Status</Label>
+                                        <select
+                                            id="status"
+                                            value={filters.status}
+                                            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                                            className="w-full p-2 border rounded-md text-sm"
+                                        >
+                                            <option value="ALL">All Statuses</option>
+                                            <option value="PENDING">Pending</option>
+                                            <option value="PICKED_UP">Completed</option>
+                                            <option value="CANCELLED">Cancelled</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="amountMin" className="text-xs">Min Amount</Label>
+                                        <Input
+                                            id="amountMin"
+                                            type="number"
+                                            value={filters.amountMin}
+                                            onChange={(e) => setFilters({ ...filters, amountMin: e.target.value })}
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="amountMax" className="text-xs">Max Amount</Label>
+                                        <Input
+                                            id="amountMax"
+                                            type="number"
+                                            value={filters.amountMax}
+                                            onChange={(e) => setFilters({ ...filters, amountMax: e.target.value })}
+                                            placeholder="999999"
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="currency" className="text-xs">Currency</Label>
+                                        <select
+                                            id="currency"
+                                            value={filters.currency}
+                                            onChange={(e) => setFilters({ ...filters, currency: e.target.value })}
+                                            className="w-full p-2 border rounded-md text-sm"
+                                        >
+                                            <option value="ALL">All Currencies</option>
+                                            <option value="USD">USD</option>
+                                            <option value="CAD">CAD</option>
+                                            <option value="EUR">EUR</option>
+                                            <option value="GBP">GBP</option>
+                                            <option value="IRR">IRR</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setFilters({
+                                        dateFrom: '',
+                                        dateTo: '',
+                                        amountMin: '',
+                                        amountMax: '',
+                                        status: 'ALL',
+                                        currency: 'ALL',
+                                    })}
+                                >
+                                    Clear Filters
+                                </Button>
+                            </div>
+                        )}
 
                         {/* Search Input */}
                         <div className="flex gap-2">
@@ -234,8 +370,8 @@ export default function PickupSearchPage() {
                         <div className="space-y-4">
                             {queryResults.map((pickupItem) => (
                                 <Card key={pickupItem.id} className={`border-l-4 ${pickupItem.status === 'PENDING' ? 'border-l-yellow-500' :
-                                        pickupItem.status === 'PICKED_UP' ? 'border-l-green-500' :
-                                            'border-l-red-500'
+                                    pickupItem.status === 'PICKED_UP' ? 'border-l-green-500' :
+                                        'border-l-red-500'
                                     }`}>
                                     <CardContent className="pt-6">
                                         <div className="grid md:grid-cols-2 gap-6">

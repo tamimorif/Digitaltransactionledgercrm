@@ -97,12 +97,23 @@ func (s *CustomerService) LinkCustomerToTenant(customerID, tenantID uint) error 
 	return s.DB.Create(&link).Error
 }
 
-// SearchCustomers searches for customers by phone or name
-func (s *CustomerService) SearchCustomers(query string) ([]models.Customer, error) {
+// SearchCustomers searches for customers by phone or name (tenant-scoped)
+func (s *CustomerService) SearchCustomers(query string, tenantID uint) ([]models.Customer, error) {
 	var customers []models.Customer
 
-	err := s.DB.Where("phone LIKE ? OR LOWER(full_name) LIKE LOWER(?)",
-		"%"+query+"%", "%"+query+"%").
+	// Get customer IDs linked to this tenant
+	var customerIDs []uint
+	err := s.DB.Table("customer_tenant_links").
+		Where("tenant_id = ?", tenantID).
+		Pluck("customer_id", &customerIDs).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Search within those customers only
+	err = s.DB.Where("id IN (?) AND (phone LIKE ? OR LOWER(full_name) LIKE LOWER(?))",
+		customerIDs, "%"+query+"%", "%"+query+"%").
 		Limit(10).
 		Find(&customers).Error
 

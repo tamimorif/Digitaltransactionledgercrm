@@ -24,13 +24,19 @@ func NewCustomerHandler(db *gorm.DB) *CustomerHandler {
 // SearchCustomersHandler searches for customers by phone or name (tenant-scoped)
 // GET /customers/search?q=phone_or_name
 func (h *CustomerHandler) SearchCustomersHandler(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Tenant ID required", http.StatusBadRequest)
+		return
+	}
+
 	query := r.URL.Query().Get("q")
 	if query == "" {
 		http.Error(w, "Search query is required", http.StatusBadRequest)
 		return
 	}
 
-	customers, err := h.CustomerService.SearchCustomers(query)
+	customers, err := h.CustomerService.SearchCustomers(query, *tenantID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
