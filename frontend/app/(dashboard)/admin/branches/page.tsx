@@ -174,7 +174,7 @@ export default function BranchesPage() {
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Branch Management</h1>
                     <p className="text-muted-foreground">
-                        Manage your organization's branches and locations
+                        Manage your organization&apos;s branches and locations
                     </p>
                 </div>
                 <Button onClick={() => setShowCreateDialog(true)} disabled={isLoading}>

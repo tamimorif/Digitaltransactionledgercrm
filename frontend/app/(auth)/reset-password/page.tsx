@@ -221,7 +221,7 @@ function ResetPasswordForm() {
 
                         <div className="text-center text-sm">
                             <p className="text-muted-foreground">
-                                Didn't receive a code?{' '}
+                                Didn&apos;t receive a code?{' '}
                                 <Link href="/forgot-password" className="font-medium text-primary hover:underline">
                                     Resend code
                                 </Link>
