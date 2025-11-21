@@ -51,6 +51,15 @@ export default function BulkLicenseGenerator() {
         }
     }, [user, authLoading, router]);
 
+    // Single license state - must be before any conditional returns
+    const [singleFormData, setSingleFormData] = useState({
+        licenseType: 'starter' as any,
+        durationType: 'yearly' as any,
+        userLimit: '5',
+        durationValue: '',
+        notes: '',
+    });
+
     // Show loading state while checking auth
     if (authLoading || user?.role !== 'superadmin') {
         return (
@@ -59,15 +68,6 @@ export default function BulkLicenseGenerator() {
             </div>
         );
     }
-
-    // Single license state
-    const [singleFormData, setSingleFormData] = useState({
-        licenseType: 'starter' as any,
-        durationType: 'yearly' as any,
-        userLimit: '5',
-        durationValue: '',
-        notes: '',
-    });
     const [generatedLicense, setGeneratedLicense] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
 
