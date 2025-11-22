@@ -25,6 +25,7 @@ import {
 } from './ui/select';
 import { toast } from 'sonner';
 import { ArrowRight, Calculator, Loader2 } from 'lucide-react';
+import { Checkbox } from './ui/checkbox';
 
 interface Transaction {
   id: string;
@@ -78,6 +79,7 @@ export function TransactionForm({
     beneficiaryName: '',
     beneficiaryDetails: '',
     userNotes: '',
+    allowPartialPayment: false,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -132,6 +134,7 @@ export function TransactionForm({
         beneficiaryName: formData.beneficiaryName || undefined,
         beneficiaryDetails: formData.beneficiaryDetails || undefined,
         userNotes: formData.userNotes || undefined,
+        allowPartialPayment: formData.allowPartialPayment,
       });
 
       toast.success('Transaction created successfully');
@@ -149,6 +152,7 @@ export function TransactionForm({
         beneficiaryName: '',
         beneficiaryDetails: '',
         userNotes: '',
+        allowPartialPayment: false,
       });
     } catch (error: any) {
       console.error('Error creating transaction:', error);
@@ -404,16 +408,40 @@ export function TransactionForm({
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating...' : 'Create Transaction'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+
+          {/* Open Transaction Checkbox */}
+          <div className="flex items-center space-x-2 pt-2">
+            <Checkbox
+              id="allowPartialPayment"
+              checked={formData.allowPartialPayment}
+              onCheckedChange={(checked) =>
+                setFormData({ ...formData, allowPartialPayment: checked as boolean })
+              }
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label
+                htmlFor="allowPartialPayment"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Open Transaction (Credit)
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Check this if the client is depositing money to be used later (Partial Drawdown).
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Creating...' : 'Create Transaction'}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+    </Dialog >
   );
 }
