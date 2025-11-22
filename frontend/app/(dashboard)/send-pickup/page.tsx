@@ -131,18 +131,16 @@ export default function SendMoneyPickupPage() {
         if (draft) {
             try {
                 const parsedDraft = JSON.parse(draft);
-                // Only prompt if draft has actual transaction data (not just default values)
+                // Only restore if draft has actual transaction data (not just default values)
                 const hasData = parsedDraft.senderName ||
                     parsedDraft.senderPhone?.length > 3 ||
                     parsedDraft.amount ||
                     parsedDraft.recipientName;
 
                 if (hasData) {
-                    if (confirm('You have an unsaved transaction draft. Would you like to restore it?')) {
-                        setFormData(parsedDraft);
-                    } else {
-                        localStorage.removeItem('transaction_draft');
-                    }
+                    // Silently restore draft - no annoying popup!
+                    setFormData(parsedDraft);
+                    toast.info('Draft restored', { duration: 2000 });
                 } else {
                     // Clean up empty drafts
                     localStorage.removeItem('transaction_draft');
@@ -1334,7 +1332,7 @@ export default function SendMoneyPickupPage() {
                                             💳 Enable Multi-Payment Mode
                                         </Label>
                                         <p className="text-xs text-muted-foreground mt-1">
-                                            Check this if the customer will pay in multiple installments or different currencies. 
+                                            Check this if the customer will pay in multiple installments or different currencies.
                                             You can add payments after creating the transaction.
                                         </p>
                                         {formData.allowPartialPayment && (
@@ -1343,7 +1341,7 @@ export default function SendMoneyPickupPage() {
                                                     ℹ️ This transaction will be created in <strong>OPEN</strong> status
                                                 </p>
                                                 <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                                                    After creation, you can manage multiple payments in the transaction detail page. 
+                                                    After creation, you can manage multiple payments in the transaction detail page.
                                                     The transaction will automatically track total received, remaining balance, and allow completion when fully paid.
                                                 </p>
                                             </div>

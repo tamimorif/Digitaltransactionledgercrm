@@ -207,3 +207,76 @@ func (h *StatisticsHandler) ExportJSONHandler(w http.ResponseWriter, r *http.Req
 	// Log export activity
 	fmt.Printf("User %s exported %d transactions to JSON\n", user.Email, len(transactions))
 }
+
+// ExportPDFHandler exports transactions as PDF
+func (h *StatisticsHandler) ExportPDFHandler(w http.ResponseWriter, r *http.Request) {
+	// Get tenant from context
+	tenantID := r.Context().Value("tenantId").(uint)
+	userVal := r.Context().Value("user")
+	user := userVal.(*models.User)
+
+	// Parse query parameters
+	branchIDStr := r.URL.Query().Get("branchId")
+	startDateStr := r.URL.Query().Get("startDate")
+	endDateStr := r.URL.Query().Get("endDate")
+
+	var branchID *uint
+	if branchIDStr != "" {
+		id, err := strconv.ParseUint(branchIDStr, 10, 32)
+		if err == nil {
+			branchIDUint := uint(id)
+			branchID = &branchIDUint
+		}
+	}
+
+	var startDate, endDate *time.Time
+	if startDateStr != "" {
+		parsed, err := time.Parse("2006-01-02", startDateStr)
+		if err == nil {
+			startDate = &parsed
+		}
+	}
+	if endDateStr != "" {
+		parsed, err := time.Parse("2006-01-02", endDateStr)
+		if err == nil {
+			endDate = &parsed
+		}
+	}
+
+	// Get transactions for export
+	transactions, err := h.StatisticsService.GetTransactionsForExport(tenantID, branchID, startDate, endDate)
+	if err != nil {
+		http.Error(w, "Failed to retrieve transactions for export", http.StatusInternalServerError)
+		return
+	}
+
+	// Determine date range string
+	dateRange := "All Time"
+	if startDate != nil && endDate != nil {
+		dateRange = startDate.Format("2006-01-02") + " to " + endDate.Format("2006-01-02")
+	} else if startDate != nil {
+		dateRange = "From " + startDate.Format("2006-01-02")
+	} else if endDate != nil {
+		dateRange = "Until " + endDate.Format("2006-01-02")
+	}
+
+	// Generate PDF
+	pdf, err := h.StatisticsService.GeneratePDF(transactions, dateRange)
+	if err != nil {
+		http.Error(w, "Failed to generate PDF", http.StatusInternalServerError)
+		return
+	}
+
+	// Generate filename
+	filename := fmt.Sprintf("transactions_report_%s.pdf", time.Now().Format("20060102_150405"))
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+
+	// Write PDF
+	if err := pdf.Output(w); err != nil {
+		fmt.Printf("Error writing PDF: %v\n", err)
+	}
+
+	// Log export activity
+	fmt.Printf("User %s exported %d transactions to PDF\n", user.Email, len(transactions))
+}

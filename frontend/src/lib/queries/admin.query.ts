@@ -1,97 +1,112 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import apiClient from '../axios-config';
-import { Tenant, DashboardStats } from '../models/admin.model';
-import { User } from '../models/auth.model';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ApiClient } from '../api';
 
-// ==================== API Functions ====================
+const api = new ApiClient();
 
-const adminApi = {
-  getAllTenants: async (): Promise<Tenant[]> => {
-    const response = await apiClient.get('/admin/tenants');
-    return response.data;
-  },
-
-  getTenantById: async (tenantId: number): Promise<Tenant> => {
-    const response = await apiClient.get(`/admin/tenants/${tenantId}`);
-    return response.data;
-  },
-
-  suspendTenant: async (tenantId: number): Promise<{ message: string }> => {
-    const response = await apiClient.post(`/admin/tenants/${tenantId}/suspend`);
-    return response.data;
-  },
-
-  activateTenant: async (tenantId: number): Promise<{ message: string }> => {
-    const response = await apiClient.post(`/admin/tenants/${tenantId}/activate`);
-    return response.data;
-  },
-
-  getAllUsers: async (): Promise<User[]> => {
-    const response = await apiClient.get('/admin/users');
-    return response.data;
-  },
-
-  getDashboardStats: async (): Promise<DashboardStats> => {
-    const response = await apiClient.get('/admin/dashboard/stats');
-    return response.data;
-  },
-};
-
-// ==================== React Query Hooks ====================
-
-export const useGetAllTenants = (enabled = true) => {
+// Dashboard Stats
+export const useGetAdminDashboardStats = () => {
   return useQuery({
-    queryKey: ['admin', 'tenants'],
-    queryFn: adminApi.getAllTenants,
-    enabled,
+    queryKey: ['admin', 'dashboard'],
+    queryFn: async () => {
+      const response = await api.get('/admin/dashboard/stats');
+      return response.data;
+    },
   });
 };
 
-export const useGetTenantById = (tenantId: number, enabled = true) => {
+// Licenses
+export const useGetAllLicenses = () => {
   return useQuery({
-    queryKey: ['admin', 'tenant', tenantId],
-    queryFn: () => adminApi.getTenantById(tenantId),
-    enabled: enabled && !!tenantId,
+    queryKey: ['admin', 'licenses'],
+    queryFn: async () => {
+      const response = await api.get('/admin/licenses');
+      return response.data;
+    },
+  });
+};
+
+export const useGenerateLicense = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: any) => {
+      const response = await api.post('/admin/licenses/generate', data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'licenses'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
+    },
+  });
+};
+
+export const useRevokeLicense = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.post(`/admin/licenses/${id}/revoke`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'licenses'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
+    },
+  });
+};
+
+// Tenants
+export const useGetAllTenants = () => {
+  return useQuery({
+    queryKey: ['admin', 'tenants'],
+    queryFn: async () => {
+      const response = await api.get('/admin/tenants');
+      return response.data;
+    },
   });
 };
 
 export const useSuspendTenant = () => {
   const queryClient = useQueryClient();
-  
   return useMutation({
-    mutationFn: adminApi.suspendTenant,
+    mutationFn: async (id: string) => {
+      await api.post(`/admin/tenants/${id}/suspend`);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'tenants'] });
-      queryClient.invalidateQueries({ queryKey: ['admin', 'stats'] });
     },
   });
 };
 
 export const useActivateTenant = () => {
   const queryClient = useQueryClient();
-  
   return useMutation({
-    mutationFn: adminApi.activateTenant,
+    mutationFn: async (id: string) => {
+      await api.post(`/admin/tenants/${id}/activate`);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'tenants'] });
-      queryClient.invalidateQueries({ queryKey: ['admin', 'stats'] });
     },
   });
 };
 
-export const useGetAllUsers = (enabled = true) => {
-  return useQuery({
-    queryKey: ['admin', 'users'],
-    queryFn: adminApi.getAllUsers,
-    enabled,
+export const useDeleteTenant = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/admin/tenants/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] });
+    },
   });
 };
 
-export const useGetDashboardStats = (enabled = true) => {
+// Users
+export const useGetAllUsers = () => {
   return useQuery({
-    queryKey: ['admin', 'stats'],
-    queryFn: adminApi.getDashboardStats,
-    enabled,
-    refetchInterval: 30000, // Refresh every 30 seconds
+    queryKey: ['admin', 'users'],
+    queryFn: async () => {
+      const response = await api.get('/admin/users');
+      return response.data;
+    },
   });
 };

@@ -182,12 +182,13 @@ func (h *Handler) DeleteClient(w http.ResponseWriter, r *http.Request) {
 
 // GetTransactions godoc
 // @Summary Get all transactions
-// @Description Get a list of all transactions with client details (filtered by tenant). Supports date filtering via query params: ?startDate=2024-01-01&endDate=2024-12-31
+// @Description Get a list of all transactions with client details (filtered by tenant). Supports date filtering via query params: ?startDate=2024-01-01&endDate=2024-12-31&branchId=1
 // @Tags transactions
 // @Produce json
 // @Security BearerAuth
 // @Param startDate query string false "Start date (YYYY-MM-DD)"
 // @Param endDate query string false "End date (YYYY-MM-DD)"
+// @Param branchId query int false "Branch ID"
 // @Success 200 {array} models.Transaction
 // @Failure 500 {object} map[string]string
 // @Router /transactions [get]
@@ -203,6 +204,7 @@ func (h *Handler) GetTransactions(w http.ResponseWriter, r *http.Request) {
 	// Parse date filters from query params
 	startDate := r.URL.Query().Get("startDate")
 	endDate := r.URL.Query().Get("endDate")
+	branchID := r.URL.Query().Get("branchId")
 
 	// Apply date filters if provided
 	if startDate != "" {
@@ -221,7 +223,12 @@ func (h *Handler) GetTransactions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	result := db.Preload("Client").Order("transaction_date DESC, created_at DESC").Find(&transactions)
+	// Apply branch filter if provided
+	if branchID != "" && branchID != "all" {
+		db = db.Where("branch_id = ?", branchID)
+	}
+
+	result := db.Preload("Client").Preload("Branch").Order("transaction_date DESC, created_at DESC").Find(&transactions)
 	if result.Error != nil {
 		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 		return

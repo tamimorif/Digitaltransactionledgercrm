@@ -45,7 +45,7 @@ export interface Transaction {
   transactionDate: string;
   createdAt: string;
   updatedAt: string;
-  
+
   // Multi-Payment Support (NEW)
   totalReceived?: number;
   receivedCurrency?: string;
@@ -53,7 +53,7 @@ export interface Transaction {
   remainingBalance?: number;
   paymentStatus?: 'SINGLE' | 'OPEN' | 'PARTIAL' | 'FULLY_PAID';
   allowPartialPayment?: boolean;
-  
+
   // Relations
   payments?: Payment[];
 }
@@ -74,6 +74,7 @@ export interface CreateTransactionRequest {
   beneficiaryDetails?: string;
   userNotes?: string;
   transactionDate?: string;
+  allowPartialPayment?: boolean;
 }
 
 export interface UpdateTransactionRequest {

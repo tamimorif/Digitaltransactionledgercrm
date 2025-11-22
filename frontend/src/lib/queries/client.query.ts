@@ -162,3 +162,37 @@ export function useDeleteTransaction() {
     },
   });
 }
+
+// ==================== Payment Queries ====================
+
+export function useCreatePayment(transactionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      amount: number;
+      currency: string;
+      exchangeRate: number;
+      notes?: string;
+      paymentMethod?: string;
+    }) => {
+      const response = await axiosInstance.post(`/transactions/${transactionId}/payments`, data);
+      return response.data;
+    },
+    onSuccess: (_, __, context) => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['payments', transactionId] });
+    },
+  });
+}
+
+export function useGetPayments(transactionId: string) {
+  return useQuery({
+    queryKey: ['payments', transactionId],
+    queryFn: async () => {
+      const response = await axiosInstance.get(`/transactions/${transactionId}/payments`);
+      return response.data;
+    },
+    enabled: !!transactionId,
+  });
+}

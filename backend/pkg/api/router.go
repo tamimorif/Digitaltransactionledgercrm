@@ -19,21 +19,29 @@ func NewRouter(db *gorm.DB) http.Handler {
 
 	// Initialize services
 	statisticsService := services.NewStatisticsService(db)
+	adminService := services.NewAdminService(db) // Added adminService initialization
+	exchangeRateService := services.NewExchangeRateService(db)
+	reconciliationService := services.NewReconciliationService(db)
+	reportService := services.NewReportService(db)
 
 	// Initialize handlers
 	handler := NewHandler(db)
 	authHandler := NewAuthHandler(db)
 	licenseHandler := NewLicenseHandler(db)
-	adminHandler := NewAdminHandler(db)
+	adminHandler := NewAdminHandler(adminService)
 	auditHandler := NewAuditHandler(db)
 	branchHandler := NewBranchHandler(db)
 	pickupHandler := NewPickupHandler(db)
 	customerHandler := NewCustomerHandler(db)
 	cashBalanceHandler := NewCashBalanceHandler(db)
 	statisticsHandler := NewStatisticsHandler(statisticsService)
+	exchangeRateHandler := NewExchangeRateHandler(exchangeRateService)
+	reconciliationHandler := NewReconciliationHandler(reconciliationService)
+	reportHandler := NewReportHandler(reportService)
 	migrationHandler := NewMigrationHandler(db)
 	ledgerHandler := NewLedgerHandler(db)
 	paymentHandler := NewPaymentHandler(db)
+	userHandler := NewUserHandler(db) // Moved userHandler initialization here for public routes
 
 	// API routes
 	api := router.PathPrefix("/api").Subrouter()
@@ -49,7 +57,6 @@ func NewRouter(db *gorm.DB) http.Handler {
 	api.HandleFunc("/auth/reset-password", authHandler.ResetPasswordHandler).Methods("POST")
 
 	// User routes (public for username check)
-	userHandler := NewUserHandler(db)
 	api.HandleFunc("/users/check-username", userHandler.CheckUsernameAvailabilityHandler).Methods("GET")
 
 	// ============ PROTECTED ROUTES (Authentication Required) ============
@@ -79,7 +86,7 @@ func NewRouter(db *gorm.DB) http.Handler {
 	protected.HandleFunc("/transactions/{id}/cancel", handler.CancelTransaction).Methods("POST")
 	protected.HandleFunc("/transactions/{id}", handler.DeleteTransaction).Methods("DELETE")
 	protected.HandleFunc("/transactions/search", handler.SearchTransactions).Methods("GET")
-	
+
 	// Payment routes (protected) - NEW
 	protected.HandleFunc("/transactions/{id}/payments", paymentHandler.CreatePaymentHandler).Methods("POST")
 	protected.HandleFunc("/transactions/{id}/payments", paymentHandler.GetPaymentsHandler).Methods("GET")
@@ -159,6 +166,23 @@ func NewRouter(db *gorm.DB) http.Handler {
 	protected.HandleFunc("/statistics", statisticsHandler.GetStatisticsHandler).Methods("GET")
 	protected.HandleFunc("/export/csv", statisticsHandler.ExportCSVHandler).Methods("GET")
 	protected.HandleFunc("/export/json", statisticsHandler.ExportJSONHandler).Methods("GET")
+	protected.HandleFunc("/export/pdf", statisticsHandler.ExportPDFHandler).Methods("GET")
+
+	// Exchange Rate routes
+	protected.HandleFunc("/rates", exchangeRateHandler.GetAllRatesHandler).Methods("GET")
+	protected.HandleFunc("/rates/refresh", exchangeRateHandler.RefreshRatesHandler).Methods("POST")
+	protected.HandleFunc("/rates/manual", exchangeRateHandler.SetManualRateHandler).Methods("POST")
+	protected.HandleFunc("/rates/history", exchangeRateHandler.GetRateHistoryHandler).Methods("GET")
+
+	// Daily Reconciliation routes
+	protected.HandleFunc("/reconciliation", reconciliationHandler.CreateReconciliationHandler).Methods("POST")
+	protected.HandleFunc("/reconciliation", reconciliationHandler.GetReconciliationHistoryHandler).Methods("GET")
+	protected.HandleFunc("/reconciliation/variance", reconciliationHandler.GetVarianceReportHandler).Methods("GET")
+
+	// Report Dashboard routes
+	protected.HandleFunc("/reports/daily", reportHandler.GetDailyReportHandler).Methods("GET")
+	protected.HandleFunc("/reports/monthly", reportHandler.GetMonthlyReportHandler).Methods("GET")
+	protected.HandleFunc("/reports/custom", reportHandler.GetCustomReportHandler).Methods("GET")
 
 	// ============ SUPER ADMIN ROUTES ============
 
@@ -168,9 +192,9 @@ func NewRouter(db *gorm.DB) http.Handler {
 	admin.Use(middleware.RequireSuperAdmin)
 
 	// License management (SuperAdmin)
-	admin.HandleFunc("/licenses/generate", licenseHandler.GenerateLicenseHandler).Methods("POST")
-	admin.HandleFunc("/licenses", licenseHandler.GetAllLicensesHandler).Methods("GET")
-	admin.HandleFunc("/licenses/{id}/revoke", licenseHandler.RevokeLicenseHandler).Methods("POST")
+	admin.HandleFunc("/licenses/generate", adminHandler.GenerateLicenseHandler).Methods("POST")
+	admin.HandleFunc("/licenses", adminHandler.GetAllLicensesHandler).Methods("GET")
+	admin.HandleFunc("/licenses/{id}/revoke", adminHandler.RevokeLicenseHandler).Methods("POST")
 
 	// Tenant management (SuperAdmin)
 	admin.HandleFunc("/tenants", adminHandler.GetAllTenantsHandler).Methods("GET")
@@ -207,7 +231,7 @@ func NewRouter(db *gorm.DB) http.Handler {
 
 	// Setup CORS
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000", "http://localhost:3001"}, // Add your frontend URLs
+		AllowedOrigins:   []string{"http://localhost:3000"}, // Frontend URL
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,

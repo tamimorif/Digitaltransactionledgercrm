@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/components/providers/auth-provider';
-import { Loader2, Settings, User, Mail, Shield, LogOut } from 'lucide-react';
+import { Loader2, Settings, User, Mail, Shield, LogOut, ChevronDown, LayoutDashboard, Send, Search, Clock, FileText, TrendingUp, Calculator, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/src/components/ui/button';
 import {
@@ -52,41 +52,127 @@ export default function DashboardLayout({
               <h1 className="text-xl font-bold">
                 {user?.role === 'superadmin' ? 'SuperAdmin Panel' : 'Accounting Panel'}
               </h1>
-              <nav className="flex gap-4">
+              <nav className="flex gap-2">
                 {user?.role === 'superadmin' ? (
                   // SuperAdmin navigation - only admin features
                   <>
                     <Link href="/admin">
-                      <Button variant="ghost">Dashboard</Button>
+                      <Button variant="ghost" size="sm"><LayoutDashboard className="h-4 w-4 mr-2" />Dashboard</Button>
                     </Link>
                     <Link href="/admin/generate-license">
-                      <Button variant="ghost">Generate License</Button>
+                      <Button variant="ghost" size="sm">Generate License</Button>
                     </Link>
                     <Link href="/admin/customer-search">
-                      <Button variant="ghost">Customer Search</Button>
+                      <Button variant="ghost" size="sm">Customer Search</Button>
                     </Link>
                   </>
                 ) : (
-                  // Regular user navigation - transaction features
+                  // Regular user navigation - grouped dropdowns
                   <>
                     <Link href="/dashboard">
-                      <Button variant="ghost">Dashboard</Button>
+                      <Button variant="ghost" size="sm"><LayoutDashboard className="h-4 w-4 mr-2" />Dashboard</Button>
                     </Link>
-                    <Link href="/send-pickup">
-                      <Button variant="ghost">New Transaction</Button>
-                    </Link>
-                    <Link href="/pickup-search">
-                      <Button variant="ghost">Search Pickups</Button>
-                    </Link>
-                    <Link href="/pending-pickups">
-                      <Button variant="ghost">Pending Pickups</Button>
-                    </Link>
+
+                    {/* Transactions Dropdown */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <Send className="h-4 w-4 mr-2" />
+                          Transactions
+                          <ChevronDown className="h-4 w-4 ml-1" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem asChild>
+                          <Link href="/send-pickup" className="cursor-pointer">
+                            <Send className="h-4 w-4 mr-2" />
+                            New Transaction
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/pickup-search" className="cursor-pointer">
+                            <Search className="h-4 w-4 mr-2" />
+                            Search Pickups
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/pending-pickups" className="cursor-pointer">
+                            <Clock className="h-4 w-4 mr-2" />
+                            Pending Pickups
+                          </Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {/* Financial Dropdown */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <TrendingUp className="h-4 w-4 mr-2" />
+                          Financial
+                          <ChevronDown className="h-4 w-4 ml-1" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem asChild>
+                          <Link href="/rates" className="cursor-pointer">
+                            <TrendingUp className="h-4 w-4 mr-2" />
+                            Exchange Rates
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/reconciliation" className="cursor-pointer">
+                            <Calculator className="h-4 w-4 mr-2" />
+                            Reconciliation
+                          </Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {/* Reports Dropdown */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <FileText className="h-4 w-4 mr-2" />
+                          Reports
+                          <ChevronDown className="h-4 w-4 ml-1" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem asChild>
+                          <Link href="/reports" className="cursor-pointer">
+                            <FileText className="h-4 w-4 mr-2" />
+                            Export Reports
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href="/reports-dashboard" className="cursor-pointer">
+                            <LayoutDashboard className="h-4 w-4 mr-2" />
+                            Reports Dashboard
+                          </Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {/* Admin Dropdown (for owners/admins only) */}
                     {(user?.role === 'tenant_owner' || user?.role === 'tenant_admin') && (
-                      <>
-                        <Link href="/admin/branches">
-                          <Button variant="ghost">Branches</Button>
-                        </Link>
-                      </>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <Building2 className="h-4 w-4 mr-2" />
+                            Management
+                            <ChevronDown className="h-4 w-4 ml-1" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          <DropdownMenuItem asChild>
+                            <Link href="/admin/branches" className="cursor-pointer">
+                              <Building2 className="h-4 w-4 mr-2" />
+                              Branches
+                            </Link>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </>
                 )}

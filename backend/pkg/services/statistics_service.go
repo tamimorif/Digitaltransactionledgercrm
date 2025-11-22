@@ -2,8 +2,10 @@ package services
 
 import (
 	"api/pkg/models"
+	"fmt"
 	"time"
 
+	"github.com/go-pdf/fpdf"
 	"gorm.io/gorm"
 )
 
@@ -193,4 +195,55 @@ func stringValue(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// GeneratePDF creates a PDF report from transaction data
+func (s *StatisticsService) GeneratePDF(transactions []TransactionExportRow, dateRange string) (*fpdf.Fpdf, error) {
+	pdf := fpdf.New("L", "mm", "A4", "") // Landscape
+	pdf.AddPage()
+	pdf.SetFont("Arial", "B", 16)
+	pdf.Cell(40, 10, "Transaction Report")
+	pdf.Ln(8)
+	pdf.SetFont("Arial", "", 10)
+	pdf.Cell(40, 10, "Generated: "+time.Now().Format("2006-01-02 15:04:05"))
+	pdf.Ln(6)
+	pdf.Cell(40, 10, "Date Range: "+dateRange)
+	pdf.Ln(12)
+
+	// Table Header
+	pdf.SetFillColor(240, 240, 240)
+	pdf.SetFont("Arial", "B", 9)
+
+	headers := []string{"Date", "Type", "Send", "Receive", "Rate", "Beneficiary", "Branch", "Status"}
+	widths := []float64{35, 30, 35, 35, 20, 50, 35, 25}
+
+	for i, h := range headers {
+		pdf.CellFormat(widths[i], 8, h, "1", 0, "C", true, 0, "")
+	}
+	pdf.Ln(-1)
+
+	// Table Body
+	pdf.SetFont("Arial", "", 8)
+	pdf.SetFillColor(255, 255, 255)
+
+	for _, tx := range transactions {
+		pdf.CellFormat(widths[0], 8, tx.Date, "1", 0, "L", false, 0, "")
+		pdf.CellFormat(widths[1], 8, tx.Type, "1", 0, "L", false, 0, "")
+		pdf.CellFormat(widths[2], 8, fmt.Sprintf("%.2f %s", tx.SendAmount, tx.SendCurrency), "1", 0, "R", false, 0, "")
+		pdf.CellFormat(widths[3], 8, fmt.Sprintf("%.2f %s", tx.ReceiveAmount, tx.ReceiveCurrency), "1", 0, "R", false, 0, "")
+		pdf.CellFormat(widths[4], 8, fmt.Sprintf("%.4f", tx.RateApplied), "1", 0, "R", false, 0, "")
+
+		// Truncate beneficiary if too long
+		beneficiary := tx.BeneficiaryName
+		if len(beneficiary) > 25 {
+			beneficiary = beneficiary[:22] + "..."
+		}
+		pdf.CellFormat(widths[5], 8, beneficiary, "1", 0, "L", false, 0, "")
+
+		pdf.CellFormat(widths[6], 8, tx.BranchName, "1", 0, "L", false, 0, "")
+		pdf.CellFormat(widths[7], 8, tx.Status, "1", 0, "C", false, 0, "")
+		pdf.Ln(-1)
+	}
+
+	return pdf, nil
 }
