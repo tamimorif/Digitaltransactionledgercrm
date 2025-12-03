@@ -39,13 +39,14 @@ export function TransactionPreviewDialog({
         switch (type) {
             case 'CASH_PICKUP': return '💱 Walk-In Exchange';
             case 'CARD_SWAP_IRR': return '💳 Card Cash-Out';
+            case 'INCOMING_FUNDS': return '💵 Receive Money';
             case 'CASH_EXCHANGE': return '📤 Branch-to-Branch Transfer';
             case 'BANK_TRANSFER': return '🏦 Bank Deposit (Iran)';
             default: return type;
         }
     };
 
-    const isInPerson = data.transactionType === 'CASH_PICKUP' || data.transactionType === 'CARD_SWAP_IRR';
+    const isInPerson = data.transactionType === 'CASH_PICKUP' || data.transactionType === 'CARD_SWAP_IRR' || data.transactionType === 'INCOMING_FUNDS';
     const isCardSwap = data.transactionType === 'CARD_SWAP_IRR';
 
     return (
@@ -122,7 +123,7 @@ export function TransactionPreviewDialog({
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-muted-foreground">Exchange Rate</span>
                                     <span className="font-medium">
-                                        {isCardSwap
+                                        {isCardSwap || data.senderCurrency === 'IRR'
                                             ? `${parseFloat(data.exchangeRate).toLocaleString()} ${data.senderCurrency} = 1 ${data.receiverCurrency}`
                                             : `1 ${data.senderCurrency} = ${data.exchangeRate} ${data.receiverCurrency}`
                                         }

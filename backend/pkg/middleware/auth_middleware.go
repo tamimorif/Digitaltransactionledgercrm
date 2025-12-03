@@ -17,21 +17,25 @@ func AuthMiddleware(db *gorm.DB) func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Get token from Authorization header
+			// Get token from Authorization header or fallback to query param (for WebSocket)
+			tokenString := ""
 			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				respondWithError(w, http.StatusUnauthorized, "Authorization header required")
-				return
-			}
+			if authHeader != "" {
+				// Check if it's a Bearer token
+				parts := strings.Split(authHeader, " ")
+				if len(parts) != 2 || parts[0] != "Bearer" {
+					respondWithError(w, http.StatusUnauthorized, "Invalid authorization header format")
+					return
+				}
 
-			// Check if it's a Bearer token
-			parts := strings.Split(authHeader, " ")
-			if len(parts) != 2 || parts[0] != "Bearer" {
-				respondWithError(w, http.StatusUnauthorized, "Invalid authorization header format")
-				return
+				tokenString = parts[1]
+			} else {
+				tokenString = r.URL.Query().Get("token")
+				if tokenString == "" {
+					respondWithError(w, http.StatusUnauthorized, "Authorization header required")
+					return
+				}
 			}
-
-			tokenString := parts[1]
 
 			// Validate token
 			claims, err := authService.ValidateJWT(tokenString)

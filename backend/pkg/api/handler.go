@@ -398,21 +398,30 @@ func (h *Handler) UpdateTransaction(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare update map to avoid tenant_id ambiguity with scoped queries
 	updates := map[string]interface{}{
-		"type":                updatedTransaction.Type,
-		"send_currency":       updatedTransaction.SendCurrency,
-		"send_amount":         updatedTransaction.SendAmount,
-		"receive_currency":    updatedTransaction.ReceiveCurrency,
-		"receive_amount":      updatedTransaction.ReceiveAmount,
-		"rate_applied":        updatedTransaction.RateApplied,
-		"fee_charged":         updatedTransaction.FeeCharged,
-		"beneficiary_name":    updatedTransaction.BeneficiaryName,
-		"beneficiary_details": updatedTransaction.BeneficiaryDetails,
-		"user_notes":          updatedTransaction.UserNotes,
-		"is_edited":           true,
-		"last_edited_at":      now,
-		"edited_by_branch_id": user.PrimaryBranchID, // Set the current branch as editor
-		"edit_history":        historyStr,
-		"updated_at":          now,
+		"type":                  updatedTransaction.Type,
+		"send_currency":         updatedTransaction.SendCurrency,
+		"send_amount":           updatedTransaction.SendAmount,
+		"receive_currency":      updatedTransaction.ReceiveCurrency,
+		"receive_amount":        updatedTransaction.ReceiveAmount,
+		"rate_applied":          updatedTransaction.RateApplied,
+		"fee_charged":           updatedTransaction.FeeCharged,
+		"beneficiary_name":      updatedTransaction.BeneficiaryName,
+		"beneficiary_details":   updatedTransaction.BeneficiaryDetails,
+		"user_notes":            updatedTransaction.UserNotes,
+		"allow_partial_payment": updatedTransaction.AllowPartialPayment, // Allow updating this flag
+		"is_edited":             true,
+		"last_edited_at":        now,
+		"edited_by_branch_id":   user.PrimaryBranchID, // Set the current branch as editor
+		"edit_history":          historyStr,
+		"updated_at":            now,
+	}
+
+	// If enabling partial payments for the first time, initialize tracking fields
+	if updatedTransaction.AllowPartialPayment && !existingTransaction.AllowPartialPayment {
+		updates["total_received"] = updatedTransaction.SendAmount // Assuming we receive the SendAmount
+		updates["received_currency"] = updatedTransaction.SendCurrency
+		updates["remaining_balance"] = updatedTransaction.SendAmount
+		updates["payment_status"] = models.PaymentStatusOpen
 	}
 
 	// Update the transaction - use base db to avoid scope ambiguity, add WHERE manually

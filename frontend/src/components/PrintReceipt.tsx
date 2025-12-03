@@ -29,6 +29,7 @@ export function PrintReceipt({ transaction, companyName = 'Digital Transaction L
         switch (type) {
             case 'CASH_PICKUP': return 'Walk-In Exchange';
             case 'CARD_SWAP_IRR': return 'Card Cash-Out';
+            case 'INCOMING_FUNDS': return 'Receive Money';
             case 'CASH_EXCHANGE': return 'Branch Transfer';
             case 'BANK_TRANSFER': return 'Bank Transfer';
             default: return type;

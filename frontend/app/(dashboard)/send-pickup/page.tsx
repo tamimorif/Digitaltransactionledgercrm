@@ -25,7 +25,7 @@ import { LanguageToggle } from '@/src/components/LanguageToggle';
 import { CashBalanceWidget } from '@/src/components/CashBalanceWidget';
 import { TransactionSummaryDashboard } from '@/src/components/TransactionSummaryDashboard';
 import { QuickAmountButtons } from '@/src/components/QuickAmountButtons';
-import { RateHistoryDropdown } from '@/src/components/RateHistoryDropdown';
+
 import { calculateReceivedAmount, saveRateToHistory, getLastRate, findDuplicateTransaction, formatTimeAgo } from '@/src/lib/transaction-helpers';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'IRR', 'AED', 'TRY'];
@@ -61,7 +61,7 @@ export default function SendMoneyPickupPage() {
         recipientName: '',
         recipientPhone: '',
         recipientIban: '',
-        transactionType: 'CASH_PICKUP' as 'CASH_PICKUP' | 'CASH_EXCHANGE' | 'BANK_TRANSFER' | 'CARD_SWAP_IRR',
+        transactionType: 'CASH_PICKUP' as 'CASH_PICKUP' | 'CASH_EXCHANGE' | 'BANK_TRANSFER' | 'CARD_SWAP_IRR' | 'INCOMING_FUNDS',
         receiverBranchId: '',
         amount: '',
         senderCurrency: '',
@@ -448,7 +448,7 @@ export default function SendMoneyPickupPage() {
             return;
         }
 
-        // Recipient name required for transfers (CASH_EXCHANGE, BANK_TRANSFER) - optional for in-person (CASH_PICKUP, CARD_SWAP_IRR)
+        // Recipient name required for transfers (CASH_EXCHANGE, BANK_TRANSFER) - optional for in-person (CASH_PICKUP, CARD_SWAP_IRR, INCOMING_FUNDS)
         if ((formData.transactionType === 'CASH_EXCHANGE' || formData.transactionType === 'BANK_TRANSFER') && !formData.recipientName) {
             toast.error('Please enter recipient name');
             return;
@@ -497,10 +497,10 @@ export default function SendMoneyPickupPage() {
             return;
         }
 
-        // For in-person exchanges (CASH_PICKUP, CASH_EXCHANGE) and Card Swap (CARD_SWAP_IRR), use same branch (sender = receiver)
+        // For in-person exchanges (CASH_PICKUP, INCOMING_FUNDS) and Card Swap (CARD_SWAP_IRR), and CASH_EXCHANGE use same branch (sender = receiver)
         // For other types (BANK_TRANSFER), ensure branches are different
         let receiverBranchId: number;
-        if (formData.transactionType === 'CASH_PICKUP' || formData.transactionType === 'CARD_SWAP_IRR' || formData.transactionType === 'CASH_EXCHANGE') {
+        if (formData.transactionType === 'CASH_PICKUP' || formData.transactionType === 'CARD_SWAP_IRR' || formData.transactionType === 'CASH_EXCHANGE' || formData.transactionType === 'INCOMING_FUNDS') {
             receiverBranchId = senderBranchId;
         } else {
             receiverBranchId = parseInt(formData.receiverBranchId);
@@ -514,7 +514,7 @@ export default function SendMoneyPickupPage() {
         const senderAmount = parseFloat(formData.amount);
         const exchangeRate = parseFloat(formData.exchangeRate);
         const isCardSwap = formData.transactionType === 'CARD_SWAP_IRR';
-        const receiverAmount = calculateReceivedAmount(senderAmount, exchangeRate, isCardSwap);
+        const receiverAmount = calculateReceivedAmount(senderAmount, exchangeRate, isCardSwap, formData.senderCurrency);
 
         try {
             // Auto-create sender if doesn't exist
@@ -833,10 +833,12 @@ export default function SendMoneyPickupPage() {
                             </>
                         )}
 
-                        {/* Recipient Name with Search (Not needed for Currency Exchange or Card Swap) */}
+                        {/* Recipient Name with Search (Not needed for Currency Exchange or Card Swap, Optional for Receive Money) */}
                         {formData.transactionType !== 'CASH_PICKUP' && formData.transactionType !== 'CARD_SWAP_IRR' && (
                             <div className="space-y-2 relative" ref={recipientSearchRef}>
-                                <Label htmlFor="recipientName">Recipient Name *</Label>
+                                <Label htmlFor="recipientName">
+                                    Recipient Name {formData.transactionType === 'INCOMING_FUNDS' ? '(Optional - for tracking who you\'ll pay)' : '*'}
+                                </Label>
                                 <div className="relative">
                                     <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                     <Input
@@ -846,7 +848,7 @@ export default function SendMoneyPickupPage() {
                                         onFocus={() => setShowRecipientResults(recipientSearchQuery.length >= 2)}
                                         placeholder="Type name to search existing customers (e.g., Tamim)"
                                         className="pl-10 pr-10"
-                                        required
+                                        required={formData.transactionType !== 'INCOMING_FUNDS'}
                                     />
                                     {recipientExists !== null && (
                                         <div className="absolute right-3 top-3">
@@ -915,11 +917,11 @@ export default function SendMoneyPickupPage() {
                             </div>
                         )}
 
-                        {/* Recipient Phone (Not needed for Currency Exchange or Card Swap) */}
+                        {/* Recipient Phone (Not needed for Currency Exchange or Card Swap, Optional for Receive Money) */}
                         {formData.transactionType !== 'CASH_PICKUP' && formData.transactionType !== 'CARD_SWAP_IRR' && (
                             <div className="space-y-2">
                                 <Label htmlFor="recipientPhone">
-                                    Recipient Phone {formData.transactionType === 'BANK_TRANSFER' ? '(Optional)' : '*'}
+                                    Recipient Phone {(formData.transactionType === 'BANK_TRANSFER' || formData.transactionType === 'INCOMING_FUNDS') ? '(Optional)' : '*'}
                                 </Label>
                                 <div className="relative">
                                     <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -930,13 +932,15 @@ export default function SendMoneyPickupPage() {
                                         onChange={(e) => handleRecipientPhoneSearch(e.target.value)}
                                         placeholder="+1234567890"
                                         className="pl-10"
-                                        required={formData.transactionType !== 'BANK_TRANSFER'}
+                                        required={formData.transactionType !== 'BANK_TRANSFER' && formData.transactionType !== 'INCOMING_FUNDS'}
                                     />
                                 </div>
                                 <p className="text-xs text-muted-foreground">
                                     {formData.transactionType === 'BANK_TRANSFER'
                                         ? 'Optional contact number for the recipient'
-                                        : 'This will be used for verification at pickup'}
+                                        : formData.transactionType === 'INCOMING_FUNDS'
+                                            ? 'Optional - Track who you might need to pay later'
+                                            : 'This will be used for verification at pickup'}
                                 </p>
                             </div>
                         )}
@@ -954,6 +958,7 @@ export default function SendMoneyPickupPage() {
                                 <SelectContent>
                                     <SelectItem value="CASH_PICKUP">💱 Walk-In Exchange</SelectItem>
                                     <SelectItem value="CARD_SWAP_IRR">💳 Card Cash-Out (Iran)</SelectItem>
+                                    <SelectItem value="INCOMING_FUNDS">💵 Receive Money</SelectItem>
                                     <SelectItem value="CASH_EXCHANGE">📤 Send to Branch</SelectItem>
                                     <SelectItem value="BANK_TRANSFER">🏦 Bank Transfer (Iran)</SelectItem>
                                 </SelectContent>
@@ -961,6 +966,7 @@ export default function SendMoneyPickupPage() {
                             <p className="text-xs text-muted-foreground">
                                 {formData.transactionType === 'CASH_PICKUP' && 'Customer exchanges one currency for another and receives cash in hand'}
                                 {formData.transactionType === 'CARD_SWAP_IRR' && 'Customer swipes Iranian debit card, you give them cash in their chosen currency'}
+                                {formData.transactionType === 'INCOMING_FUNDS' && 'Record money received from an individual - automatically saves date and supports multiple payment methods'}
                                 {formData.transactionType === 'CASH_EXCHANGE' && 'Send money to another branch for recipient to pick up later'}
                                 {formData.transactionType === 'BANK_TRANSFER' && 'Transfer money directly to recipient\'s Iranian bank account'}
                             </p>
@@ -1073,7 +1079,7 @@ export default function SendMoneyPickupPage() {
                                     <div className="bg-white dark:bg-gray-900 p-3 rounded border border-green-300">
                                         <p className="text-xs text-muted-foreground">Customer Receives</p>
                                         <p className="text-lg font-bold text-green-600">
-                                            {formatCurrency(calculateReceivedAmount(formData.amount, formData.exchangeRate, true))} {formData.receiverCurrency}
+                                            {formatCurrency(calculateReceivedAmount(formData.amount, formData.exchangeRate, true, formData.senderCurrency))} {formData.receiverCurrency}
                                         </p>
                                         <p className="text-xs text-muted-foreground mt-1">Rate: {formatNumberWithCommas(formData.exchangeRate)} Toman = 1 {formData.receiverCurrency}</p>
                                     </div>
@@ -1103,18 +1109,11 @@ export default function SendMoneyPickupPage() {
                                     placeholder="1,000.00"
                                     required
                                 />
-                                {/* Quick Amount Buttons */}
-                                {formData.senderCurrency && (
-                                    <QuickAmountButtons
-                                        currency={formData.senderCurrency}
-                                        onAmountSelect={(amount) => setFormData({ ...formData, amount })}
-                                    />
-                                )}
                             </div>
                             {/* Hide Card Currency for Card Swap - auto-set to IRR */}
                             {formData.transactionType !== 'CARD_SWAP_IRR' && (
                                 <div className="space-y-2">
-                                    <Label htmlFor="senderCurrency">
+                                    <Label htmlFor="senderCurrency" className="text-base font-semibold">
                                         {formData.transactionType === 'CASH_PICKUP' ? t('transaction.labels.currencyReceived') :
                                             formData.transactionType === 'CASH_EXCHANGE' ? t('transaction.labels.currency') :
                                                 t('transaction.labels.sourceCurrency')} *
@@ -1138,11 +1137,21 @@ export default function SendMoneyPickupPage() {
                             )}
                         </div>
 
+                        {/* Quick Amount Buttons - Full Width */}
+                        {formData.senderCurrency && (
+                            <div className="mt-1 mb-2">
+                                <QuickAmountButtons
+                                    currency={formData.senderCurrency}
+                                    onAmountSelect={(amount) => setFormData({ ...formData, amount })}
+                                />
+                            </div>
+                        )}
+
                         {/* Receiver Currency and Exchange Rate (For Currency Exchange and Bank Deposit) */}
                         {formData.transactionType !== 'CASH_EXCHANGE' && (
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="receiverCurrency">
+                                    <Label htmlFor="receiverCurrency" className="text-base font-semibold">
                                         {formData.transactionType === 'CASH_PICKUP' ? t('transaction.labels.currencyToProvide') :
                                             formData.transactionType === 'CARD_SWAP_IRR' ? t('transaction.labels.cashPayoutCurrency') :
                                                 t('transaction.labels.recipientReceives')} *
@@ -1172,15 +1181,9 @@ export default function SendMoneyPickupPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
-                                        <Label htmlFor="exchangeRate">{t('transaction.labels.exchangeRate')} *</Label>
+                                        <Label htmlFor="exchangeRate" className="text-base font-semibold">{t('transaction.labels.exchangeRate')} *</Label>
                                         {/* Rate History Dropdown */}
-                                        {formData.senderCurrency && formData.receiverCurrency && (
-                                            <RateHistoryDropdown
-                                                fromCurrency={formData.senderCurrency}
-                                                toCurrency={formData.receiverCurrency}
-                                                onRateSelect={(rate) => setFormData({ ...formData, exchangeRate: rate })}
-                                            />
-                                        )}
+
                                     </div>
                                     <Input
                                         ref={exchangeRateInputRef}
@@ -1267,7 +1270,7 @@ export default function SendMoneyPickupPage() {
                                         {(() => {
                                             const isCardSwap = formData.transactionType === 'CARD_SWAP_IRR';
                                             if (formData.amount && formData.exchangeRate && formData.senderCurrency && formData.receiverCurrency) {
-                                                const receivedAmount = formatCurrency(calculateReceivedAmount(formData.amount, formData.exchangeRate, isCardSwap));
+                                                const receivedAmount = formatCurrency(calculateReceivedAmount(formData.amount, formData.exchangeRate, isCardSwap, formData.senderCurrency));
                                                 if (formData.transactionType === 'CASH_PICKUP') {
                                                     return t('transaction.helpers.customerReceives', { amount: receivedAmount, currency: formData.receiverCurrency });
                                                 }
@@ -1449,7 +1452,8 @@ export default function SendMoneyPickupPage() {
                         ? calculateReceivedAmount(
                             parseFloat(formData.amount),
                             parseFloat(formData.exchangeRate),
-                            formData.transactionType === 'CARD_SWAP_IRR'
+                            formData.transactionType === 'CARD_SWAP_IRR',
+                            formData.senderCurrency
                         )
                         : undefined,
                     fees: formData.fees,

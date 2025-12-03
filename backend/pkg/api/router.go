@@ -23,6 +23,9 @@ func NewRouter(db *gorm.DB) http.Handler {
 	exchangeRateService := services.NewExchangeRateService(db)
 	reconciliationService := services.NewReconciliationService(db)
 	reportService := services.NewReportService(db)
+	ledgerService := services.NewLedgerService(db)
+	cashBalanceService := services.NewCashBalanceService(db)
+	paymentService := services.NewPaymentService(db, ledgerService, cashBalanceService)
 
 	// Initialize handlers
 	handler := NewHandler(db)
@@ -40,35 +43,57 @@ func NewRouter(db *gorm.DB) http.Handler {
 	reportHandler := NewReportHandler(reportService)
 	migrationHandler := NewMigrationHandler(db)
 	ledgerHandler := NewLedgerHandler(db)
-	paymentHandler := NewPaymentHandler(db)
+	paymentHandler := NewPaymentHandler(db, paymentService)
 	userHandler := NewUserHandler(db) // Moved userHandler initialization here for public routes
+	searchHandler := NewSearchHandler(db)
+	wsHandler := NewWebSocketHandler(db)
+	settlementHandler := NewRemittanceSettlementHandler(db) // Added settlement handler
+
+	// NEW: Initialize new handlers for enhanced features
+	dashboardHandler := NewDashboardHandler(db)
+	autoSettlementHandler := NewAutoSettlementHandler(db)
+	profitAnalysisHandler := NewProfitAnalysisHandler(db)
+	receiptHandler := NewReceiptHandler(db)
+	navasanHandler := NewNavasanHandler()
 
 	// API routes
 	api := router.PathPrefix("/api").Subrouter()
 
 	// ============ PUBLIC ROUTES (No Authentication Required) ============
 
-	// Public auth routes
-	api.HandleFunc("/auth/register", authHandler.RegisterHandler).Methods("POST")
-	api.HandleFunc("/auth/verify-email", authHandler.VerifyEmailHandler).Methods("POST")
-	api.HandleFunc("/auth/resend-code", authHandler.ResendVerificationCodeHandler).Methods("POST")
-	api.HandleFunc("/auth/login", authHandler.LoginHandler).Methods("POST")
-	api.HandleFunc("/auth/forgot-password", authHandler.ForgotPasswordHandler).Methods("POST")
-	api.HandleFunc("/auth/reset-password", authHandler.ResetPasswordHandler).Methods("POST")
+	// Public auth routes with IP rate limiting
+	authPublic := api.PathPrefix("/auth").Subrouter()
+	authPublic.Use(middleware.IPRateLimitMiddleware(db, 10, 1*time.Minute)) // 10 requests per minute per IP
+
+	authPublic.HandleFunc("/register", authHandler.RegisterHandler).Methods("POST")
+	authPublic.HandleFunc("/verify-email", authHandler.VerifyEmailHandler).Methods("POST")
+	authPublic.HandleFunc("/resend-code", authHandler.ResendVerificationCodeHandler).Methods("POST")
+	authPublic.HandleFunc("/login", authHandler.LoginHandler).Methods("POST")
+	authPublic.HandleFunc("/forgot-password", authHandler.ForgotPasswordHandler).Methods("POST")
+	authPublic.HandleFunc("/reset-password", authHandler.ResetPasswordHandler).Methods("POST")
+	authPublic.HandleFunc("/refresh", authHandler.RefreshTokenHandler).Methods("POST")
 
 	// User routes (public for username check)
 	api.HandleFunc("/users/check-username", userHandler.CheckUsernameAvailabilityHandler).Methods("GET")
 
+	// Navasan exchange rates (public - Tehran market rates in IRR/Toman)
+	api.HandleFunc("/rates/navasan", navasanHandler.GetNavasanRates).Methods("GET")
+	api.HandleFunc("/rates/navasan/refresh", navasanHandler.RefreshNavasanRates).Methods("POST")
+	api.HandleFunc("/rates/navasan/{currency}", navasanHandler.GetNavasanRate).Methods("GET")
+	api.HandleFunc("/rates/usd-irr", navasanHandler.GetUSDToIRR).Methods("GET")
+
 	// ============ PROTECTED ROUTES (Authentication Required) ============
 
-	// Create protected subrouter
+	// Create protected subrouter with rate limiting
 	protected := api.PathPrefix("").Subrouter()
 	protected.Use(middleware.AuthMiddleware(db))
+	protected.Use(middleware.RateLimitMiddleware(db, 100, 1*time.Minute)) // 100 requests per minute per user
 	protected.Use(middleware.TenantIsolationMiddleware)
 
 	// Auth routes (protected)
 	protected.HandleFunc("/auth/me", authHandler.GetMeHandler).Methods("GET")
 	protected.HandleFunc("/auth/change-password", authHandler.ChangePasswordHandler).Methods("POST")
+	protected.HandleFunc("/auth/logout", authHandler.LogoutHandler).Methods("POST")
 
 	// Migration routes (protected - tenant owner only)
 	protected.HandleFunc("/migrations/fix-owner-branch", migrationHandler.FixOwnerBranchHandler).Methods("POST")
@@ -95,6 +120,30 @@ func NewRouter(db *gorm.DB) http.Handler {
 	protected.HandleFunc("/payments/{id}", paymentHandler.UpdatePaymentHandler).Methods("PUT")
 	protected.HandleFunc("/payments/{id}", paymentHandler.DeletePaymentHandler).Methods("DELETE")
 	protected.HandleFunc("/payments/{id}/cancel", paymentHandler.CancelPaymentHandler).Methods("POST")
+
+	// Remittance routes (protected) - Hawala-style money transfer system
+	protected.HandleFunc("/remittances/outgoing", handler.CreateOutgoingRemittance).Methods("POST")
+	protected.HandleFunc("/remittances/outgoing", handler.GetOutgoingRemittances).Methods("GET")
+	protected.HandleFunc("/remittances/outgoing/{id}", handler.GetOutgoingRemittanceDetails).Methods("GET")
+	protected.HandleFunc("/remittances/outgoing/{id}/cancel", handler.CancelOutgoingRemittance).Methods("POST")
+	protected.HandleFunc("/remittances/incoming", handler.CreateIncomingRemittance).Methods("POST")
+	protected.HandleFunc("/remittances/incoming", handler.GetIncomingRemittances).Methods("GET")
+	protected.HandleFunc("/remittances/incoming/{id}", handler.GetIncomingRemittanceDetails).Methods("GET")
+	protected.HandleFunc("/remittances/incoming/{id}/mark-paid", handler.MarkIncomingAsPaid).Methods("POST")
+	protected.HandleFunc("/remittances/incoming/{id}/cancel", handler.CancelIncomingRemittance).Methods("POST")
+	protected.HandleFunc("/remittances/settle", handler.SettleRemittance).Methods("POST")
+	protected.HandleFunc("/remittances/profit-summary", handler.GetRemittanceProfitSummary).Methods("GET")
+
+	// Settlement routes (new multi-payment settlement system)
+	protected.HandleFunc("/remittances/settlements", settlementHandler.CreateSettlementHandler).Methods("POST")
+	protected.HandleFunc("/remittances/{id}/settlements", settlementHandler.GetSettlementHistoryHandler).Methods("GET")
+	protected.HandleFunc("/remittances/{id}/settlement-summary", settlementHandler.GetSettlementSummaryHandler).Methods("GET")
+	protected.HandleFunc("/remittances/unsettled", settlementHandler.GetUnsettledRemittancesHandler).Methods("GET")
+
+	// Auto-settlement routes (NEW - Feature #5, #11)
+	protected.HandleFunc("/remittances/incoming/{id}/suggestions", autoSettlementHandler.GetSettlementSuggestionsHandler).Methods("GET")
+	protected.HandleFunc("/remittances/auto-settle", autoSettlementHandler.AutoSettleHandler).Methods("POST")
+	protected.HandleFunc("/remittances/unsettled-summary", autoSettlementHandler.GetUnsettledSummaryHandler).Methods("GET")
 
 	// Client routes (protected)
 	protected.HandleFunc("/clients", handler.GetClients).Methods("GET")
@@ -135,6 +184,27 @@ func NewRouter(db *gorm.DB) http.Handler {
 	protected.HandleFunc("/pickups/pending/count", pickupHandler.GetPendingPickupsCountHandler).Methods("GET")
 	protected.HandleFunc("/pickups/search", pickupHandler.SearchPickupsByQueryHandler).Methods("GET")
 	protected.HandleFunc("/pickups/search/{code}", pickupHandler.SearchPickupByCodeHandler).Methods("GET")
+
+	// External Rates route (protected)
+	protected.HandleFunc("/rates/fetch-external", handler.FetchExternalRatesHandler).Methods("GET")
+	// Note: /rates/navasan is now a public route using NavasanHandler
+
+	// Analytics routes (protected)
+	protected.HandleFunc("/analytics/daily", handler.GetDailyAnalyticsHandler).Methods("GET")
+
+	// Profit Analysis routes (NEW - Feature #18)
+	protected.HandleFunc("/analytics/profit", profitAnalysisHandler.GetProfitAnalysisHandler).Methods("GET")
+	protected.HandleFunc("/analytics/profit/daily", profitAnalysisHandler.GetDailyProfitHandler).Methods("GET")
+	protected.HandleFunc("/analytics/profit/monthly", profitAnalysisHandler.GetMonthlyProfitHandler).Methods("GET")
+
+	// Dashboard routes (NEW - Feature #10)
+	protected.HandleFunc("/dashboard", dashboardHandler.GetDashboardHandler).Methods("GET")
+
+	// Receipt generation routes (NEW - Feature #8)
+	protected.HandleFunc("/receipts/outgoing/{id}", receiptHandler.GetOutgoingRemittanceReceiptHandler).Methods("GET")
+	protected.HandleFunc("/receipts/incoming/{id}", receiptHandler.GetIncomingRemittanceReceiptHandler).Methods("GET")
+	protected.HandleFunc("/receipts/transaction/{id}", receiptHandler.GetTransactionReceiptHandler).Methods("GET")
+
 	protected.HandleFunc("/pickups/{id}", pickupHandler.GetPickupTransactionHandler).Methods("GET")
 	protected.HandleFunc("/pickups/{id}/edit", pickupHandler.EditPickupTransactionHandler).Methods("PUT")
 	protected.HandleFunc("/pickups/{id}/pickup", pickupHandler.MarkAsPickedUpHandler).Methods("POST")
@@ -183,6 +253,16 @@ func NewRouter(db *gorm.DB) http.Handler {
 	protected.HandleFunc("/reports/daily", reportHandler.GetDailyReportHandler).Methods("GET")
 	protected.HandleFunc("/reports/monthly", reportHandler.GetMonthlyReportHandler).Methods("GET")
 	protected.HandleFunc("/reports/custom", reportHandler.GetCustomReportHandler).Methods("GET")
+
+	// Search routes (protected)
+	protected.HandleFunc("/search/global", searchHandler.GlobalSearchHandler).Methods("GET")
+	protected.HandleFunc("/search/advanced", searchHandler.AdvancedSearchHandler).Methods("POST")
+	protected.HandleFunc("/search/save", searchHandler.SaveSearchHandler).Methods("POST")
+	protected.HandleFunc("/search/saved", searchHandler.GetSavedSearchesHandler).Methods("GET")
+	protected.HandleFunc("/search/saved/{id}", searchHandler.DeleteSavedSearchHandler).Methods("DELETE")
+
+	// WebSocket route (protected)
+	protected.HandleFunc("/ws", wsHandler.ServeWS).Methods("GET")
 
 	// ============ SUPER ADMIN ROUTES ============
 

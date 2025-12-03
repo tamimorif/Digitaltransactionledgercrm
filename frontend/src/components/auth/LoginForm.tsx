@@ -50,11 +50,26 @@ export function LoginForm() {
     try {
       setIsLoading(true);
       setError(''); // Clear any previous errors
-      await login(data.email, data.password);
+      const response = await login(data.email, data.password);
       toast.success('Welcome!', {
         description: 'Successfully logged in',
       });
-      router.push('/dashboard');
+
+      // Redirect based on user role - get user from auth context after login
+      // We need to wait a moment for the auth context to update
+      setTimeout(() => {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const user = JSON.parse(storedUser);
+          if (user.role === 'superadmin') {
+            router.push('/admin');
+          } else {
+            router.push('/dashboard');
+          }
+        } else {
+          router.push('/dashboard');
+        }
+      }, 100);
     } catch (error: any) {
       // Display error on the card instead of toast
       const errorMessage = error?.response?.data?.error || 'Invalid email or password';

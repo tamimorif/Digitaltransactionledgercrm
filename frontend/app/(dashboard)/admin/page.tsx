@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/components/providers/auth-provider';
-import { useGetAllTenants, useGetDashboardStats } from '@/src/lib/queries/admin.query';
+import { useGetAllTenants, useGetAdminDashboardStats } from '@/src/lib/queries/admin.query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Badge } from '@/src/components/ui/badge';
 import { Button } from '@/src/components/ui/button';
@@ -22,7 +22,7 @@ import { format } from 'date-fns';
 export default function AdminPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
-  const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
+  const { data: stats, isLoading: statsLoading } = useGetAdminDashboardStats();
   const { data: tenants = [], isLoading: tenantsLoading } = useGetAllTenants();
 
   useEffect(() => {
@@ -156,7 +156,7 @@ export default function AdminPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tenants.map((tenant) => (
+                {tenants.map((tenant: any) => (
                   <TableRow key={tenant.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/admin/tenants/${tenant.id}`)}>
                     <TableCell className="font-mono text-sm">{tenant.id}</TableCell>
                     <TableCell className="font-medium">

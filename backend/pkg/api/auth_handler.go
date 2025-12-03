@@ -172,12 +172,14 @@ func (ah *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, user, err := ah.AuthService.Login(req)
+	loginResp, err := ah.AuthService.Login(req)
 	if err != nil {
 		log.Printf("Login error: %v", err)
 		respondWithError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
+
+	user := loginResp.User
 
 	// Get tenant info if exists
 	var tenantInfo map[string]interface{}
@@ -213,10 +215,12 @@ func (ah *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{
-		"message": "Login successful",
-		"token":   token,
-		"user":    userResponse,
-		"tenant":  tenantInfo,
+		"message":      "Login successful",
+		"accessToken":  loginResp.AccessToken,
+		"refreshToken": loginResp.RefreshToken,
+		"token":        loginResp.AccessToken, // Backward compatibility
+		"user":         userResponse,
+		"tenant":       tenantInfo,
 	})
 }
 
@@ -398,6 +402,76 @@ func (ah *AuthHandler) ResetPasswordHandler(w http.ResponseWriter, r *http.Reque
 
 	respondWithJSON(w, http.StatusOK, map[string]string{
 		"message": "Password reset successfully",
+	})
+}
+
+// RefreshTokenHandler refreshes an access token using a refresh token
+// @Summary Refresh access token
+// @Description Get a new access token using a refresh token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body map[string]string true "Refresh token"
+// @Success 200 {object} map[string]interface{} "New tokens"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Router /auth/refresh [post]
+func (ah *AuthHandler) RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		RefreshToken string `json:"refreshToken"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.RefreshToken == "" {
+		respondWithError(w, http.StatusBadRequest, "Refresh token is required")
+		return
+	}
+
+	loginResp, err := ah.AuthService.RefreshAccessToken(req.RefreshToken)
+	if err != nil {
+		log.Printf("Token refresh error: %v", err)
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{
+		"message":      "Token refreshed successfully",
+		"accessToken":  loginResp.AccessToken,
+		"refreshToken": loginResp.RefreshToken,
+		"token":        loginResp.AccessToken, // Backward compatibility
+	})
+}
+
+// LogoutHandler revokes the user's refresh token
+// @Summary Logout user
+// @Description Revoke all user refresh tokens
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string]string "Logout successful"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Router /auth/logout [post]
+func (ah *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	user, ok := r.Context().Value("user").(*models.User)
+	if !ok {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	// Revoke all user tokens
+	if err := ah.AuthService.RevokeAllUserTokens(user.ID); err != nil {
+		log.Printf("Logout error: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to logout")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]string{
+		"message": "Logout successful",
 	})
 }
 

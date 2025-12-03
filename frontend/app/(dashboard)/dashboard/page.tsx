@@ -9,307 +9,114 @@ import { Loader2, Building2, Mail, Calendar, Crown, Users, AlertTriangle, Dollar
 import { LicenseActivationCard } from '@/src/components/dashboard/LicenseActivationCard';
 import { MyLicensesCard } from '@/src/components/dashboard/MyLicensesCard';
 import { BuySellRatesWidget } from '@/src/components/BuySellRatesWidget';
-import { CashOnHandWidget } from '@/src/components/CashOnHandWidget';
+import { DashboardCashBalance } from '@/src/components/dashboard/DashboardCashBalance';
+import { QuickConvertWidget } from '@/src/components/dashboard/QuickConvertWidget';
+import { RecentActivityFeed } from '@/src/components/dashboard/RecentActivityFeed';
+import { GlobalSearch } from '@/src/components/GlobalSearch';
+import { AdvancedSearchDialog } from '@/src/components/AdvancedSearchDialog';
+import { SavedSearchesDialog } from '@/src/components/SavedSearchesDialog';
+import { LiveIndicator } from '@/src/components/LiveIndicator';
+import { RateLimitNotification } from '@/src/components/RateLimitNotification';
+import { useWebSocket, useTransactionUpdates, useCashBalanceUpdates } from '@/src/hooks/useWebSocket';
 import { formatDistanceToNow } from 'date-fns';
-import { useQuery } from '@tanstack/react-query';
-import apiClient from '@/src/lib/api-client';
-import Link from 'next/link';
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
-import { Label } from '@/src/components/ui/label';
-import { Input } from '@/src/components/ui/input';
-import { Textarea } from '@/src/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
-import { RefreshCw, Plus, TrendingUp, TrendingDown } from 'lucide-react';
-import {
-  useGetAllBalances,
-  useGetActiveCurrencies,
-  useRefreshAllBalances,
-  useCreateAdjustment,
-} from '@/src/lib/queries/cash-balance.query';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState, useCallback } from 'react';
 
 export default function DashboardPage() {
-  const { user, tenant, logout } = useAuth();
-  const { data: licenseStatus, isLoading: isLicenseLoading } = useGetLicenseStatus();
+  const { user } = useAuth();
+  const router = useRouter();
+  const { isConnected } = useWebSocket();
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Redirect SuperAdmin to admin dashboard
+  useEffect(() => {
+    if (user?.role === 'superadmin') {
+      router.push('/admin');
+    }
+  }, [user, router]);
+
+  // Handle transaction updates
+  const handleTransactionUpdate = useCallback((message: any) => {
+    console.log('Transaction update:', message);
+    toast.info(`Transaction ${message.action}: ${message.data.id || 'New'}`, {
+      description: 'Dashboard data has been updated',
+    });
+    // Trigger refresh of dashboard data
+    setRefreshKey(prev => prev + 1);
+  }, []);
+
+  // Handle cash balance updates
+  const handleCashBalanceUpdate = useCallback((message: any) => {
+    console.log('Cash balance update:', message);
+    toast.info('Cash balance updated', {
+      description: 'Your cash balances have been updated',
+    });
+    // Trigger refresh of cash balance
+    setRefreshKey(prev => prev + 1);
+  }, []);
+
+  // Subscribe to updates
+  useTransactionUpdates(handleTransactionUpdate);
+  useCashBalanceUpdates(handleCashBalanceUpdate);
 
   const isTrialExpired = user?.status === 'trial_expired';
   const isLicenseExpired = user?.status === 'license_expired';
   const needsActivation = isTrialExpired || isLicenseExpired;
 
-  const [showAdjustDialog, setShowAdjustDialog] = useState(false);
-  const [selectedCurrency, setSelectedCurrency] = useState('');
-  const [adjustAmount, setAdjustAmount] = useState('');
-  const [adjustReason, setAdjustReason] = useState('');
-
-  const { data: cashBalances, isLoading: balancesLoading, refetch: refetchBalances } = useGetAllBalances();
-  const { data: currencies } = useGetActiveCurrencies();
-  const refreshAllMutation = useRefreshAllBalances();
-  const createAdjustmentMutation = useCreateAdjustment();
-
-  // Fetch cash balances
-  const { data: balances, isLoading: isBalancesLoading } = useQuery({
-    queryKey: ['cash-balances'],
-    queryFn: async () => {
-      const response = await apiClient.get('/cash-balances');
-      return response.data;
-    },
-  });
-
-  // Fetch pending pickups count
-  const { data: pendingCount, isLoading: isPendingCountLoading } = useQuery({
-    queryKey: ['pending-pickups-count'],
-    queryFn: async () => {
-      const response = await apiClient.get('/pickups/pending/count');
-      return response.data;
-    },
-  });
-
-  const getRoleLabel = (role: string) => {
-    const roles: Record<string, string> = {
-      superadmin: 'Super Admin',
-      tenant_owner: 'Owner',
-      tenant_admin: 'Admin',
-      tenant_user: 'User',
-    };
-    return roles[role] || role;
-  };
-
-  const getStatusBadge = (status: string) => {
-    const statuses: Record<string, { label: string; variant: any }> = {
-      active: { label: 'Active', variant: 'default' },
-      trial: { label: 'Trial', variant: 'secondary' },
-      trial_expired: { label: 'Trial Expired', variant: 'destructive' },
-      license_expired: { label: 'License Expired', variant: 'destructive' },
-      suspended: { label: 'Suspended', variant: 'outline' },
-    };
-    const statusInfo = statuses[status] || { label: status, variant: 'outline' };
-    return <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>;
-  };
-
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">
-          Welcome, {user?.email}
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Overview for {user?.email}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <LiveIndicator isConnected={isConnected} />
+          <AdvancedSearchDialog />
+          <SavedSearchesDialog />
+        </div>
       </div>
 
-      {/* Warning for expired trial/license */}
+      {/* Warning for expired trial/license - Centered */}
       {needsActivation && (
-        <Card className="border-destructive">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <CardTitle className="text-destructive">
-                {isTrialExpired ? 'Trial Period Expired' : 'License Expired'}
-              </CardTitle>
-            </div>
-            <CardDescription>
-              You need to activate a license to use the system
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <div className="flex justify-center">
+          <Card className="border-destructive bg-destructive/10 max-w-2xl w-full">
+            <CardHeader className="flex flex-col items-center justify-center text-center min-h-[120px] py-6">
+              <div className="flex items-center justify-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                <CardTitle className="text-destructive">
+                  {isTrialExpired ? 'Trial Period Expired' : 'License Expired'}
+                </CardTitle>
+              </div>
+              <CardDescription className="text-center mt-2">
+                You need to activate a license to use the system
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
       )}
 
-      {/* Buy and Sell Rates Widget */}
-      <BuySellRatesWidget />
+      {/* Top Row: Market Rates - Now at the top as requested */}
+      <BuySellRatesWidget key={`rates-${refreshKey}`} />
 
-      {/* Cash Balance Management */}
-      <div className="max-w-4xl mx-auto">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  Cash Balance
-                </CardTitle>
-                <CardDescription>Track your branch cash on hand by currency</CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      await refreshAllMutation.mutateAsync();
-                      toast.success('All balances refreshed successfully');
-                      refetchBalances();
-                    } catch (error: any) {
-                      toast.error(error.response?.data?.error || 'Failed to refresh balances');
-                    }
-                  }}
-                  disabled={refreshAllMutation.isPending}
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshAllMutation.isPending ? 'animate-spin' : ''}`} />
-                  Refresh All
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    if (currencies && currencies.length > 0) {
-                      setSelectedCurrency(currencies[0]);
-                    }
-                    setShowAdjustDialog(true);
-                  }}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adjust Balance
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {balancesLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
-            ) : !cashBalances || cashBalances.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <DollarSign className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No cash balances yet</p>
-                <p className="text-sm">Start by creating transactions</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {cashBalances.map((balance: any) => (
-                  <Card key={`${balance.branchID}-${balance.currency}`} className="border-2">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <Badge variant="outline" className="text-xs">
-                          {balance.currency}
-                        </Badge>
-                        {balance.calculatedBalance !== balance.manualBalance && (
-                          <Badge variant="secondary" className="text-xs">
-                            Adjusted
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-2xl font-bold">
-                            {balance.manualBalance.toLocaleString('en-US', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </span>
-                          <span className="text-sm text-muted-foreground">{balance.currency}</span>
-                        </div>
-                        {balance.calculatedBalance !== balance.manualBalance && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <span>Calculated:</span>
-                            <span>{balance.calculatedBalance.toLocaleString('en-US', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}</span>
-                            {balance.manualBalance > balance.calculatedBalance ? (
-                              <TrendingUp className="h-3 w-3 text-green-600" />
-                            ) : (
-                              <TrendingDown className="h-3 w-3 text-red-600" />
-                            )}
-                          </div>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Last updated: {new Date(balance.lastUpdated).toLocaleString()}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Middle Row: Cash Balance (Priority) & Quick Convert */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <DashboardCashBalance key={`balance-${refreshKey}`} />
+        </div>
+        <div className="lg:col-span-1">
+          <QuickConvertWidget />
+        </div>
       </div>
 
-      {/* Adjustment Dialog */}
-      <Dialog open={showAdjustDialog} onOpenChange={setShowAdjustDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Adjust Cash Balance</DialogTitle>
-            <DialogDescription>
-              Manually adjust the cash balance for a specific currency
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="currency">Currency</Label>
-              <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
-                <SelectTrigger id="currency">
-                  <SelectValue placeholder="Select currency" />
-                </SelectTrigger>
-                <SelectContent>
-                  {currencies?.map((currency: string) => (
-                    <SelectItem key={currency} value={currency}>
-                      {currency}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="amount">Adjustment Amount</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                placeholder="Enter amount (positive to add, negative to subtract)"
-                value={adjustAmount}
-                onChange={(e) => setAdjustAmount(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Use positive numbers to add, negative to subtract
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="reason">Reason</Label>
-              <Textarea
-                id="reason"
-                placeholder="Why are you adjusting the balance?"
-                value={adjustReason}
-                onChange={(e) => setAdjustReason(e.target.value)}
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdjustDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={async () => {
-                if (!selectedCurrency || !adjustAmount || !adjustReason) {
-                  toast.error('Please fill in all fields');
-                  return;
-                }
-                try {
-                  await createAdjustmentMutation.mutateAsync({
-                    currency: selectedCurrency,
-                    amount: parseFloat(adjustAmount),
-                    reason: adjustReason,
-                  });
-                  toast.success('Balance adjusted successfully');
-                  setShowAdjustDialog(false);
-                  setAdjustAmount('');
-                  setAdjustReason('');
-                  refetchBalances();
-                } catch (error: any) {
-                  toast.error(error.response?.data?.error || 'Failed to adjust balance');
-                }
-              }}
-              disabled={createAdjustmentMutation.isPending}
-            >
-              {createAdjustmentMutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Confirm Adjustment
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Bottom Row: Recent Activity */}
+      <div className="grid grid-cols-1">
+        <RecentActivityFeed key={`activity-${refreshKey}`} />
+      </div>
     </div>
   );
 }

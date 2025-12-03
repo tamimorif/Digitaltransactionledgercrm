@@ -33,6 +33,8 @@ import {
   CollapsibleTrigger,
 } from './ui/collapsible';
 
+import { Switch } from './ui/switch';
+
 interface Transaction {
   id: string;
   clientId: string;
@@ -57,6 +59,7 @@ interface Transaction {
   receivedCurrency?: string;
   remainingBalance?: number;
   paymentStatus?: string;
+  allowPartialPayment?: boolean;
 }
 
 interface EditTransactionDialogProps {
@@ -87,6 +90,7 @@ export function EditTransactionDialog({
     beneficiaryName: '',
     beneficiaryDetails: '',
     userNotes: '',
+    allowPartialPayment: false,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -111,6 +115,7 @@ export function EditTransactionDialog({
         beneficiaryName: transaction.beneficiaryName || '',
         beneficiaryDetails: transaction.beneficiaryDetails || '',
         userNotes: transaction.userNotes || '',
+        allowPartialPayment: transaction.allowPartialPayment || false,
       });
 
       // Parse edit history
@@ -190,6 +195,7 @@ export function EditTransactionDialog({
         beneficiaryName: formData.beneficiaryName || undefined,
         beneficiaryDetails: formData.beneficiaryDetails || undefined,
         userNotes: formData.userNotes || undefined,
+        allowPartialPayment: formData.allowPartialPayment,
       });
 
       toast.success('Transaction updated successfully');
@@ -226,10 +232,29 @@ export function EditTransactionDialog({
             </AlertDescription>
           </Alert>
 
+          {/* Multi-Payment Toggle */}
+          <div className="flex items-center justify-between space-x-2 border p-4 rounded-lg bg-gray-50 mt-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="multi-payment-mode" className="text-base font-medium">
+                Multi-Payment Mode
+              </Label>
+              <div className="text-sm text-gray-500">
+                Enable partial payments and drawdowns for this transaction.
+              </div>
+            </div>
+            <Switch
+              id="multi-payment-mode"
+              checked={formData.allowPartialPayment}
+              onCheckedChange={(checked) =>
+                setFormData({ ...formData, allowPartialPayment: checked })
+              }
+            />
+          </div>
+
           {/* Payments & Drawdowns Section */}
           {
-            (transaction.paymentStatus === 'OPEN' || transaction.paymentStatus === 'PARTIAL' || payments.length > 0) && (
-              <Collapsible open={showPayments} onOpenChange={setShowPayments} className="mt-4">
+            (transaction.paymentStatus === 'OPEN' || transaction.paymentStatus === 'PARTIAL' || payments.length > 0 || formData.allowPartialPayment) && (
+              <Collapsible open={showPayments || formData.allowPartialPayment} onOpenChange={setShowPayments} className="mt-4">
                 <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-sm">
                   <CardContent className="pt-4 pb-4">
                     <CollapsibleTrigger asChild>

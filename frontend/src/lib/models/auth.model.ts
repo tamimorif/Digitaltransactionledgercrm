@@ -25,8 +25,10 @@ export interface ResendCodeRequest {
 export interface User {
   id: number;
   email: string;
+  username?: string | null;
   role: 'superadmin' | 'tenant_owner' | 'tenant_admin' | 'tenant_user';
   tenantId: number | null;
+  primaryBranchId?: number | null;
   status: 'active' | 'suspended' | 'trial_expired' | 'license_expired';
   trialEndsAt: string | null;
   licenseActivatedAt?: string | null;

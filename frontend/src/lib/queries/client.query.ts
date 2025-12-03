@@ -79,12 +79,13 @@ export function useDeleteClient() {
 
 export function useGetTransactions(
   clientId?: string | number,
-  filters?: { startDate?: string; endDate?: string }
+  filters?: { startDate?: string; endDate?: string },
+  branchId?: string
 ) {
   return useQuery<Transaction[]>({
     queryKey: clientId
-      ? ['transactions', clientId, filters]
-      : ['transactions', filters],
+      ? ['transactions', clientId, filters, branchId]
+      : ['transactions', filters, branchId],
     queryFn: async () => {
       const url = clientId ? `/clients/${clientId}/transactions` : '/transactions';
       const params = new URLSearchParams();
@@ -94,6 +95,9 @@ export function useGetTransactions(
       }
       if (filters?.endDate) {
         params.append('endDate', filters.endDate);
+      }
+      if (branchId && branchId !== 'all') {
+        params.append('branchId', branchId);
       }
 
       const queryString = params.toString();
