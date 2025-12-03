@@ -11,6 +11,8 @@ import { toast } from 'sonner';
 import { Loader2, Edit } from 'lucide-react';
 import { PickupTransaction } from '@/src/lib/models/pickup.model';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
+import { handleNumberInput, parseFormattedNumber, formatNumberWithCommas } from '@/src/lib/format';
+import { calculateReceivedAmount } from '@/src/lib/transaction-helpers';
 
 interface EditPickupDialogProps {
     transaction: PickupTransaction | null;
@@ -30,6 +32,7 @@ export function EditPickupDialog({ transaction, open, onOpenChange, onSuccess }:
         exchangeRate: '1',
         receiverAmount: '',
         fees: '',
+        allowPartialPayment: false,
         editReason: '',
     });
 
@@ -43,6 +46,7 @@ export function EditPickupDialog({ transaction, open, onOpenChange, onSuccess }:
                 exchangeRate: transaction.exchangeRate?.toString() || '1',
                 receiverAmount: transaction.receiverAmount?.toString() || transaction.amount.toString(),
                 fees: transaction.fees?.toString() || '0',
+                allowPartialPayment: transaction.allowPartialPayment || false,
                 editReason: '',
             });
         }
@@ -54,13 +58,19 @@ export function EditPickupDialog({ transaction, open, onOpenChange, onSuccess }:
             const amount = parseFloat(formData.amount);
             const rate = parseFloat(formData.exchangeRate);
             if (!isNaN(amount) && !isNaN(rate)) {
+                const calculatedAmount = calculateReceivedAmount(
+                    amount,
+                    rate,
+                    false, // isCardSwap - we can infer this or pass it if needed, but for general edit, false is safer unless we check transaction type
+                    formData.currency
+                );
                 setFormData(prev => ({
                     ...prev,
-                    receiverAmount: (amount * rate).toFixed(2)
+                    receiverAmount: calculatedAmount.toFixed(2)
                 }));
             }
         }
-    }, [formData.amount, formData.exchangeRate]);
+    }, [formData.amount, formData.exchangeRate, formData.currency]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -88,6 +98,7 @@ export function EditPickupDialog({ transaction, open, onOpenChange, onSuccess }:
                     exchangeRate: parseFloat(formData.exchangeRate),
                     receiverAmount: parseFloat(formData.receiverAmount),
                     fees: parseFloat(formData.fees),
+                    allowPartialPayment: formData.allowPartialPayment,
                     editReason: formData.editReason.trim(),
                 }),
             });
@@ -140,7 +151,7 @@ export function EditPickupDialog({ transaction, open, onOpenChange, onSuccess }:
                                 <span className="text-muted-foreground">To:</span> {transaction.recipientName}
                             </div>
                             <div>
-                                <span className="text-muted-foreground">Original Amount:</span> {transaction.amount} {transaction.currency}
+                                <span className="text-muted-foreground">Original Amount:</span> {Number(transaction.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {transaction.currency}
                             </div>
                             <div>
                                 <span className="text-muted-foreground">Status:</span> {transaction.status}
@@ -154,10 +165,10 @@ export function EditPickupDialog({ transaction, open, onOpenChange, onSuccess }:
                             <Label htmlFor="edit-amount">Send Amount *</Label>
                             <Input
                                 id="edit-amount"
-                                type="number"
-                                step="0.01"
-                                value={formData.amount}
-                                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                                type="text"
+                                inputMode="decimal"
+                                value={handleNumberInput(formData.amount)}
+                                onChange={(e) => setFormData({ ...formData, amount: parseFormattedNumber(e.target.value) })}
                                 required
                             />
                         </div>
@@ -201,10 +212,10 @@ export function EditPickupDialog({ transaction, open, onOpenChange, onSuccess }:
                             <Label htmlFor="edit-exchangeRate">Exchange Rate</Label>
                             <Input
                                 id="edit-exchangeRate"
-                                type="number"
-                                step="0.0001"
-                                value={formData.exchangeRate}
-                                onChange={(e) => setFormData({ ...formData, exchangeRate: e.target.value })}
+                                type="text"
+                                inputMode="decimal"
+                                value={handleNumberInput(formData.exchangeRate)}
+                                onChange={(e) => setFormData({ ...formData, exchangeRate: parseFormattedNumber(e.target.value) })}
                             />
                             <p className="text-xs text-muted-foreground">
                                 1 {formData.currency} = {formData.exchangeRate} {formData.receiverCurrency}
@@ -217,10 +228,8 @@ export function EditPickupDialog({ transaction, open, onOpenChange, onSuccess }:
                         <Label htmlFor="edit-receiverAmount">Receiver Amount</Label>
                         <Input
                             id="edit-receiverAmount"
-                            type="number"
-                            step="0.01"
-                            value={formData.receiverAmount}
-                            onChange={(e) => setFormData({ ...formData, receiverAmount: e.target.value })}
+                            type="text"
+                            value={formatNumberWithCommas(formData.receiverAmount)}
                             readOnly
                         />
                         <p className="text-xs text-muted-foreground">
@@ -233,12 +242,31 @@ export function EditPickupDialog({ transaction, open, onOpenChange, onSuccess }:
                         <Label htmlFor="edit-fees">Transaction Fees ({formData.currency}) *</Label>
                         <Input
                             id="edit-fees"
-                            type="number"
-                            step="0.01"
-                            value={formData.fees}
-                            onChange={(e) => setFormData({ ...formData, fees: e.target.value })}
+                            type="text"
+                            inputMode="decimal"
+                            value={handleNumberInput(formData.fees)}
+                            onChange={(e) => setFormData({ ...formData, fees: parseFormattedNumber(e.target.value) })}
                             required
                         />
+                    </div>
+
+                    {/* Multi-Payment Toggle */}
+                    <div className="flex items-start gap-3 p-3 border rounded-md bg-muted/30">
+                        <input
+                            type="checkbox"
+                            id="edit-allowPartialPayment"
+                            checked={formData.allowPartialPayment}
+                            onChange={(e) => setFormData({ ...formData, allowPartialPayment: e.target.checked })}
+                            className="mt-1"
+                        />
+                        <div className="flex-1">
+                            <Label htmlFor="edit-allowPartialPayment" className="cursor-pointer font-medium">
+                                Enable Multi-Payment Mode
+                            </Label>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                Allows adding multiple partial payments for this transaction.
+                            </p>
+                        </div>
                     </div>
 
                     {/* Edit Reason */}

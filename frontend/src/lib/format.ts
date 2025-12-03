@@ -23,6 +23,14 @@ export function formatNumberWithCommas(value: number | string): string {
 }
 
 /**
+ * Format a number with thousands separators
+ * Alias for formatNumberWithCommas for convenience
+ */
+export function formatNumber(value: number | string): string {
+    return formatNumberWithCommas(value);
+}
+
+/**
  * Remove commas from a formatted number string
  * @param value - Formatted string with commas
  * @returns Number without commas
@@ -35,15 +43,31 @@ export function parseFormattedNumber(value: string): string {
 /**
  * Format currency amount with commas and decimal places
  * @param amount - Amount to format
+ * @param currency - Currency code (e.g., 'CAD', 'USD', 'IRR')
  * @param decimals - Number of decimal places (default: 2)
  * @returns Formatted currency string
  */
-export function formatCurrency(amount: number | string, decimals: number = 2): string {
+export function formatCurrency(amount: number | string, currency?: string, decimals: number = 2): string {
     const num = typeof amount === 'string' ? parseFloat(amount.replace(/,/g, '')) : amount;
 
     if (isNaN(num)) return '0.00';
 
-    return formatNumberWithCommas(num.toFixed(decimals));
+    const formatted = formatNumberWithCommas(num.toFixed(decimals));
+
+    if (currency) {
+        // Currency symbols
+        const symbols: Record<string, string> = {
+            CAD: '$',
+            USD: '$',
+            EUR: '€',
+            GBP: '£',
+            IRR: '﷼',
+        };
+        const symbol = symbols[currency] || currency + ' ';
+        return `${symbol}${formatted}`;
+    }
+
+    return formatted;
 }
 
 /**

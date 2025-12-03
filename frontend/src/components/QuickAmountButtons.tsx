@@ -24,21 +24,21 @@ export function QuickAmountButtons({ currency, onAmountSelect }: QuickAmountButt
     const amounts = presets[currency] || [100, 200, 500, 1000];
 
     return (
-        <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">
-                {t('transaction.quickAmounts.title')}
-            </p>
-            <div className="flex flex-wrap gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+            <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
+                ⚡ Quick:
+            </span>
+            <div className="flex gap-1.5">
                 {amounts.map(amount => (
                     <Button
                         key={amount}
                         type="button"
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         onClick={() => onAmountSelect(amount.toString())}
-                        className="text-xs"
+                        className="h-6 px-2 text-xs rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border-0"
                     >
-                        {amount.toLocaleString()} {currency}
+                        {amount.toLocaleString()}
                     </Button>
                 ))}
             </div>

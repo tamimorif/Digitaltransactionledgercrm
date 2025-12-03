@@ -216,49 +216,126 @@ export default function ReconciliationPage() {
             </div>
 
             {/* History Table */}
-            <Card className="border-2">
-                <CardHeader className="bg-gradient-to-r from-slate-50 to-gray-50">
-                    <CardTitle>Reconciliation History</CardTitle>
-                    <CardDescription>Past reconciliation records</CardDescription>
+            <Card className="border-0 shadow-lg overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-slate-50 to-white border-b pb-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle className="text-xl font-bold text-slate-800">Reconciliation History</CardTitle>
+                            <CardDescription className="text-slate-500 mt-1">
+                                Comprehensive record of all past reconciliations
+                            </CardDescription>
+                        </div>
+                        <div className="hidden md:block">
+                            <Badge variant="outline" className="bg-white text-slate-500 border-slate-200">
+                                Last 10 Records
+                            </Badge>
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent className="p-0">
                     {isLoading ? (
-                        <div className="flex items-center justify-center h-32">
-                            <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                        <div className="flex flex-col items-center justify-center h-64 gap-3">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary/60" />
+                            <p className="text-sm text-muted-foreground animate-pulse">Loading history...</p>
+                        </div>
+                    ) : reconciliations && reconciliations.length > 0 ? (
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader className="bg-slate-50/50">
+                                    <TableRow className="hover:bg-transparent border-b border-slate-100">
+                                        <TableHead className="w-[140px] font-semibold text-slate-600 pl-6 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs uppercase tracking-wider">Date</span>
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="font-semibold text-slate-600 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs uppercase tracking-wider">Branch</span>
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="text-right font-semibold text-slate-600 py-4">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <span className="text-xs uppercase tracking-wider">Opening</span>
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="text-right font-semibold text-slate-600 py-4">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <span className="text-xs uppercase tracking-wider">Closing</span>
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="text-right font-semibold text-slate-600 py-4">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <span className="text-xs uppercase tracking-wider">Expected</span>
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="text-right font-semibold text-slate-600 pr-6 py-4">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <span className="text-xs uppercase tracking-wider">Variance</span>
+                                            </div>
+                                        </TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {reconciliations.slice(0, 10).map((rec, index) => (
+                                        <TableRow
+                                            key={rec.id}
+                                            className={`
+                                                group transition-colors hover:bg-slate-50/80 border-b border-slate-50
+                                                ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}
+                                            `}
+                                        >
+                                            <TableCell className="font-medium text-slate-700 pl-6 py-4">
+                                                {new Date(rec.date).toLocaleDateString(undefined, {
+                                                    year: 'numeric',
+                                                    month: 'short',
+                                                    day: 'numeric'
+                                                })}
+                                            </TableCell>
+                                            <TableCell className="py-4">
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium text-slate-900">{rec.branch?.name}</span>
+                                                    <span className="text-xs text-slate-400">ID: {rec.branch?.id}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-slate-600 py-4">
+                                                {rec.openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-slate-600 py-4">
+                                                {rec.closingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-slate-600 py-4">
+                                                {rec.expectedBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </TableCell>
+                                            <TableCell className="text-right pr-6 py-4">
+                                                <Badge
+                                                    variant={rec.variance === 0 ? 'outline' : 'destructive'}
+                                                    className={`
+                                                        px-3 py-1 font-mono text-xs tracking-wide
+                                                        ${rec.variance === 0
+                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                                            : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100 shadow-sm'
+                                                        }
+                                                    `}
+                                                >
+                                                    {rec.variance > 0 ? '+' : ''}
+                                                    {rec.variance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </Badge>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
                         </div>
                     ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead>Branch</TableHead>
-                                    <TableHead>Opening</TableHead>
-                                    <TableHead>Closing</TableHead>
-                                    <TableHead>Expected</TableHead>
-                                    <TableHead>Variance</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {reconciliations?.slice(0, 10).map((rec) => (
-                                    <TableRow key={rec.id} className="hover:bg-gray-50">
-                                        <TableCell>{new Date(rec.date).toLocaleDateString()}</TableCell>
-                                        <TableCell className="font-medium">{rec.branch?.name}</TableCell>
-                                        <TableCell className="font-mono">{rec.openingBalance.toFixed(2)}</TableCell>
-                                        <TableCell className="font-mono">{rec.closingBalance.toFixed(2)}</TableCell>
-                                        <TableCell className="font-mono">{rec.expectedBalance.toFixed(2)}</TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                variant={rec.variance === 0 ? 'outline' : 'destructive'}
-                                                className={rec.variance === 0 ? 'bg-green-100 text-green-700 border-green-300' : ''}
-                                            >
-                                                {rec.variance > 0 ? '+' : ''}
-                                                {rec.variance.toFixed(2)}
-                                            </Badge>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                        <div className="flex flex-col items-center justify-center py-16 text-center bg-slate-50/30">
+                            <div className="bg-slate-100 p-4 rounded-full mb-4">
+                                <Calculator className="h-8 w-8 text-slate-400" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-slate-900">No History Yet</h3>
+                            <p className="text-sm text-slate-500 max-w-xs mt-1">
+                                Complete your first daily reconciliation to see the history records here.
+                            </p>
+                        </div>
                     )}
                 </CardContent>
             </Card>

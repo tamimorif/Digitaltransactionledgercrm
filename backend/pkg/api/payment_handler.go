@@ -17,9 +17,9 @@ type PaymentHandler struct {
 	db             *gorm.DB
 }
 
-func NewPaymentHandler(db *gorm.DB) *PaymentHandler {
+func NewPaymentHandler(db *gorm.DB, paymentService *services.PaymentService) *PaymentHandler {
 	return &PaymentHandler{
-		paymentService: services.NewPaymentService(db),
+		paymentService: paymentService,
 		db:             db,
 	}
 }
@@ -38,13 +38,13 @@ func (h *PaymentHandler) CreatePaymentHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	var req struct {
-		Amount         float64 `json:"amount"`
-		Currency       string  `json:"currency"`
-		ExchangeRate   float64 `json:"exchangeRate"`
-		PaymentMethod  string  `json:"paymentMethod"`
-		Notes          *string `json:"notes"`
-		ReceiptNumber  *string `json:"receiptNumber"`
-		BranchID       *uint   `json:"branchId"`
+		Amount        float64 `json:"amount"`
+		Currency      string  `json:"currency"`
+		ExchangeRate  float64 `json:"exchangeRate"`
+		PaymentMethod string  `json:"paymentMethod"`
+		Notes         *string `json:"notes"`
+		ReceiptNumber *string `json:"receiptNumber"`
+		BranchID      *uint   `json:"branchId"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

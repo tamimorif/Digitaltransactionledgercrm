@@ -45,6 +45,10 @@ export interface Transaction {
   transactionDate: string;
   createdAt: string;
   updatedAt: string;
+  branch?: {
+    id: number;
+    name: string;
+  };
 
   // Multi-Payment Support (NEW)
   totalReceived?: number;
@@ -89,6 +93,7 @@ export interface UpdateTransactionRequest {
   beneficiaryDetails?: string;
   userNotes?: string;
   transactionDate?: string;
+  allowPartialPayment?: boolean;
 }
 
 export interface ClientWithTransactions extends Client {

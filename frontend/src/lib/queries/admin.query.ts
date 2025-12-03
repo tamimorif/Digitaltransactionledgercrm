@@ -1,7 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ApiClient } from '../api';
-
-const api = new ApiClient();
+import { apiClient as api } from '../axios-config';
 
 // Dashboard Stats
 export const useGetAdminDashboardStats = () => {
@@ -60,6 +58,17 @@ export const useGetAllTenants = () => {
       const response = await api.get('/admin/tenants');
       return response.data;
     },
+  });
+};
+
+export const useGetTenantById = (id: string | number, enabled: boolean = true) => {
+  return useQuery({
+    queryKey: ['admin', 'tenants', id],
+    queryFn: async () => {
+      const response = await api.get(`/admin/tenants/${id}`);
+      return response.data;
+    },
+    enabled: !!id && enabled,
   });
 };
 

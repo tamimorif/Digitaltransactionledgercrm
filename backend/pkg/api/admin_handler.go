@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"api/pkg/models"
 	"api/pkg/services"
 
 	"github.com/gorilla/mux"
@@ -45,9 +46,14 @@ func (h *AdminHandler) GenerateLicenseHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	userID := r.Context().Value("userID").(uint)
+	// Get user from context (set by AuthMiddleware as "user")
+	user, ok := r.Context().Value("user").(*models.User)
+	if !ok {
+		http.Error(w, "User not found in context", http.StatusUnauthorized)
+		return
+	}
 
-	license, err := h.adminService.GenerateLicense(req.LicenseType, req.UserLimit, req.DurationType, req.DurationValue, userID, req.Notes)
+	license, err := h.adminService.GenerateLicense(req.LicenseType, req.UserLimit, req.DurationType, req.DurationValue, user.ID, req.Notes)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -244,9 +244,16 @@ func (as *AuthService) ResendVerificationCode(email string) error {
 	return nil
 }
 
-// Login authenticates a user and returns a JWT token
+// LoginResponse contains both access and refresh tokens
+type LoginResponse struct {
+	AccessToken  string       `json:"accessToken"`
+	RefreshToken string       `json:"refreshToken"`
+	User         *models.User `json:"user"`
+}
+
+// Login authenticates a user and returns JWT tokens
 // Accepts email, username, OR branch username for login
-func (as *AuthService) Login(req LoginRequest) (string, *models.User, error) {
+func (as *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 	var user models.User
 
 	// Try to find user by email first, then by username
@@ -263,10 +270,10 @@ func (as *AuthService) Login(req LoginRequest) (string, *models.User, error) {
 					if err == nil {
 						// Branch found, verify password
 						if branch.PasswordHash == nil || *branch.PasswordHash == "" {
-							return "", nil, errors.New("branch credentials not set")
+							return nil, errors.New("branch credentials not set")
 						}
 						if err := bcrypt.CompareHashAndPassword([]byte(*branch.PasswordHash), []byte(req.Password)); err != nil {
-							return "", nil, errors.New("invalid username or password")
+							return nil, errors.New("invalid username or password")
 						}
 
 						// Find or create a user for this branch
@@ -287,49 +294,39 @@ func (as *AuthService) Login(req LoginRequest) (string, *models.User, error) {
 								Status:          models.StatusActive,
 							}
 							if err := as.DB.Create(&branchUser).Error; err != nil {
-								return "", nil, fmt.Errorf("failed to create branch user: %w", err)
+								return nil, fmt.Errorf("failed to create branch user: %w", err)
 							}
 							// Reload with associations
 							as.DB.Preload("Tenant").Preload("PrimaryBranch").First(&branchUser, branchUser.ID)
 						} else if err != nil {
-							return "", nil, fmt.Errorf("database error: %w", err)
+							return nil, fmt.Errorf("database error: %w", err)
 						}
 
-						// Generate token for branch login
-						token, err := as.GenerateJWT(&branchUser)
-						if err != nil {
-							return "", nil, fmt.Errorf("failed to generate token: %w", err)
-						}
-
-						branchUsername := "unknown"
-						if branch.Username != nil {
-							branchUsername = *branch.Username
-						}
-						log.Printf("✅ Branch logged in successfully: %s (Branch ID: %d, User ID: %d)", branchUsername, branch.ID, branchUser.ID)
-						return token, &branchUser, nil
+						// Generate tokens for branch login
+						return as.generateLoginResponse(&branchUser)
 					}
-					return "", nil, errors.New("invalid email or password")
+					return nil, errors.New("invalid email or password")
 				}
-				return "", nil, fmt.Errorf("database error: %w", err)
+				return nil, fmt.Errorf("database error: %w", err)
 			}
 		} else {
-			return "", nil, fmt.Errorf("database error: %w", err)
+			return nil, fmt.Errorf("database error: %w", err)
 		}
 	}
 
 	// Check if email is verified
 	if !user.EmailVerified {
-		return "", nil, errors.New("email not verified. Please verify your email first")
+		return nil, errors.New("email not verified. Please verify your email first")
 	}
 
 	// Check password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		return "", nil, errors.New("invalid email or password")
+		return nil, errors.New("invalid email or password")
 	}
 
 	// Check if account is active
 	if user.Status == models.StatusSuspended {
-		return "", nil, errors.New("account is suspended. Please contact support")
+		return nil, errors.New("account is suspended. Please contact support")
 	}
 
 	// Check trial expiration (if not SuperAdmin)
@@ -341,30 +338,52 @@ func (as *AuthService) Login(req LoginRequest) (string, *models.User, error) {
 				tenant.Status = models.TenantStatusExpired
 				as.DB.Save(&user)
 				as.DB.Save(&tenant)
-				return "", nil, errors.New("trial period expired. Please activate a license")
+				return nil, errors.New("trial period expired. Please activate a license")
 			}
 		}
 	}
 
-	// Generate JWT token
-	token, err := as.GenerateJWT(&user)
+	// Generate tokens
+	return as.generateLoginResponse(&user)
+}
+
+// generateLoginResponse creates access and refresh tokens
+func (as *AuthService) generateLoginResponse(user *models.User) (*LoginResponse, error) {
+	// Generate access token (short-lived: 15 minutes)
+	accessToken, err := as.GenerateAccessToken(user)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to generate token: %w", err)
+		return nil, fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	// Generate refresh token (long-lived: 7 days)
+	refreshToken, err := as.GenerateRefreshToken(user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
 	log.Printf("✅ User logged in successfully: %s", user.Email)
-	return token, &user, nil
+
+	return &LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		User:         user,
+	}, nil
 }
 
-// GenerateJWT generates a JWT token for a user
+// GenerateJWT generates a JWT token for a user (backward compatibility)
 func (as *AuthService) GenerateJWT(user *models.User) (string, error) {
+	return as.GenerateAccessToken(user)
+}
+
+// GenerateAccessToken generates a short-lived access token (15 minutes)
+func (as *AuthService) GenerateAccessToken(user *models.User) (string, error) {
 	claims := JWTClaims{
 		UserID:   user.ID,
 		Email:    user.Email,
 		Role:     user.Role,
 		TenantID: user.TenantID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)), // 24 hours
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)), // 15 minutes
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Issuer:    "digital-transaction-ledger",
 		},
@@ -377,6 +396,123 @@ func (as *AuthService) GenerateJWT(user *models.User) (string, error) {
 	}
 
 	return tokenString, nil
+}
+
+// GenerateRefreshToken generates a long-lived refresh token (7 days)
+func (as *AuthService) GenerateRefreshToken(user *models.User) (string, error) {
+	claims := jwt.RegisteredClaims{
+		Subject:   fmt.Sprintf("%d", user.ID),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)), // 7 days
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		Issuer:    "digital-transaction-ledger-refresh",
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(as.JWTSecret))
+	if err != nil {
+		return "", err
+	}
+
+	// Store refresh token in database
+	refreshToken := models.RefreshToken{
+		UserID:    user.ID,
+		Token:     tokenString,
+		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
+		IsRevoked: false,
+	}
+
+	if err := as.DB.Create(&refreshToken).Error; err != nil {
+		return "", fmt.Errorf("failed to store refresh token: %w", err)
+	}
+
+	return tokenString, nil
+}
+
+// RefreshAccessToken validates a refresh token and generates a new access token
+func (as *AuthService) RefreshAccessToken(refreshTokenString string) (*LoginResponse, error) {
+	// Parse refresh token
+	token, err := jwt.ParseWithClaims(refreshTokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(as.JWTSecret), nil
+	})
+
+	if err != nil {
+		return nil, errors.New("invalid refresh token")
+	}
+
+	_, ok := token.Claims.(*jwt.RegisteredClaims)
+	if !ok || !token.Valid {
+		return nil, errors.New("invalid refresh token claims")
+	}
+
+	// Check if token exists and is not revoked in database
+	var refreshToken models.RefreshToken
+	if err := as.DB.Where("token = ? AND is_revoked = ?", refreshTokenString, false).First(&refreshToken).Error; err != nil {
+		return nil, errors.New("refresh token not found or revoked")
+	}
+
+	// Check if token is expired
+	if time.Now().After(refreshToken.ExpiresAt) {
+		return nil, errors.New("refresh token expired")
+	}
+
+	// Get user
+	var user models.User
+	if err := as.DB.Preload("Tenant").Preload("PrimaryBranch").First(&user, refreshToken.UserID).Error; err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	// Check if user is still active
+	if user.Status == models.StatusSuspended {
+		return nil, errors.New("account is suspended")
+	}
+
+	// Generate new access token
+	accessToken, err := as.GenerateAccessToken(&user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	log.Printf("✅ Access token refreshed for user: %s", user.Email)
+
+	return &LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshTokenString, // Return same refresh token
+		User:         &user,
+	}, nil
+}
+
+// RevokeRefreshToken revokes a refresh token
+func (as *AuthService) RevokeRefreshToken(tokenString string) error {
+	result := as.DB.Model(&models.RefreshToken{}).
+		Where("token = ?", tokenString).
+		Update("is_revoked", true)
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to revoke token: %w", result.Error)
+	}
+
+	if result.RowsAffected == 0 {
+		return errors.New("token not found")
+	}
+
+	return nil
+}
+
+// RevokeAllUserTokens revokes all refresh tokens for a user
+func (as *AuthService) RevokeAllUserTokens(userID uint) error {
+	result := as.DB.Model(&models.RefreshToken{}).
+		Where("user_id = ?", userID).
+		Update("is_revoked", true)
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to revoke tokens: %w", result.Error)
+	}
+
+	log.Printf("✅ Revoked all tokens for user ID: %d", userID)
+	return nil
 }
 
 // ValidateJWT validates a JWT token and returns the claims

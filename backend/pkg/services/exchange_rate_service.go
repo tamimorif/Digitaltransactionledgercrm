@@ -59,6 +59,7 @@ func (s *ExchangeRateService) FetchRatesFromAPI(tenantID uint, baseCurrency stri
 		}
 
 		if err := s.DB.Create(&exchangeRate).Error; err != nil {
+			fmt.Printf("Error saving rate for %s/%s: %v\n", baseCurrency, targetCurrency, err)
 			return fmt.Errorf("failed to save rate: %w", err)
 		}
 	}

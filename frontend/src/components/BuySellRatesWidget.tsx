@@ -36,10 +36,11 @@ export function BuySellRatesWidget() {
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        fetchRates();
+        loadRates();
     }, []);
 
-    const fetchRates = async () => {
+    const loadRates = async () => {
+        // First try to load from localStorage
         try {
             const stored = localStorage.getItem('buySellRates');
             if (stored) {
@@ -47,7 +48,7 @@ export function BuySellRatesWidget() {
                 setRates(parsed);
             }
         } catch (error) {
-            console.error('Error fetching rates:', error);
+            console.error('Error loading rates:', error);
         }
     };
 
@@ -97,6 +98,8 @@ export function BuySellRatesWidget() {
                         <TrendingUp className="h-5 w-5 text-green-600" />
                         Buy Rates (1 USD =)
                     </CardTitle>
+
+
                     {!isEditing ? (
                         <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                             Edit
@@ -108,7 +111,7 @@ export function BuySellRatesWidget() {
                                 size="sm"
                                 onClick={() => {
                                     setIsEditing(false);
-                                    fetchRates();
+                                    loadRates();
                                 }}
                             >
                                 Cancel
@@ -119,6 +122,7 @@ export function BuySellRatesWidget() {
                             </Button>
                         </div>
                     )}
+
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-4 gap-4">
@@ -285,6 +289,6 @@ export function BuySellRatesWidget() {
                     )}
                 </CardContent>
             </Card>
-        </div>
+        </div >
     );
 }

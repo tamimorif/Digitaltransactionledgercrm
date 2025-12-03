@@ -4,6 +4,7 @@ import (
 	"api/pkg/middleware"
 	"api/pkg/services"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 )
@@ -57,6 +58,7 @@ func (h *ExchangeRateHandler) RefreshRatesHandler(w http.ResponseWriter, r *http
 
 	err := h.ExchangeRateService.FetchRatesFromAPI(*tenantID, req.BaseCurrency)
 	if err != nil {
+		fmt.Printf("RefreshRatesHandler error: %v\n", err)
 		http.Error(w, "Failed to fetch rates from API: "+err.Error(), http.StatusInternalServerError)
 		return
 	}

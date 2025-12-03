@@ -68,7 +68,7 @@ func (h *PickupHandler) CreatePickupTransactionHandler(w http.ResponseWriter, r 
 
 	// If receiver branch is not provided, for in-person transaction types we
 	// auto-assign the sender branch as the receiver (no transfer between branches).
-	inPersonTypes := map[string]bool{"CASH_PICKUP": true, "CASH_EXCHANGE": true, "CARD_SWAP_IRR": true}
+	inPersonTypes := map[string]bool{"CASH_PICKUP": true, "CASH_EXCHANGE": true, "CARD_SWAP_IRR": true, "INCOMING_FUNDS": true}
 	if req.ReceiverBranchID == 0 {
 		if inPersonTypes[req.TransactionType] {
 			req.ReceiverBranchID = req.SenderBranchID
@@ -86,13 +86,13 @@ func (h *PickupHandler) CreatePickupTransactionHandler(w http.ResponseWriter, r 
 		return
 	}
 	// Recipient name is optional for in-person exchanges (CASH_PICKUP, CARD_SWAP_IRR)
-	if req.TransactionType != "CASH_PICKUP" && req.TransactionType != "CARD_SWAP_IRR" && req.RecipientName == "" {
+	if req.TransactionType != "CASH_PICKUP" && req.TransactionType != "CARD_SWAP_IRR" && req.TransactionType != "INCOMING_FUNDS" && req.RecipientName == "" {
 		respondWithError(w, http.StatusBadRequest, "Recipient name is required")
 		return
 	}
 
 	// Validate transaction type
-	validTypes := map[string]bool{"CASH_PICKUP": true, "CASH_EXCHANGE": true, "BANK_TRANSFER": true, "CARD_SWAP_IRR": true}
+	validTypes := map[string]bool{"CASH_PICKUP": true, "CASH_EXCHANGE": true, "BANK_TRANSFER": true, "CARD_SWAP_IRR": true, "INCOMING_FUNDS": true}
 	if !validTypes[req.TransactionType] {
 		respondWithError(w, http.StatusBadRequest, "Invalid transaction type")
 		return
@@ -382,13 +382,14 @@ func (h *PickupHandler) EditPickupTransactionHandler(w http.ResponseWriter, r *h
 	}
 
 	var req struct {
-		Amount           *float64 `json:"amount"`
-		Currency         *string  `json:"currency"`
-		ReceiverCurrency *string  `json:"receiverCurrency"`
-		ExchangeRate     *float64 `json:"exchangeRate"`
-		ReceiverAmount   *float64 `json:"receiverAmount"`
-		Fees             *float64 `json:"fees"`
-		EditReason       string   `json:"editReason"`
+		Amount              *float64 `json:"amount"`
+		Currency            *string  `json:"currency"`
+		ReceiverCurrency    *string  `json:"receiverCurrency"`
+		ExchangeRate        *float64 `json:"exchangeRate"`
+		ReceiverAmount      *float64 `json:"receiverAmount"`
+		Fees                *float64 `json:"fees"`
+		AllowPartialPayment *bool    `json:"allowPartialPayment"`
+		EditReason          string   `json:"editReason"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -400,7 +401,7 @@ func (h *PickupHandler) EditPickupTransactionHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	if err := h.PickupService.EditPickupTransaction(uint(id), *tenantID, userID, branchID, req.Amount, req.Currency, req.ReceiverCurrency, req.ExchangeRate, req.ReceiverAmount, req.Fees, req.EditReason); err != nil {
+	if err := h.PickupService.EditPickupTransaction(uint(id), *tenantID, userID, branchID, req.Amount, req.Currency, req.ReceiverCurrency, req.ExchangeRate, req.ReceiverAmount, req.Fees, req.AllowPartialPayment, req.EditReason); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

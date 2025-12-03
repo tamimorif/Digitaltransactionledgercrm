@@ -24,8 +24,19 @@ import {
   SelectValue,
 } from './ui/select';
 import { toast } from 'sonner';
-import { ArrowRight, Calculator, Loader2 } from 'lucide-react';
+import { ArrowRight, Calculator, Loader2, Star, Save } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
+
+const FAVORITES_KEY = 'transaction_favorites';
+
+interface FavoriteTransaction {
+  name: string;
+  type: TransactionType;
+  sendCurrency: string;
+  receiveCurrency: string;
+  beneficiaryName?: string;
+  beneficiaryDetails?: string;
+}
 
 interface Transaction {
   id: string;
@@ -83,6 +94,45 @@ export function TransactionForm({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Favorites State
+  const [favorites, setFavorites] = useState<FavoriteTransaction[]>([]);
+  const [saveAsFavorite, setSaveAsFavorite] = useState(false);
+  const [favoriteName, setFavoriteName] = useState('');
+
+  useEffect(() => {
+    const stored = localStorage.getItem(FAVORITES_KEY);
+    if (stored) {
+      setFavorites(JSON.parse(stored));
+    }
+  }, []);
+
+  const loadFavorite = (fav: FavoriteTransaction) => {
+    setTransactionType(fav.type);
+    setFormData(prev => ({
+      ...prev,
+      sendCurrency: fav.sendCurrency,
+      receiveCurrency: fav.receiveCurrency,
+      beneficiaryName: fav.beneficiaryName || '',
+      beneficiaryDetails: fav.beneficiaryDetails || '',
+    }));
+    toast.success(`Loaded favorite: ${fav.name}`);
+  };
+
+  const saveFavorite = () => {
+    if (!favoriteName) return;
+    const newFav: FavoriteTransaction = {
+      name: favoriteName,
+      type: transactionType,
+      sendCurrency: formData.sendCurrency,
+      receiveCurrency: formData.receiveCurrency,
+      beneficiaryName: formData.beneficiaryName,
+      beneficiaryDetails: formData.beneficiaryDetails,
+    };
+    const newFavorites = [...favorites, newFav];
+    setFavorites(newFavorites);
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(newFavorites));
+  };
+
   // Calculate receive amount based on rate and fee
   const calculateReceiveAmount = () => {
     const send = parseFloat(formData.sendAmount) || 0;
@@ -138,6 +188,12 @@ export function TransactionForm({
       });
 
       toast.success('Transaction created successfully');
+
+      if (saveAsFavorite && favoriteName) {
+        saveFavorite();
+        toast.success('Saved as favorite');
+      }
+
       onTransactionCreated(newTransaction);
       onOpenChange(false);
 
@@ -154,6 +210,8 @@ export function TransactionForm({
         userNotes: '',
         allowPartialPayment: false,
       });
+      setSaveAsFavorite(false);
+      setFavoriteName('');
     } catch (error: any) {
       console.error('Error creating transaction:', error);
       toast.error('Failed to create transaction', {
@@ -175,6 +233,28 @@ export function TransactionForm({
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-6 py-4">
+            {/* Favorites Selection */}
+            {favorites.length > 0 && (
+              <div className="bg-slate-50 p-3 rounded-md border">
+                <Label className="text-xs text-muted-foreground mb-2 block">Load from Favorites</Label>
+                <div className="flex flex-wrap gap-2">
+                  {favorites.map((fav, idx) => (
+                    <Button
+                      key={idx}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => loadFavorite(fav)}
+                    >
+                      <Star className="h-3 w-3 mr-1 text-yellow-500" />
+                      {fav.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Transaction Type Selection */}
             <div className="space-y-3">
               <Label>Transaction Type *</Label>
@@ -430,18 +510,42 @@ export function TransactionForm({
               </p>
             </div>
           </div>
-        </div>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Creating...' : 'Create Transaction'}
-          </Button>
-        </DialogFooter>
-      </form>
-    </DialogContent>
-    </Dialog >
+          {/* Save as Favorite Option */}
+          <div className="pt-4 border-t mt-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="saveFavorite"
+                checked={saveAsFavorite}
+                onCheckedChange={(checked) => setSaveAsFavorite(checked as boolean)}
+              />
+              <Label htmlFor="saveFavorite" className="flex items-center gap-2 cursor-pointer">
+                <Save className="h-4 w-4" />
+                Save this transaction as a favorite
+              </Label>
+            </div>
+            {saveAsFavorite && (
+              <div className="mt-2 pl-6">
+                <Input
+                  placeholder="Name this favorite (e.g., 'Transfer to Dubai')"
+                  value={favoriteName}
+                  onChange={(e) => setFavoriteName(e.target.value)}
+                  className="max-w-sm"
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Creating...' : 'Create Transaction'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

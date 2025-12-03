@@ -3,8 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/components/providers/auth-provider';
-import { Loader2, Settings, User, Mail, Shield, LogOut, ChevronDown, LayoutDashboard, Send, Search, Clock, FileText, TrendingUp, Calculator, Building2 } from 'lucide-react';
+import { Loader2, Settings, User, Mail, LogOut, ChevronDown, LayoutDashboard, Send, Search, Clock, FileText, TrendingUp, Calculator, Building2 } from 'lucide-react';
 import Link from 'next/link';
+import { ThemeToggle } from '@/src/components/ThemeToggle';
+import { LanguageSwitcher } from '@/src/components/LanguageSwitcher';
+import { KeyboardShortcuts } from '@/src/components/KeyboardShortcuts';
 import { Button } from '@/src/components/ui/button';
 import {
   DropdownMenu,
@@ -15,6 +18,10 @@ import {
   DropdownMenuTrigger,
 } from '@/src/components/ui/dropdown-menu';
 import { Badge } from '@/src/components/ui/badge';
+import { RateLimitNotification } from '@/src/components/RateLimitNotification';
+import { useTranslation } from '@/src/contexts/TranslationContext';
+import { GlobalSearch } from '@/src/components/GlobalSearch';
+import { useWebSocket } from '@/src/hooks/useWebSocket';
 
 export default function DashboardLayout({
   children,
@@ -23,6 +30,11 @@ export default function DashboardLayout({
 }) {
   const { isAuthenticated, isLoading, user, logout } = useAuth();
   const router = useRouter();
+  const { t } = useTranslation();
+  const [mounted, setMounted] = useState(false);
+
+  // Initialize WebSocket connection
+  useWebSocket();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -45,14 +57,20 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navigation Header */}
-      <header className="bg-white border-b sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <h1 className="text-xl font-bold">
+      <header className="bg-white border-b sticky top-0 z-50 w-full">
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-3 lg:gap-4 h-16">
+
+            {/* Left: Logo/Title */}
+            <div className="flex-shrink-0">
+              <h1 className="text-lg lg:text-xl font-bold whitespace-nowrap">
                 {user?.role === 'superadmin' ? 'SuperAdmin Panel' : 'Accounting Panel'}
               </h1>
-              <nav className="flex gap-2">
+            </div>
+
+            {/* Center: Navigation */}
+            <div className="hidden md:flex items-center justify-center flex-1 min-w-0">
+              <nav className="flex items-center gap-1 lg:gap-2">
                 {user?.role === 'superadmin' ? (
                   // SuperAdmin navigation - only admin features
                   <>
@@ -70,7 +88,7 @@ export default function DashboardLayout({
                   // Regular user navigation - grouped dropdowns
                   <>
                     <Link href="/dashboard">
-                      <Button variant="ghost" size="sm"><LayoutDashboard className="h-4 w-4 mr-2" />Dashboard</Button>
+                      <Button variant="ghost" size="sm"><LayoutDashboard className="h-4 w-4 mr-2" />{t('nav.dashboard')}</Button>
                     </Link>
 
                     {/* Transactions Dropdown */}
@@ -78,7 +96,7 @@ export default function DashboardLayout({
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm">
                           <Send className="h-4 w-4 mr-2" />
-                          Transactions
+                          {t('nav.transactions')}
                           <ChevronDown className="h-4 w-4 ml-1" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -86,7 +104,7 @@ export default function DashboardLayout({
                         <DropdownMenuItem asChild>
                           <Link href="/send-pickup" className="cursor-pointer">
                             <Send className="h-4 w-4 mr-2" />
-                            New Transaction
+                            Send / Receive Money
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
@@ -178,57 +196,61 @@ export default function DashboardLayout({
                 )}
               </nav>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex flex-col items-end">
-                <span className="text-sm font-medium">
-                  {user?.username || user?.email}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {user?.role === 'superadmin' ? 'SuperAdmin' :
-                    user?.role === 'tenant_owner' ? '👑 Owner' :
-                      user?.role === 'tenant_admin' ? 'Admin' : 'User'}
-                </span>
-              </div>
 
-              {/* Settings Dropdown */}
+            {/* Right: Actions (Ultra Compact - Option 3) */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Search Icon Only */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+
+              {/* User Initials Avatar */}
+              <Badge variant="secondary" className="h-8 w-8 rounded-full flex items-center justify-center font-semibold text-xs cursor-default">
+                {user?.username ? user.username.substring(0, 2).toUpperCase() :
+                  user?.email ? user.email.substring(0, 2).toUpperCase() : 'U'}
+              </Badge>
+
+              {/* Settings Dropdown - Icon Only */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Settings
+                  <Button variant="outline" size="icon">
+                    <Settings className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-64">
                   <DropdownMenuLabel>Account Information</DropdownMenuLabel>
                   <DropdownMenuSeparator />
 
-                  <div className="px-2 py-3 space-y-2">
-                    <div className="flex items-start gap-2">
-                      <Mail className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                      <div className="flex-1">
-                        <p className="text-xs text-muted-foreground">Email</p>
-                        <p className="text-sm font-medium">{user?.email}</p>
-                      </div>
+                  <div className="px-2 py-3 space-y-1">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="font-medium truncate">{user?.email}</span>
                     </div>
 
-                    <div className="flex items-start gap-2">
-                      <User className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                      <div className="flex-1">
-                        <p className="text-xs text-muted-foreground">Username</p>
-                        <p className="text-sm font-medium">{user?.username || 'Not set'}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="text-muted-foreground">{user?.username || 'Not set'}</span>
                       </div>
+                      <Badge variant="outline" className="ml-auto">
+                        {user?.role === 'superadmin' ? 'Super Admin' :
+                          user?.role === 'tenant_owner' ? '👑 Owner' :
+                            user?.role === 'tenant_admin' ? 'Admin' : 'User'}
+                      </Badge>
                     </div>
+                  </div>
 
-                    <div className="flex items-start gap-2">
-                      <Shield className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                      <div className="flex-1">
-                        <p className="text-xs text-muted-foreground">Role</p>
-                        <Badge variant="outline" className="mt-1">
-                          {user?.role === 'superadmin' ? 'Super Admin' :
-                            user?.role === 'tenant_owner' ? 'Owner' :
-                              user?.role === 'tenant_admin' ? 'Admin' : 'User'}
-                        </Badge>
-                      </div>
+                  <DropdownMenuSeparator />
+
+                  {/* Theme Toggle in Dropdown */}
+                  <div className="px-2 py-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Theme</span>
+                      <ThemeToggle />
                     </div>
                   </div>
 
@@ -250,6 +272,8 @@ export default function DashboardLayout({
         </div>
       </header>
       <main>{children}</main>
-    </div>
+      <KeyboardShortcuts />
+      <RateLimitNotification />
+    </div >
   );
 }

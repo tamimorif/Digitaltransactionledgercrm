@@ -1,5 +1,5 @@
 // Pickup Transaction Models
-export type TransactionType = 'CASH_PICKUP' | 'CASH_EXCHANGE' | 'BANK_TRANSFER' | 'CARD_SWAP_IRR';
+export type TransactionType = 'CASH_PICKUP' | 'CASH_EXCHANGE' | 'BANK_TRANSFER' | 'CARD_SWAP_IRR' | 'INCOMING_FUNDS';
 
 export interface PickupTransaction {
     id: number;
@@ -101,6 +101,7 @@ export interface EditPickupTransactionRequest {
     exchangeRate?: number;
     receiverAmount?: number;
     fees: number;
+    allowPartialPayment?: boolean;
     editReason: string;
 }
 

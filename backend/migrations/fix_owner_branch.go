@@ -1,4 +1,4 @@
-package main
+package migrations
 
 import (
 	"log"
@@ -12,11 +12,11 @@ import (
 
 // User model (minimal for migration)
 type User struct {
-	ID              uint       `gorm:"primaryKey"`
-	Email           string     `gorm:"type:varchar(255);uniqueIndex"`
-	TenantID        *uint      `gorm:"type:bigint"`
-	PrimaryBranchID *uint      `gorm:"type:bigint"`
-	Role            string     `gorm:"type:varchar(50)"`
+	ID              uint   `gorm:"primaryKey"`
+	Email           string `gorm:"type:varchar(255);uniqueIndex"`
+	TenantID        *uint  `gorm:"type:bigint"`
+	PrimaryBranchID *uint  `gorm:"type:bigint"`
+	Role            string `gorm:"type:varchar(50)"`
 }
 
 // Branch model (minimal for migration)
@@ -85,12 +85,12 @@ func main() {
 		if len(existingBranches) > 0 {
 			// Use existing branch (set first one as Head Office if not already set)
 			headOffice = &existingBranches[0]
-			
+
 			// Update it to be primary and rename to Head Office if needed
 			updates := map[string]interface{}{
 				"is_primary": true,
 			}
-			
+
 			if headOffice.Name != "Head Office" {
 				updates["name"] = "Head Office"
 			}
@@ -103,7 +103,7 @@ func main() {
 				continue
 			}
 
-			log.Printf("✅ Updated existing branch '%s' to Head Office for %s", 
+			log.Printf("✅ Updated existing branch '%s' to Head Office for %s",
 				existingBranches[0].Name, owner.Email)
 		} else {
 			// Create new Head Office branch
@@ -130,7 +130,7 @@ func main() {
 			continue
 		}
 
-		log.Printf("✅ Assigned Head Office (ID: %d) to owner %s (ID: %d)", 
+		log.Printf("✅ Assigned Head Office (ID: %d) to owner %s (ID: %d)",
 			headOffice.ID, owner.Email, owner.ID)
 	}
 

@@ -226,18 +226,52 @@ func (s *CashBalanceService) RefreshAllBalancesForTenant(tenantID uint) error {
 	return nil
 }
 
-// GetActiveCurrencies retrieves all currencies with transactions for a tenant
+// GetActiveCurrencies retrieves all active currencies with transactions for a tenant
 func (s *CashBalanceService) GetActiveCurrencies(tenantID uint, branchID *uint) ([]string, error) {
-	var currencies []string
+	var sendCurrencies []string
+	var receiveCurrencies []string
 
-	query := s.DB.Model(&models.Transaction{}).
+	// Query send currencies
+	querySend := s.DB.Model(&models.Transaction{}).
 		Where("tenant_id = ?", tenantID).
-		Distinct("currency")
+		Distinct("send_currency")
 
 	if branchID != nil {
-		query = query.Where("branch_id = ?", *branchID)
+		querySend = querySend.Where("branch_id = ?", *branchID)
 	}
 
-	err := query.Pluck("currency", &currencies).Error
-	return currencies, err
+	if err := querySend.Pluck("send_currency", &sendCurrencies).Error; err != nil {
+		return nil, err
+	}
+
+	// Query receive currencies
+	queryReceive := s.DB.Model(&models.Transaction{}).
+		Where("tenant_id = ?", tenantID).
+		Distinct("receive_currency")
+
+	if branchID != nil {
+		queryReceive = queryReceive.Where("branch_id = ?", *branchID)
+	}
+
+	if err := queryReceive.Pluck("receive_currency", &receiveCurrencies).Error; err != nil {
+		return nil, err
+	}
+
+	// Combine and deduplicate
+	currencyMap := make(map[string]bool)
+	for _, c := range sendCurrencies {
+		currencyMap[c] = true
+	}
+	for _, c := range receiveCurrencies {
+		currencyMap[c] = true
+	}
+
+	var currencies []string
+	for c := range currencyMap {
+		if c != "" {
+			currencies = append(currencies, c)
+		}
+	}
+
+	return currencies, nil
 }

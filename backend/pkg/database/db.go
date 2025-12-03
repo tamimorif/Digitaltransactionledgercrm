@@ -62,6 +62,11 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 		&models.OwnershipTransferLog{},
 		&models.AuditLog{},
 		&models.PasswordResetCode{},
+		// Security & Rate Limiting
+		&models.RefreshToken{},
+		&models.RateLimitEntry{},
+		// Search
+		&models.SavedSearch{},
 		// Existing models (now with TenantID)
 		&models.Client{},
 		&models.Transaction{},
@@ -74,6 +79,14 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 		&models.CashAdjustment{},
 		// Payment system (NEW)
 		&models.Payment{},
+		// Remittance system (NEW)
+		&models.OutgoingRemittance{},
+		&models.IncomingRemittance{},
+		&models.RemittanceSettlement{},
+		// Exchange Rates
+		&models.ExchangeRate{},
+		// Reconciliation
+		&models.DailyReconciliation{},
 	)
 	if err != nil {
 		log.Printf("Warning: Failed to run auto-migrations: %v", err)

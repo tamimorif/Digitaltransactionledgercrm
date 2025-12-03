@@ -67,7 +67,8 @@ func (s *PickupService) CreatePickupTransaction(pickup *models.PickupTransaction
 		return errors.New("sender_branch_id is required")
 	}
 	// Allow receiver to be omitted for in-person transactions (treat as same branch)
-	inPerson := pickup.TransactionType == "CASH_PICKUP" || pickup.TransactionType == "CARD_SWAP_IRR"
+	// INCOMING_FUNDS transactions are always to the same branch (receiving money into own branch)
+	inPerson := pickup.TransactionType == "CASH_PICKUP" || pickup.TransactionType == "CARD_SWAP_IRR" || pickup.TransactionType == "INCOMING_FUNDS"
 	if pickup.ReceiverBranchID == 0 {
 		if inPerson || pickup.TransactionType == "CASH_EXCHANGE" {
 			pickup.ReceiverBranchID = pickup.SenderBranchID
@@ -76,13 +77,13 @@ func (s *PickupService) CreatePickupTransaction(pickup *models.PickupTransaction
 		}
 	}
 
-	// Recipient name is optional for in-person exchanges (CASH_PICKUP, CARD_SWAP_IRR)
+	// Recipient name is optional for in-person exchanges (CASH_PICKUP, CARD_SWAP_IRR, INCOMING_FUNDS)
 	// Required for transfers (CASH_EXCHANGE, BANK_TRANSFER)
 	if !inPerson && pickup.RecipientName == "" {
 		return errors.New("recipient_name is required")
 	}
 
-	// Phone is required for transfers (CASH_EXCHANGE), optional for in-person (CASH_PICKUP, CARD_SWAP_IRR) and BANK_TRANSFER
+	// Phone is required for transfers (CASH_EXCHANGE), optional for in-person (CASH_PICKUP, CARD_SWAP_IRR, INCOMING_FUNDS) and BANK_TRANSFER
 	if pickup.TransactionType == "CASH_EXCHANGE" {
 		if pickup.RecipientPhone == nil || *pickup.RecipientPhone == "" {
 			return errors.New("recipient_phone is required")
@@ -317,7 +318,8 @@ func (s *PickupService) CancelPickupTransaction(id uint, tenantID uint, userID u
 }
 
 // EditPickupTransaction edits a pickup transaction (amount, currency, fees, etc.)
-func (s *PickupService) EditPickupTransaction(id uint, tenantID uint, userID uint, branchID *uint, amount *float64, currency *string, receiverCurrency *string, exchangeRate *float64, receiverAmount *float64, fees *float64, editReason string) error {
+// EditPickupTransaction edits a pickup transaction (amount, currency, fees, etc.)
+func (s *PickupService) EditPickupTransaction(id uint, tenantID uint, userID uint, branchID *uint, amount *float64, currency *string, receiverCurrency *string, exchangeRate *float64, receiverAmount *float64, fees *float64, allowPartialPayment *bool, editReason string) error {
 	var pickup models.PickupTransaction
 	if err := s.DB.Where("id = ? AND tenant_id = ?", id, tenantID).First(&pickup).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -361,6 +363,18 @@ func (s *PickupService) EditPickupTransaction(id uint, tenantID uint, userID uin
 	}
 	if fees != nil {
 		updates["fees"] = *fees
+	}
+	if allowPartialPayment != nil {
+		updates["allow_partial_payment"] = *allowPartialPayment
+		// If enabling partial payment, ensure payment status is initialized if nil
+		if *allowPartialPayment && (pickup.PaymentStatus == nil || *pickup.PaymentStatus == "SINGLE") {
+			status := "OPEN"
+			updates["payment_status"] = &status
+		} else if !*allowPartialPayment {
+			// If disabling, revert to SINGLE
+			status := "SINGLE"
+			updates["payment_status"] = &status
+		}
 	}
 
 	if err := s.DB.Model(&pickup).Updates(updates).Error; err != nil {

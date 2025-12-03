@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useAuth } from '@/src/components/providers/auth-provider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Badge } from '@/src/components/ui/badge';
@@ -16,8 +16,12 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useMarkAsPickedUp } from '@/src/lib/queries/pickup.query';
 import { EditPickupDialog } from '@/src/components/EditPickupDialog';
+import { ManagePaymentsDialog } from '@/src/components/ManagePaymentsDialog';
 import { PickupTransaction } from '@/src/lib/models/pickup.model';
 import { exportToCSV, exportToExcel, exportToPDF } from '@/src/lib/export';
+import { LiveIndicator } from '@/src/components/LiveIndicator';
+import { useWebSocket, usePickupUpdates } from '@/src/hooks/useWebSocket';
+
 
 interface PendingPickup {
     id: number;
@@ -50,10 +54,13 @@ interface PendingPickup {
 
 export default function PendingPickupsPage() {
     const { user } = useAuth();
+    const { isConnected } = useWebSocket();
     const [showVerifyDialog, setShowVerifyDialog] = useState(false);
     const [showEditDialog, setShowEditDialog] = useState(false);
     const [selectedPickup, setSelectedPickup] = useState<PendingPickup | null>(null);
     const [editingPickup, setEditingPickup] = useState<PickupTransaction | null>(null);
+    const [paymentTransaction, setPaymentTransaction] = useState<PickupTransaction | null>(null);
+    const [showPaymentsDialog, setShowPaymentsDialog] = useState(false);
     const [startDate, setStartDate] = useState<string>('');
     const [endDate, setEndDate] = useState<string>('');
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -71,6 +78,19 @@ export default function PendingPickupsPage() {
         }
     });
 
+    // Handle pickup updates via WebSocket
+    const handlePickupUpdate = useCallback((message: any) => {
+        console.log('Pickup update:', message);
+        toast.info(`Pickup ${message.action}: ${message.data.pickupCode || 'New'}`, {
+            description: 'Pickup data has been updated',
+        });
+        // Refresh pickup list
+        refetch();
+    }, [refetch]);
+
+    // Subscribe to pickup updates
+    usePickupUpdates(handlePickupUpdate);
+
     const handleVerifyClick = (pickup: PendingPickup) => {
         setSelectedPickup(pickup);
         setShowVerifyDialog(true);
@@ -79,6 +99,11 @@ export default function PendingPickupsPage() {
     const handleEditClick = (pickup: PendingPickup) => {
         setEditingPickup(pickup as PickupTransaction);
         setShowEditDialog(true);
+    };
+
+    const handlePaymentsClick = (pickup: PendingPickup) => {
+        setPaymentTransaction(pickup as PickupTransaction);
+        setShowPaymentsDialog(true);
     };
 
     const handleConfirmVerify = async () => {
@@ -113,9 +138,12 @@ export default function PendingPickupsPage() {
 
     return (
         <div className="container mx-auto px-6 py-8 space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold">Orders</h1>
-                <p className="text-muted-foreground">All money transfer orders across all branches</p>
+            <div className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold">Orders</h1>
+                    <p className="text-muted-foreground">All money transfer orders across all branches</p>
+                </div>
+                <LiveIndicator isConnected={isConnected} />
             </div>
 
             <Card>
@@ -279,7 +307,7 @@ export default function PendingPickupsPage() {
                                                             >
                                                                 {pickup.status === 'PENDING' ? 'Pending' :
                                                                     pickup.status === 'COMPLETED' || pickup.status === 'PICKED_UP' ? 'Verified & Given' :
-                                                                    'Cancelled'}
+                                                                        'Cancelled'}
                                                             </Badge>
                                                             {pickup.allowPartialPayment && pickup.paymentStatus && (
                                                                 <Badge
@@ -338,7 +366,7 @@ export default function PendingPickupsPage() {
                                                         <div className="flex items-center justify-between">
                                                             <span className="text-sm text-muted-foreground">Send Amount</span>
                                                             <span className="text-xl font-bold">
-                                                                {pickup.amount.toFixed(2)} {pickup.currency}
+                                                                {pickup.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {pickup.currency}
                                                             </span>
                                                         </div>
 
@@ -353,7 +381,7 @@ export default function PendingPickupsPage() {
                                                                 <div className="flex items-center justify-between border-t pt-2">
                                                                     <span className="text-sm text-muted-foreground">Receive Amount</span>
                                                                     <span className="text-xl font-bold text-green-600">
-                                                                        {pickup.receiverAmount?.toFixed(2)} {pickup.receiverCurrency}
+                                                                        {pickup.receiverAmount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {pickup.receiverCurrency}
                                                                     </span>
                                                                 </div>
                                                             </>
@@ -361,13 +389,13 @@ export default function PendingPickupsPage() {
 
                                                         <div className="flex items-center justify-between text-sm border-t pt-2">
                                                             <span className="text-muted-foreground">Fees</span>
-                                                            <span className="font-medium">{pickup.fees.toFixed(2)} {pickup.currency}</span>
+                                                            <span className="font-medium">{pickup.fees.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {pickup.currency}</span>
                                                         </div>
 
                                                         <div className="flex items-center justify-between border-t pt-2">
                                                             <span className="text-sm font-medium">Total Cost</span>
                                                             <span className="text-lg font-bold">
-                                                                {(pickup.amount + pickup.fees).toFixed(2)} {pickup.currency}
+                                                                {(pickup.amount + pickup.fees).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {pickup.currency}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -408,6 +436,16 @@ export default function PendingPickupsPage() {
                                                                 <Edit className="mr-2 h-4 w-4" />
                                                                 Edit
                                                             </Button>
+                                                            {pickup.allowPartialPayment && (
+                                                                <Button
+                                                                    onClick={() => handlePaymentsClick(pickup)}
+                                                                    className="flex-1"
+                                                                    variant="outline"
+                                                                >
+                                                                    <DollarSign className="mr-2 h-4 w-4" />
+                                                                    Payments
+                                                                </Button>
+                                                            )}
                                                             <Button
                                                                 onClick={() => handleVerifyClick(pickup)}
                                                                 className="flex-1"
@@ -448,7 +486,7 @@ export default function PendingPickupsPage() {
                                     <div className="flex justify-between text-sm">
                                         <span className="text-muted-foreground">Amount:</span>
                                         <span className="font-bold">
-                                            {selectedPickup.receiverAmount?.toFixed(2) || selectedPickup.amount.toFixed(2)} {selectedPickup.receiverCurrency || selectedPickup.currency}
+                                            {selectedPickup.receiverAmount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || selectedPickup.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {selectedPickup.receiverCurrency || selectedPickup.currency}
                                         </span>
                                     </div>
                                 </div>
@@ -470,6 +508,13 @@ export default function PendingPickupsPage() {
                 open={showEditDialog}
                 onOpenChange={setShowEditDialog}
                 onSuccess={handleEditSuccess}
+            />
+
+            {/* Manage Payments Dialog */}
+            <ManagePaymentsDialog
+                transaction={paymentTransaction}
+                open={showPaymentsDialog}
+                onOpenChange={setShowPaymentsDialog}
             />
         </div>
     );

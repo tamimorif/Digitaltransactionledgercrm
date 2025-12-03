@@ -1,4 +1,6 @@
 // API client for backend communication
+
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 // Types
@@ -28,6 +30,7 @@ export interface Tenant {
 export interface LoginResponse {
   message: string;
   token: string;
+  refreshToken?: string;
   user: User;
   tenant?: Tenant;
 }
@@ -112,6 +115,36 @@ export const authAPI = {
 
     return res.json();
   },
+
+  async refreshToken(refreshToken: string): Promise<LoginResponse> {
+    const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Token refresh failed');
+    }
+
+    return res.json();
+  },
+
+  async logout(refreshToken: string): Promise<{ message: string }> {
+    const res = await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Logout failed');
+    }
+
+    return res.json();
+  },
 };
 
 // License API
@@ -163,6 +196,18 @@ export const storage = {
     localStorage.removeItem('token');
   },
 
+  setRefreshToken(refreshToken: string) {
+    localStorage.setItem('refreshToken', refreshToken);
+  },
+
+  getRefreshToken(): string | null {
+    return localStorage.getItem('refreshToken');
+  },
+
+  removeRefreshToken() {
+    localStorage.removeItem('refreshToken');
+  },
+
   setUser(user: User) {
     localStorage.setItem('user', JSON.stringify(user));
   },
@@ -178,6 +223,7 @@ export const storage = {
 
   clear() {
     this.removeToken();
+    this.removeRefreshToken();
     this.removeUser();
   },
 };

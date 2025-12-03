@@ -20,19 +20,22 @@ export function formatExchangeRate(
 }
 
 /**
- * Calculate received amount based on transaction type
- * For Card Swap: Divides instead of multiplies (80,300 Toman → CAD)
+ * Calculate received amount based on transaction type and currency
+ * For IRR (Toman) as source: Always divides (200M Toman / 81,000 rate = CAD)
+ * For other currencies: Multiplies (amount * rate)
  */
 export function calculateReceivedAmount(
     amount: string | number,
     rate: string | number,
-    isCardSwap: boolean = false
+    isCardSwap: boolean = false,
+    sourceCurrency?: string
 ): number {
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     const numRate = typeof rate === 'string' ? parseFloat(rate) : rate;
 
-    if (isCardSwap) {
-        // For card swap: amount (Toman) / rate (Toman per 1 CAD) = CAD
+    // For IRR (Toman) as source, always divide by rate
+    // Example: 200,000,000 Toman / 81,000 (rate) = 2,469.14 CAD
+    if (sourceCurrency === 'IRR' || isCardSwap) {
         return numAmount / numRate;
     } else {
         // Normal: amount * rate

@@ -35,8 +35,17 @@ type PickupTransaction struct {
 	CancelledByUserID  *uint      `gorm:"type:bigint" json:"cancelledByUserId"`
 	CancellationReason *string    `gorm:"type:text" json:"cancellationReason"`
 	Notes              *string    `gorm:"type:text" json:"notes"`
-	CreatedAt          time.Time  `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"createdAt"`
-	UpdatedAt          time.Time  `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"updatedAt"`
+
+	// Payment fields
+	AllowPartialPayment bool     `gorm:"type:boolean;default:false" json:"allowPartialPayment"`
+	TotalReceived       *float64 `gorm:"type:real;default:0" json:"totalReceived"`
+	ReceivedCurrency    *string  `gorm:"type:varchar(10)" json:"receivedCurrency"`
+	TotalPaid           *float64 `gorm:"type:real;default:0" json:"totalPaid"`
+	RemainingBalance    *float64 `gorm:"type:real;default:0" json:"remainingBalance"`
+	PaymentStatus       *string  `gorm:"type:varchar(20);default:'SINGLE'" json:"paymentStatus"` // SINGLE, OPEN, PARTIAL, FULLY_PAID
+
+	CreatedAt time.Time `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"createdAt"`
+	UpdatedAt time.Time `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"updatedAt"`
 
 	// Relations
 	Tenant          *Tenant      `gorm:"foreignKey:TenantID;constraint:OnDelete:CASCADE" json:"tenant,omitempty"`
@@ -56,10 +65,11 @@ func (PickupTransaction) TableName() string {
 
 // TransactionType constants
 const (
-	TransactionTypeCashPickup   = "CASH_PICKUP"
-	TransactionTypeCashExchange = "CASH_EXCHANGE"
-	TransactionTypeBankTransfer = "BANK_TRANSFER"
-	TransactionTypeCardSwapIRR  = "CARD_SWAP_IRR"
+	TransactionTypeCashPickup    = "CASH_PICKUP"
+	TransactionTypeCashExchange  = "CASH_EXCHANGE"
+	TransactionTypeBankTransfer  = "BANK_TRANSFER"
+	TransactionTypeCardSwapIRR   = "CARD_SWAP_IRR"
+	TransactionTypeIncomingFunds = "INCOMING_FUNDS" // For recording money received from individuals
 )
 
 // PickupStatus constants
