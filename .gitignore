@@ -1,7 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules/
+frontend/node_modules/
 /.pnp
 .pnp.js
 .yarn/install-state.gz
@@ -10,7 +11,8 @@
 /coverage
 
 # next.js
-/.next/
+.next/
+frontend/.next/
 /out/
 
 # production
@@ -18,6 +20,7 @@
 
 # misc
 .DS_Store
+**/.DS_Store
 *.pem
 
 # debug
@@ -45,3 +48,16 @@ server.log
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Go compiled binaries
+backend/server
+backend/server_new
+backend/main
+backend/bin/
+backend/*.exe
+backend/activate_branches
+backend/debug_rates
+backend/hash_password
+
+# Database files
+transactions.db
