@@ -222,6 +222,11 @@ func (ls *LicenseService) ActivateLicense(licenseKey string, tenantID uint) erro
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
+	// Invalidate cache for this tenant's licenses
+	cache := GetCacheService(ls.DB)
+	cache.InvalidateLicenseCache(tenantID)
+	cache.InvalidateTenantCache(tenantID)
+
 	log.Printf("✅ License activated: %s for Tenant ID: %d", license.LicenseKey, tenantID)
 	return nil
 }
@@ -236,6 +241,18 @@ func (ls *LicenseService) GetLicenseByKey(licenseKey string) (*models.License, e
 		return nil, fmt.Errorf("database error: %w", err)
 	}
 	return &license, nil
+}
+
+// GetLicensesForTenant retrieves all licenses for a specific tenant (uses caching)
+func (ls *LicenseService) GetLicensesForTenant(tenantID uint) ([]models.License, error) {
+	cache := GetCacheService(ls.DB)
+	return cache.GetLicensesForTenant(tenantID)
+}
+
+// GetActiveLicenseForTenant retrieves the active license for a tenant (uses caching)
+func (ls *LicenseService) GetActiveLicenseForTenant(tenantID uint) (*models.License, error) {
+	cache := GetCacheService(ls.DB)
+	return cache.GetActiveLicense(tenantID)
 }
 
 // GetAllLicenses retrieves all licenses (SuperAdmin only)
@@ -285,6 +302,13 @@ func (ls *LicenseService) RevokeLicense(licenseID uint) error {
 
 	if err := tx.Commit().Error; err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Invalidate cache for the affected tenant
+	if license.TenantID != nil {
+		cache := GetCacheService(ls.DB)
+		cache.InvalidateLicenseCache(*license.TenantID)
+		cache.InvalidateTenantCache(*license.TenantID)
 	}
 
 	log.Printf("⚠️  License revoked: ID %d", licenseID)

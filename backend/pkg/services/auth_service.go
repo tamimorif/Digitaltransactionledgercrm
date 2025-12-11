@@ -22,10 +22,14 @@ type AuthService struct {
 
 // NewAuthService creates a new auth service instance
 func NewAuthService(db *gorm.DB) *AuthService {
+	jwtSecret := getEnv("JWT_SECRET", "")
+	if jwtSecret == "" {
+		panic("JWT_SECRET environment variable is required and must be set")
+	}
 	return &AuthService{
 		DB:           db,
 		EmailService: NewEmailService(),
-		JWTSecret:    getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
+		JWTSecret:    jwtSecret,
 	}
 }
 

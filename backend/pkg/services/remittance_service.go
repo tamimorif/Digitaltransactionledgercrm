@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // RemittanceService handles remittance business logic
@@ -75,15 +76,17 @@ func (s *RemittanceService) SettleRemittance(tenantID, outgoingID, incomingID ui
 		}
 	}()
 
-	// Get outgoing remittance with lock
-	if err := tx.Where("id = ? AND tenant_id = ?", outgoingID, tenantID).
+	// Get outgoing remittance with lock (FOR UPDATE prevents race conditions)
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("id = ? AND tenant_id = ?", outgoingID, tenantID).
 		First(&outgoing).Error; err != nil {
 		tx.Rollback()
 		return nil, errors.New("outgoing remittance not found")
 	}
 
-	// Get incoming remittance with lock
-	if err := tx.Where("id = ? AND tenant_id = ?", incomingID, tenantID).
+	// Get incoming remittance with lock (FOR UPDATE prevents race conditions)
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("id = ? AND tenant_id = ?", incomingID, tenantID).
 		First(&incoming).Error; err != nil {
 		tx.Rollback()
 		return nil, errors.New("incoming remittance not found")

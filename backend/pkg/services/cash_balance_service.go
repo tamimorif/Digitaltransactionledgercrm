@@ -133,49 +133,101 @@ func (s *CashBalanceService) GetBalanceByCurrency(tenantID uint, branchID *uint,
 }
 
 // CreateManualAdjustment creates a manual adjustment to the cash balance
+// This operation is wrapped in a transaction to ensure atomicity
 func (s *CashBalanceService) CreateManualAdjustment(tenantID uint, branchID *uint, currency string, amount float64, reason string, adjustedBy uint) (*models.CashAdjustment, error) {
-	if reason == "" {
-		return nil, errors.New("reason is required")
-	}
+	var adjustment *models.CashAdjustment
 
-	// Get or create cash balance
-	cashBalance, err := s.GetOrCreateCashBalance(tenantID, branchID, currency)
+	err := s.DB.Transaction(func(tx *gorm.DB) error {
+		// Get or create cash balance within transaction
+		var cashBalance models.CashBalance
+
+		query := tx.Where("tenant_id = ? AND currency = ?", tenantID, currency)
+		if branchID != nil {
+			query = query.Where("branch_id = ?", *branchID)
+		} else {
+			query = query.Where("branch_id IS NULL")
+		}
+
+		err := query.First(&cashBalance).Error
+		if err != nil {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+			// Create new balance record
+			autoBalance, err := s.calculateBalanceWithTx(tx, tenantID, branchID, currency)
+			if err != nil {
+				return err
+			}
+			cashBalance = models.CashBalance{
+				TenantID:              tenantID,
+				BranchID:              branchID,
+				Currency:              currency,
+				AutoCalculatedBalance: autoBalance,
+				ManualAdjustment:      0,
+				FinalBalance:          autoBalance,
+				LastCalculatedAt:      time.Now(),
+			}
+			if err := tx.Create(&cashBalance).Error; err != nil {
+				return err
+			}
+		}
+
+		balanceBefore := cashBalance.FinalBalance
+
+		// Create adjustment record
+		adjustment = &models.CashAdjustment{
+			TenantID:      tenantID,
+			BranchID:      branchID,
+			Currency:      currency,
+			Amount:        amount,
+			Reason:        reason,
+			AdjustedBy:    adjustedBy,
+			BalanceBefore: balanceBefore,
+			BalanceAfter:  balanceBefore + amount,
+		}
+
+		if err := tx.Create(adjustment).Error; err != nil {
+			return err
+		}
+
+		// Update cash balance
+		now := time.Now()
+		updates := map[string]interface{}{
+			"manual_adjustment":         cashBalance.ManualAdjustment + amount,
+			"final_balance":             cashBalance.FinalBalance + amount,
+			"last_manual_adjustment_at": &now,
+			"updated_at":                now,
+		}
+
+		if err := tx.Model(&cashBalance).Updates(updates).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
 	if err != nil {
 		return nil, err
 	}
 
-	balanceBefore := cashBalance.FinalBalance
+	return adjustment, nil
+}
 
-	// Create adjustment record
-	adjustment := models.CashAdjustment{
-		TenantID:      tenantID,
-		BranchID:      branchID,
-		Currency:      currency,
-		Amount:        amount,
-		Reason:        reason,
-		AdjustedBy:    adjustedBy,
-		BalanceBefore: balanceBefore,
-		BalanceAfter:  balanceBefore + amount,
+// calculateBalanceWithTx calculates balance within a transaction
+func (s *CashBalanceService) calculateBalanceWithTx(tx *gorm.DB, tenantID uint, branchID *uint, currency string) (float64, error) {
+	var balance float64
+
+	query := tx.Model(&models.Transaction{}).Where("tenant_id = ? AND currency = ?", tenantID, currency)
+	if branchID != nil {
+		query = query.Where("branch_id = ?", *branchID)
 	}
 
-	if err := s.DB.Create(&adjustment).Error; err != nil {
-		return nil, err
+	err := query.Select("COALESCE(SUM(amount), 0)").Scan(&balance).Error
+	if err != nil {
+		return 0, err
 	}
 
-	// Update cash balance
-	now := time.Now()
-	updates := map[string]interface{}{
-		"manual_adjustment":         cashBalance.ManualAdjustment + amount,
-		"final_balance":             cashBalance.FinalBalance + amount,
-		"last_manual_adjustment_at": &now,
-		"updated_at":                now,
-	}
-
-	if err := s.DB.Model(&cashBalance).Updates(updates).Error; err != nil {
-		return nil, err
-	}
-
-	return &adjustment, nil
+	return balance, nil
 }
 
 // GetAdjustmentHistory retrieves adjustment history for a tenant

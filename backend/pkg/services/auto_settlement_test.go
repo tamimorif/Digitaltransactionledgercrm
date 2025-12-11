@@ -261,6 +261,38 @@ func TestProfitAnalysisService(t *testing.T) {
 	}
 	remittanceService.CreateIncomingRemittance(incoming)
 
+	// Create a client for the transaction
+	client := &models.Client{
+		ID:          "profit-test-client",
+		TenantID:    tenant.ID,
+		Name:        "Profit Test Client",
+		PhoneNumber: "+14165551234",
+	}
+	db.Create(client)
+
+	// Create a transaction with profit for the analysis test
+	// Profit = (1/BuyRate - 1/SellRate) * AmountIRR in CAD terms
+	// Cost = 100M / 80,000 = 1,250 CAD
+	// Revenue = 100M / 81,000 = 1,234.57 CAD
+	// Profit = 1,250 - 1,234.57 = 15.43 CAD (approx)
+	expectedProfit := (100000000.0 / 80000.0) - (100000000.0 / 81000.0)
+	txn := &models.Transaction{
+		ID:              "profit-analysis-txn-001",
+		TenantID:        tenant.ID,
+		ClientID:        client.ID,
+		Type:            models.TypeCashExchange,
+		SendCurrency:    "CAD",
+		SendAmount:      1250.00,
+		ReceiveCurrency: "IRR",
+		ReceiveAmount:   100000000,
+		RateApplied:     80000,
+		StandardRate:    81000,
+		Profit:          expectedProfit,
+		Status:          models.StatusCompleted,
+		TransactionDate: time.Now(),
+	}
+	db.Create(txn)
+
 	// Settle
 	remittanceService.SettleRemittance(tenant.ID, outgoing.ID, incoming.ID, 100000000, user.ID)
 
@@ -282,10 +314,7 @@ func TestProfitAnalysisService(t *testing.T) {
 		}
 
 		// Verify profit calculation
-		// Cost = 100M / 80,000 = 1,250 CAD
-		// Revenue = 100M / 81,000 = 1,234.57 CAD
-		// Profit = 1,250 - 1,234.57 = 15.43 CAD (approx)
-		expectedProfit := (100000000.0 / 80000.0) - (100000000.0 / 81000.0)
+		// expectedProfit was calculated above
 		if result.TotalProfitCAD < expectedProfit-0.1 || result.TotalProfitCAD > expectedProfit+0.1 {
 			t.Errorf("Profit calculation wrong. Expected ~%f, got %f", expectedProfit, result.TotalProfitCAD)
 		}

@@ -13,7 +13,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const loginMutation = useLogin();
-  const logout = useLogout();
+  const logoutMutation = useLogout();
   const { data: meData, isLoading: isMeLoading, refetch } = useGetMe();
 
   // Initialize from localStorage
@@ -59,20 +59,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const response = await loginMutation.mutateAsync({ email, password });
-    
+
     setToken(response.token);
     setUser(response.user);
-    setTenant(response.tenant);
+    setTenant(response.tenant ?? null);
   };
 
   const refreshUser = async () => {
     await refetch();
   };
 
+  const logout = () => {
+    logoutMutation.mutate();
+    setUser(null);
+    setTenant(null);
+    setToken(null);
+  };
+
   const value: AuthContextType = {
     user,
     tenant,
-    token,
     isAuthenticated: !!token && !!user,
     isLoading: isLoading || isMeLoading,
     login,

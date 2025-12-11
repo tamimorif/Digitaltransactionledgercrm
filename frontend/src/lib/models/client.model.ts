@@ -58,6 +58,10 @@ export interface Transaction {
   paymentStatus?: 'SINGLE' | 'OPEN' | 'PARTIAL' | 'FULLY_PAID';
   allowPartialPayment?: boolean;
 
+  // Profit & Loss fields
+  standardRate?: number;
+  profit?: number;
+
   // Relations
   payments?: Payment[];
 }

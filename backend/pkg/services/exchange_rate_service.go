@@ -28,6 +28,7 @@ type FrankfurterAPIResponse struct {
 }
 
 // FetchRatesFromAPI fetches latest rates from frankfurter.app (free ECB-backed API, no auth required)
+// Invalidates cache for all fetched rates
 func (s *ExchangeRateService) FetchRatesFromAPI(tenantID uint, baseCurrency string) error {
 	// Using the free frankfurter.app API (maintained by European Central Bank, no authentication required)
 	url := fmt.Sprintf("https://api.frankfurter.app/latest?from=%s", baseCurrency)
@@ -48,7 +49,10 @@ func (s *ExchangeRateService) FetchRatesFromAPI(tenantID uint, baseCurrency stri
 		return fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	// Store rates in database
+	// Get cache service for invalidation
+	cache := GetCacheService(s.DB)
+
+	// Store rates in database and invalidate cache
 	for targetCurrency, rate := range apiResp.Rates {
 		exchangeRate := models.ExchangeRate{
 			TenantID:       tenantID,
@@ -62,12 +66,16 @@ func (s *ExchangeRateService) FetchRatesFromAPI(tenantID uint, baseCurrency stri
 			fmt.Printf("Error saving rate for %s/%s: %v\n", baseCurrency, targetCurrency, err)
 			return fmt.Errorf("failed to save rate: %w", err)
 		}
+
+		// Invalidate cache for this rate
+		cache.InvalidateExchangeRate(tenantID, baseCurrency, targetCurrency)
 	}
 
 	return nil
 }
 
 // UpdateRate manually sets a custom exchange rate
+// Also invalidates the cache for this rate
 func (s *ExchangeRateService) UpdateRate(tenantID uint, baseCurrency, targetCurrency string, rate float64) error {
 	exchangeRate := models.ExchangeRate{
 		TenantID:       tenantID,
@@ -77,22 +85,23 @@ func (s *ExchangeRateService) UpdateRate(tenantID uint, baseCurrency, targetCurr
 		Source:         models.RateSourceManual,
 	}
 
-	return s.DB.Create(&exchangeRate).Error
+	if err := s.DB.Create(&exchangeRate).Error; err != nil {
+		return err
+	}
+
+	// Invalidate cache for this rate
+	cache := GetCacheService(s.DB)
+	cache.InvalidateExchangeRate(tenantID, baseCurrency, targetCurrency)
+
+	return nil
 }
 
 // GetCurrentRate retrieves the most recent rate for a currency pair
+// Uses cache for frequently accessed rates
 func (s *ExchangeRateService) GetCurrentRate(tenantID uint, baseCurrency, targetCurrency string) (*models.ExchangeRate, error) {
-	var rate models.ExchangeRate
-
-	err := s.DB.Where("tenant_id = ? AND base_currency = ? AND target_currency = ?", tenantID, baseCurrency, targetCurrency).
-		Order("created_at DESC").
-		First(&rate).Error
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &rate, nil
+	// Try cache first via cache service
+	cache := GetCacheService(s.DB)
+	return cache.GetExchangeRate(tenantID, baseCurrency, targetCurrency)
 }
 
 // GetAllCurrentRates gets the latest rate for each currency pair

@@ -1,6 +1,7 @@
 package database
 
 import (
+	"api/migrations"
 	"api/pkg/models"
 	"log"
 	"os"
@@ -100,9 +101,21 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 		// Don't fail if seeding fails
 	}
 
+	// Add performance indexes
+	log.Println("Adding performance indexes...")
+	if err := migrations.AddIndexes(db); err != nil {
+		log.Printf("Warning: Failed to add indexes: %v", err)
+		// Don't fail if index creation fails
+	}
+
 	log.Println("Database initialized successfully.")
 	DB = db
 	return db, nil
+}
+
+// SetDB sets the global database connection (used for testing)
+func SetDB(db *gorm.DB) {
+	DB = db
 }
 
 func GetDB() *gorm.DB {

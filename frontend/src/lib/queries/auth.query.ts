@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import apiClient from '../axios-config';
+import apiClient, { tokenStorage } from '../api-client';
 import {
   RegisterRequest,
   RegisterResponse,
@@ -40,8 +40,7 @@ const authApi = {
   },
 
   logout: () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user');
+    tokenStorage.clearAll();
   },
 };
 
@@ -58,7 +57,7 @@ export const useRegister = () => {
 
 export const useVerifyEmail = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: authApi.verifyEmail,
     onSuccess: () => {
@@ -70,14 +69,14 @@ export const useVerifyEmail = () => {
 
 export const useLogin = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: authApi.login,
     onSuccess: (data) => {
-      // ذخیره token و user در localStorage
-      localStorage.setItem('auth_token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      
+      // Store token and user in localStorage (SSR-safe)
+      tokenStorage.setAccessToken(data.token);
+      tokenStorage.setUser(data.user);
+
       // Update cache
       queryClient.setQueryData(['user'], data.user);
     },
@@ -94,14 +93,14 @@ export const useGetMe = (enabled = true) => {
   return useQuery({
     queryKey: ['user', 'me'],
     queryFn: authApi.getMe,
-    enabled: enabled && !!localStorage.getItem('auth_token'),
+    enabled: enabled && !!tokenStorage.getAccessToken(),
     retry: false,
   });
 };
 
 export const useLogout = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async () => {
       authApi.logout();
@@ -118,12 +117,9 @@ export const useLogout = () => {
 // ==================== Helper Functions ====================
 
 export const isAuthenticated = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  return !!localStorage.getItem('auth_token');
+  return !!tokenStorage.getAccessToken();
 };
 
 export const getStoredUser = () => {
-  if (typeof window === 'undefined') return null;
-  const userStr = localStorage.getItem('user');
-  return userStr ? JSON.parse(userStr) : null;
+  return tokenStorage.getUser();
 };

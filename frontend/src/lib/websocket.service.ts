@@ -1,4 +1,4 @@
-import { storage } from './auth-api';
+import { tokenStorage } from './api-client';
 
 export interface WSMessage {
     type: 'transaction' | 'pickup' | 'cash_balance' | 'remittance';
@@ -26,7 +26,7 @@ class WebSocketService {
             return;
         }
 
-        const token = storage.getToken() || localStorage.getItem('auth_token');
+        const token = tokenStorage.getAccessToken();
         if (!token) {
             console.warn('No auth token found for WebSocket connection');
             return;

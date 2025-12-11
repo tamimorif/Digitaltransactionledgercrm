@@ -175,7 +175,7 @@ export function DashboardCashBalance() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="reason">Reason</Label>
+                            <Label htmlFor="reason">Reason (Optional)</Label>
                             <Textarea
                                 id="reason"
                                 placeholder="Reason for adjustment..."
@@ -191,7 +191,7 @@ export function DashboardCashBalance() {
                         </Button>
                         <Button
                             onClick={async () => {
-                                if (!selectedCurrency || !adjustAmount || !adjustReason) {
+                                if (!selectedCurrency || !adjustAmount) {
                                     toast.error('Please fill in all fields');
                                     return;
                                 }

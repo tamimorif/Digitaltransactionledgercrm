@@ -3,6 +3,7 @@ package services
 import (
 	"api/pkg/models"
 	"fmt"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -95,43 +96,82 @@ type DashboardData struct {
 }
 
 // GetDashboardData returns comprehensive dashboard data
+// Uses parallel query execution for improved performance
 func (s *DashboardService) GetDashboardData(tenantID uint, branchID *uint) (*DashboardData, error) {
 	dashboard := &DashboardData{
 		LastUpdated: time.Now(),
 		Alerts:      make([]Alert, 0),
 	}
 
+	var wg sync.WaitGroup
+
+	// Parallel fetching of independent data
+	wg.Add(10)
+
 	// Get outgoing summary
-	dashboard.OutgoingSummary = s.getRemittanceSummary(tenantID, branchID, "outgoing")
+	go func() {
+		defer wg.Done()
+		dashboard.OutgoingSummary = s.getRemittanceSummary(tenantID, branchID, "outgoing")
+	}()
 
 	// Get incoming summary
-	dashboard.IncomingSummary = s.getRemittanceSummary(tenantID, branchID, "incoming")
+	go func() {
+		defer wg.Done()
+		dashboard.IncomingSummary = s.getRemittanceSummary(tenantID, branchID, "incoming")
+	}()
 
 	// Get cash balances
-	dashboard.CashBalances = s.getCashBalances(tenantID, branchID)
+	go func() {
+		defer wg.Done()
+		dashboard.CashBalances = s.getCashBalances(tenantID, branchID)
+	}()
 
-	// Get metrics
-	dashboard.TodayMetrics = s.getMetrics(tenantID, branchID, time.Now().Truncate(24*time.Hour), time.Now())
-	weekStart := time.Now().AddDate(0, 0, -7)
-	dashboard.WeekMetrics = s.getMetrics(tenantID, branchID, weekStart, time.Now())
-	monthStart := time.Now().AddDate(0, -1, 0)
-	dashboard.MonthMetrics = s.getMetrics(tenantID, branchID, monthStart, time.Now())
+	// Get metrics - today, week, month
+	go func() {
+		defer wg.Done()
+		dashboard.TodayMetrics = s.getMetrics(tenantID, branchID, time.Now().Truncate(24*time.Hour), time.Now())
+	}()
+	go func() {
+		defer wg.Done()
+		weekStart := time.Now().AddDate(0, 0, -7)
+		dashboard.WeekMetrics = s.getMetrics(tenantID, branchID, weekStart, time.Now())
+	}()
+	go func() {
+		defer wg.Done()
+		monthStart := time.Now().AddDate(0, -1, 0)
+		dashboard.MonthMetrics = s.getMetrics(tenantID, branchID, monthStart, time.Now())
+	}()
 
 	// Get debt aging
-	dashboard.DebtAging = s.getDebtAging(tenantID, branchID)
+	go func() {
+		defer wg.Done()
+		dashboard.DebtAging = s.getDebtAging(tenantID, branchID)
+	}()
 
 	// Get rate trends (last 7 days)
-	dashboard.RateTrends = s.getRateTrends(tenantID, 7)
+	go func() {
+		defer wg.Done()
+		dashboard.RateTrends = s.getRateTrends(tenantID, 7)
+	}()
 
 	// Get daily profit (last 30 days)
-	dashboard.DailyProfit = s.getDailyProfit(tenantID, 30)
+	go func() {
+		defer wg.Done()
+		dashboard.DailyProfit = s.getDailyProfit(tenantID, 30)
+	}()
 
-	// Get quick stats
-	dashboard.TotalClientsCount = s.getClientCount(tenantID)
-	dashboard.ActiveRemittancesCount = s.getActiveRemittanceCount(tenantID)
-	dashboard.PendingPickupsCount = s.getPendingPickupCount(tenantID)
+	// Get quick stats (combined into one goroutine)
+	go func() {
+		defer wg.Done()
+		dashboard.TotalClientsCount = s.getClientCount(tenantID)
+		dashboard.ActiveRemittancesCount = s.getActiveRemittanceCount(tenantID)
+		dashboard.PendingPickupsCount = s.getPendingPickupCount(tenantID)
+	}()
 
-	// Generate alerts
+	// Wait for all queries to complete
+	wg.Wait()
+
+	// Generate alerts (depends on other data, so must run after)
 	dashboard.Alerts = s.generateAlerts(tenantID, branchID, dashboard)
 
 	return dashboard, nil
@@ -320,7 +360,9 @@ func (s *DashboardService) getRateTrends(tenantID uint, days int) []RateTrend {
 		SellRate float64
 	}
 
-	s.db.Raw(query, tenantID, "-"+string(rune(days))+" days", days).Scan(&results)
+	// Fixed: Use fmt.Sprintf instead of string(rune(days)) which produces wrong output
+	daysParam := fmt.Sprintf("-%d days", days)
+	s.db.Raw(query, tenantID, daysParam, days).Scan(&results)
 
 	for _, r := range results {
 		trends = append(trends, RateTrend{
@@ -384,14 +426,14 @@ func (s *DashboardService) generateAlerts(tenantID uint, branchID *uint, dashboa
 			alerts = append(alerts, Alert{
 				Type:    "error",
 				Title:   "Critical: Old Debts",
-				Message: "You have " + string(rune(aging.Count)) + " remittances outstanding for over 30 days",
+				Message: fmt.Sprintf("You have %d remittances outstanding for over 30 days", aging.Count),
 				Link:    "/remittances/outgoing?status=PENDING&age=30",
 			})
 		} else if aging.IsWarning && aging.Count > 0 {
 			alerts = append(alerts, Alert{
 				Type:    "warning",
 				Title:   "Aging Debts",
-				Message: "You have " + string(rune(aging.Count)) + " remittances outstanding for 15-30 days",
+				Message: fmt.Sprintf("You have %d remittances outstanding for 15-30 days", aging.Count),
 				Link:    "/remittances/outgoing?status=PENDING&age=15",
 			})
 		}
@@ -424,7 +466,7 @@ func (s *DashboardService) generateAlerts(tenantID uint, branchID *uint, dashboa
 		alerts = append(alerts, Alert{
 			Type:    "info",
 			Title:   "Pending Pickups",
-			Message: "You have " + string(rune(dashboard.PendingPickupsCount)) + " pending pickup transactions",
+			Message: fmt.Sprintf("You have %d pending pickup transactions", dashboard.PendingPickupsCount),
 			Link:    "/pickups?status=PENDING",
 		})
 	}

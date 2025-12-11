@@ -15,16 +15,74 @@ import (
 
 // Handler struct
 type Handler struct {
-	db           *gorm.DB
-	auditService *services.AuditService
+	db                  *gorm.DB
+	auditService        *services.AuditService
+	exchangeRateService *services.ExchangeRateService
+	transactionService  *services.TransactionService
 }
 
 // NewHandler creates a new handler instance with database connection
 func NewHandler(db *gorm.DB) *Handler {
+	exchangeRateService := services.NewExchangeRateService(db)
 	return &Handler{
-		db:           db,
-		auditService: services.NewAuditService(db),
+		db:                  db,
+		auditService:        services.NewAuditService(db),
+		exchangeRateService: exchangeRateService,
+		transactionService:  services.NewTransactionService(db, exchangeRateService),
 	}
+}
+
+// ... (Client Handlers omitted)
+
+// CreateTransaction godoc
+// @Summary Create a new transaction
+// @Description Create a new transaction (CASH_EXCHANGE or BANK_TRANSFER)
+// @Tags transactions
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param transaction body models.Transaction true "Transaction object"
+// @Success 201 {object} models.Transaction
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /transactions [post]
+func (h *Handler) CreateTransaction(w http.ResponseWriter, r *http.Request) {
+	user := r.Context().Value("user").(*models.User)
+
+	var transaction models.Transaction
+	if err := json.NewDecoder(r.Body).Decode(&transaction); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Get tenant ID from context and assign to transaction
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Tenant ID required", http.StatusBadRequest)
+		return
+	}
+	transaction.TenantID = *tenantID
+
+	// Create transaction using service
+	if err := h.transactionService.CreateTransaction(&transaction); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Audit log
+	h.auditService.LogAction(
+		user.ID,
+		user.TenantID,
+		models.ActionCreateTransaction,
+		"Transaction",
+		transaction.ID,
+		"Created new transaction",
+		nil,
+		transaction,
+		r,
+	)
+
+	respondJSON(w, http.StatusCreated, transaction)
 }
 
 // Client Handlers
@@ -234,60 +292,6 @@ func (h *Handler) GetTransactions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondJSON(w, http.StatusOK, transactions)
-}
-
-// CreateTransaction godoc
-// @Summary Create a new transaction
-// @Description Create a new transaction (CASH_EXCHANGE or BANK_TRANSFER)
-// @Tags transactions
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param transaction body models.Transaction true "Transaction object"
-// @Success 201 {object} models.Transaction
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /transactions [post]
-func (h *Handler) CreateTransaction(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value("user").(*models.User)
-
-	var transaction models.Transaction
-	if err := json.NewDecoder(r.Body).Decode(&transaction); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Generate UUID for the transaction
-	transaction.ID = uuid.New().String()
-
-	// Get tenant ID from context and assign to transaction
-	tenantID := middleware.GetTenantID(r)
-	if tenantID == nil {
-		http.Error(w, "Tenant ID required", http.StatusBadRequest)
-		return
-	}
-	transaction.TenantID = *tenantID
-
-	result := h.db.Create(&transaction)
-	if result.Error != nil {
-		http.Error(w, result.Error.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Audit log
-	h.auditService.LogAction(
-		user.ID,
-		user.TenantID,
-		models.ActionCreateTransaction,
-		"Transaction",
-		transaction.ID,
-		"Created new transaction",
-		nil,
-		transaction,
-		r,
-	)
-
-	respondJSON(w, http.StatusCreated, transaction)
 }
 
 // GetTransaction godoc

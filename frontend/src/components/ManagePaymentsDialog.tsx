@@ -18,7 +18,7 @@ export function ManagePaymentsDialog({ transaction, open, onOpenChange }: Manage
     // In a real scenario, we should align the types or make the component generic
     const transactionAdapter = {
         ...transaction,
-        id: transaction.id.toString(), // Convert ID to string as expected by payment queries
+        id: transaction.transactionId || transaction.id.toString(), // Use transactionId (UUID) if available, else fallback to id
     } as any;
 
     return (

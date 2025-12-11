@@ -8,6 +8,14 @@ import {
   ActivateLicenseResponse,
 } from '../models/license.model';
 
+// ==================== Types ====================
+
+export interface MyLicensesResponse {
+  licenses: License[];
+  totalUserLimit: number;
+  currentUserCount: number;
+}
+
 // ==================== API Functions ====================
 
 const licenseApi = {
@@ -26,6 +34,11 @@ const licenseApi = {
     return response.data;
   },
 
+  getMyLicenses: async (): Promise<MyLicensesResponse> => {
+    const response = await apiClient.get('/licenses/my-licenses');
+    return response.data;
+  },
+
   getAllLicenses: async (): Promise<License[]> => {
     const response = await apiClient.get('/admin/licenses');
     return response.data;
@@ -41,7 +54,7 @@ const licenseApi = {
 
 export const useGenerateLicense = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: licenseApi.generateLicense,
     onSuccess: () => {
@@ -53,7 +66,7 @@ export const useGenerateLicense = () => {
 
 export const useActivateLicense = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: licenseApi.activateLicense,
     onSuccess: () => {
@@ -72,6 +85,13 @@ export const useGetLicenseStatus = (enabled = true) => {
   });
 };
 
+export const useGetMyLicenses = () => {
+  return useQuery({
+    queryKey: ['license', 'my-licenses'],
+    queryFn: licenseApi.getMyLicenses,
+  });
+};
+
 export const useGetAllLicenses = (enabled = true) => {
   return useQuery({
     queryKey: ['licenses'],
@@ -82,7 +102,7 @@ export const useGetAllLicenses = (enabled = true) => {
 
 export const useRevokeLicense = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: licenseApi.revokeLicense,
     onSuccess: () => {

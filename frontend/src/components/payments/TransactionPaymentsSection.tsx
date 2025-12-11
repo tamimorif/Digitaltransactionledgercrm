@@ -1,24 +1,23 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Button } from '@/src/components/ui/button';
-import { 
-    PaymentList, 
-    AddPaymentDialog, 
+import {
+    PaymentList,
+    AddPaymentDialog,
     CompleteTransactionDialog,
-    PaymentProgressBar 
+    PaymentProgressBar,
+    QuickPaymentWidget
 } from '@/src/components/payments';
-import { 
-    usePayments, 
-    useCreatePayment, 
-    useCompleteTransaction 
+import {
+    usePayments,
+    useCreatePayment,
+    useCompleteTransaction
 } from '@/src/lib/queries/payment.query';
 import { Transaction } from '@/src/lib/models/client.model';
-import { CheckCircle2, ArrowLeft } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { canCompleteTransaction } from '@/src/lib/payment-api';
-import Link from 'next/link';
 
 interface TransactionPaymentsSectionProps {
     transaction: Transaction;
@@ -27,14 +26,19 @@ interface TransactionPaymentsSectionProps {
 export default function TransactionPaymentsSection({ transaction }: TransactionPaymentsSectionProps) {
     const [showAddDialog, setShowAddDialog] = useState(false);
     const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+    const [quickPayAmount, setQuickPayAmount] = useState<number | null>(null);
 
     const { data: payments, isLoading } = usePayments(transaction.id);
     const createPaymentMutation = useCreatePayment(transaction.id);
     const completeTransactionMutation = useCompleteTransaction();
 
+    // Get last payment info for repeat functionality
+    const lastPayment = payments && payments.length > 0 ? payments[0] : null;
+
     const handleAddPayment = async (data: any) => {
         await createPaymentMutation.mutateAsync(data);
         setShowAddDialog(false);
+        setQuickPayAmount(null);
     };
 
     const handleCompleteTransaction = async () => {
@@ -42,10 +46,20 @@ export default function TransactionPaymentsSection({ transaction }: TransactionP
         setShowCompleteDialog(false);
     };
 
-    const showCompleteButton = 
-        transaction.allowPartialPayment && 
+    const handleQuickPay = (amount: number, description: string) => {
+        setQuickPayAmount(amount);
+        setShowAddDialog(true);
+    };
+
+    const showCompleteButton =
+        transaction.allowPartialPayment &&
         transaction.paymentStatus !== 'FULLY_PAID' &&
         canCompleteTransaction(transaction);
+
+    const showQuickPayment =
+        transaction.allowPartialPayment &&
+        transaction.paymentStatus !== 'FULLY_PAID' &&
+        (transaction.remainingBalance || 0) > 0;
 
     if (!transaction.allowPartialPayment) {
         return (
@@ -67,6 +81,18 @@ export default function TransactionPaymentsSection({ transaction }: TransactionP
 
     return (
         <div className="space-y-6">
+            {/* Quick Payment Widget - NEW */}
+            {showQuickPayment && (
+                <QuickPaymentWidget
+                    remainingBalance={transaction.remainingBalance || 0}
+                    baseCurrency={transaction.receivedCurrency || 'CAD'}
+                    onQuickPay={handleQuickPay}
+                    lastPaymentAmount={lastPayment?.amount}
+                    lastPaymentMethod={lastPayment?.paymentMethod}
+                    isLoading={createPaymentMutation.isPending}
+                />
+            )}
+
             {/* Progress Bar */}
             <Card>
                 <CardHeader>
@@ -96,13 +122,17 @@ export default function TransactionPaymentsSection({ transaction }: TransactionP
                 showAddButton={transaction.paymentStatus !== 'FULLY_PAID'}
             />
 
-            {/* Add Payment Dialog */}
+            {/* Add Payment Dialog with pre-filled amount from Quick Pay */}
             <AddPaymentDialog
                 open={showAddDialog}
-                onOpenChange={setShowAddDialog}
+                onOpenChange={(open) => {
+                    setShowAddDialog(open);
+                    if (!open) setQuickPayAmount(null);
+                }}
                 transaction={transaction}
                 onSubmit={handleAddPayment}
                 isLoading={createPaymentMutation.isPending}
+                prefillAmount={quickPayAmount}
             />
 
             {/* Complete Transaction Dialog */}

@@ -10,6 +10,7 @@ import {
     RemittanceFilters,
     ProfitSummary,
 } from '../models/remittance';
+import { tokenStorage } from './api-client';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -20,8 +21,8 @@ class RemittanceApiClient {
     ): Promise<T> {
         const url = `${API_BASE_URL}${endpoint}`;
 
-        // Get token from localStorage or cookie
-        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        // Get token from centralized storage (SSR-safe)
+        const token = tokenStorage.getAccessToken();
 
         const config: RequestInit = {
             ...options,
