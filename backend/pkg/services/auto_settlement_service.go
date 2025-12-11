@@ -3,6 +3,7 @@ package services
 import (
 	"api/pkg/models"
 	"errors"
+	"fmt"
 	"sort"
 	"time"
 
@@ -244,7 +245,7 @@ func (s *AutoSettlementService) getMatchReason(outgoing models.OutgoingRemittanc
 		if daysOutstanding > 30 {
 			return "⚠️ Oldest debt - outstanding for over 30 days"
 		} else if daysOutstanding > 14 {
-			return "📅 Priority - outstanding for " + string(rune(daysOutstanding)) + " days"
+			return fmt.Sprintf("📅 Priority - outstanding for %d days", daysOutstanding)
 		}
 		return "📋 FIFO order - created " + outgoing.CreatedAt.Format("Jan 2")
 	case StrategyBestRate:

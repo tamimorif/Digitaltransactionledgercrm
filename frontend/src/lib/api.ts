@@ -1,118 +1,103 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+/**
+ * @deprecated This file is deprecated. Use the React Query hooks from './queries/' instead.
+ * 
+ * This legacy API client is kept for backward compatibility.
+ * New code should use:
+ * - apiClient from './api-client' for direct axios calls
+ * - React Query hooks from './queries/' for data fetching
+ */
+
+import apiClient from './api-client';
 
 export interface Transaction {
-    id?: number;
-    client_id: number;
-    date: string;
-    amount: number;
-    currency: string;
-    type: string;
-    description?: string;
-    created_at?: string;
-    updated_at?: string;
+  id?: string;
+  client_id: string;
+  date: string;
+  sendAmount: number;
+  sendCurrency: string;
+  receiveAmount: number;
+  receiveCurrency: string;
+  type: string;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Client {
-    id?: number;
-    name: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-    created_at?: string;
-    updated_at?: string;
+  id?: string;
+  name: string;
+  email?: string;
+  phoneNumber?: string;
+  address?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 class ApiClient {
-    private async request<T>(
-        endpoint: string,
-        options: RequestInit = {}
-    ): Promise<T> {
-        const url = `${API_BASE_URL}${endpoint}`;
+  // Transaction endpoints
+  async getTransactions(): Promise<Transaction[]> {
+    const response = await apiClient.get<Transaction[]>('/transactions');
+    return response.data;
+  }
 
-        const config: RequestInit = {
-            ...options,
-            headers: {
-                'Content-Type': 'application/json',
-                ...options.headers,
-            },
-        };
+  async getTransaction(id: string): Promise<Transaction> {
+    const response = await apiClient.get<Transaction>(`/transactions/${id}`);
+    return response.data;
+  }
 
-        const response = await fetch(url, config);
+  async createTransaction(
+    transaction: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>
+  ): Promise<Transaction> {
+    const response = await apiClient.post<Transaction>('/transactions', transaction);
+    return response.data;
+  }
 
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || `HTTP error! status: ${response.status}`);
-        }
+  async updateTransaction(id: string, transaction: Partial<Transaction>): Promise<Transaction> {
+    const response = await apiClient.put<Transaction>(`/transactions/${id}`, transaction);
+    return response.data;
+  }
 
-        return response.json();
-    }
+  async deleteTransaction(id: string): Promise<void> {
+    await apiClient.delete(`/transactions/${id}`);
+  }
 
-    // Transaction endpoints
-    async getTransactions(): Promise<Transaction[]> {
-        return this.request<Transaction[]>('/api/transactions');
-    }
+  // Client endpoints
+  async getClients(): Promise<Client[]> {
+    const response = await apiClient.get<Client[]>('/clients');
+    return response.data;
+  }
 
-    async getTransaction(id: number): Promise<Transaction> {
-        return this.request<Transaction>(`/api/transactions/${id}`);
-    }
+  async getClient(id: string): Promise<Client> {
+    const response = await apiClient.get<Client>(`/clients/${id}`);
+    return response.data;
+  }
 
-    async createTransaction(transaction: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>): Promise<Transaction> {
-        return this.request<Transaction>('/api/transactions', {
-            method: 'POST',
-            body: JSON.stringify(transaction),
-        });
-    }
+  async createClient(client: Omit<Client, 'id' | 'created_at' | 'updated_at'>): Promise<Client> {
+    const response = await apiClient.post<Client>('/clients', client);
+    return response.data;
+  }
 
-    async updateTransaction(id: number, transaction: Partial<Transaction>): Promise<Transaction> {
-        return this.request<Transaction>(`/api/transactions/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(transaction),
-        });
-    }
+  async updateClient(id: string, client: Partial<Client>): Promise<Client> {
+    const response = await apiClient.put<Client>(`/clients/${id}`, client);
+    return response.data;
+  }
 
-    async deleteTransaction(id: number): Promise<void> {
-        return this.request<void>(`/api/transactions/${id}`, {
-            method: 'DELETE',
-        });
-    }
+  async deleteClient(id: string): Promise<void> {
+    await apiClient.delete(`/clients/${id}`);
+  }
 
-    // Client endpoints
-    async getClients(): Promise<Client[]> {
-        return this.request<Client[]>('/api/clients');
-    }
+  // Search endpoints
+  async searchClients(query: string): Promise<Client[]> {
+    const response = await apiClient.get<Client[]>(`/clients/search?q=${encodeURIComponent(query)}`);
+    return response.data;
+  }
 
-    async getClient(id: number): Promise<Client> {
-        return this.request<Client>(`/api/clients/${id}`);
-    }
-
-    async createClient(client: Omit<Client, 'id' | 'created_at' | 'updated_at'>): Promise<Client> {
-        return this.request<Client>('/api/clients', {
-            method: 'POST',
-            body: JSON.stringify(client),
-        });
-    }
-
-    async updateClient(id: number, client: Partial<Client>): Promise<Client> {
-        return this.request<Client>(`/api/clients/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(client),
-        });
-    }
-
-    async deleteClient(id: number): Promise<void> {
-        return this.request<void>(`/api/clients/${id}`, {
-            method: 'DELETE',
-        });
-    }
-
-    // Search endpoints
-    async searchClients(query: string): Promise<Client[]> {
-        return this.request<Client[]>(`/api/clients/search?q=${encodeURIComponent(query)}`);
-    }
-
-    async searchTransactions(query: string): Promise<Transaction[]> {
-        return this.request<Transaction[]>(`/api/transactions/search?q=${encodeURIComponent(query)}`);
-    }
+  async searchTransactions(query: string): Promise<Transaction[]> {
+    const response = await apiClient.get<Transaction[]>(
+      `/transactions/search?q=${encodeURIComponent(query)}`
+    );
+    return response.data;
+  }
 }
 
 export const api = new ApiClient();

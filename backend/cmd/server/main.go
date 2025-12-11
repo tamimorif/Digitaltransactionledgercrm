@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -56,9 +57,18 @@ func main() {
 		port = "8080"
 	}
 
+	// Create server with timeouts to prevent resource exhaustion
+	server := &http.Server{
+		Addr:         ":" + port,
+		Handler:      handler,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
 	log.Printf("Starting server on :%s\n", port)
 	log.Printf("API available at http://localhost:%s/api\n", port)
-	if err := http.ListenAndServe(":"+port, handler); err != nil {
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Could not start server: %v", err)
 	}
 }

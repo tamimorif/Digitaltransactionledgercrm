@@ -110,124 +110,112 @@ func (s *ProfitAnalysisService) GetProfitAnalysis(tenantID uint, startDate, endD
 		EndDate:   endDate,
 	}
 
-	// Get summary from settlements
+	// Get summary from transactions
 	var summaryResult struct {
 		TotalProfit     float64
 		TotalVolume     float64
 		SettlementCount int
-		AvgBuyRate      float64
-		AvgSellRate     float64
+		AvgRate         float64
 	}
 
-	s.db.Model(&models.RemittanceSettlement{}).
+	// We use transactions table now
+	s.db.Model(&models.Transaction{}).
 		Select(`
-			COALESCE(SUM(profit_cad), 0) as total_profit,
-			COALESCE(SUM(settled_amount_irr), 0) as total_volume,
+			COALESCE(SUM(profit + fee_charged), 0) as total_profit,
+			COALESCE(SUM(send_amount), 0) as total_volume,
 			COUNT(*) as settlement_count,
-			COALESCE(AVG(outgoing_buy_rate), 0) as avg_buy_rate,
-			COALESCE(AVG(incoming_sell_rate), 0) as avg_sell_rate
+			COALESCE(AVG(rate_applied), 0) as avg_rate
 		`).
-		Where("tenant_id = ? AND created_at BETWEEN ? AND ?", tenantID, startDate, endDate).
+		Where("tenant_id = ? AND status = ? AND transaction_date BETWEEN ? AND ?",
+			tenantID, models.StatusCompleted, startDate, endDate).
 		Scan(&summaryResult)
 
 	result.TotalProfitCAD = summaryResult.TotalProfit
-	result.TotalVolumeIRR = summaryResult.TotalVolume
+	result.TotalVolumeIRR = summaryResult.TotalVolume // Note: This might be mixed currencies if not filtered
 	result.TotalSettlements = summaryResult.SettlementCount
 	if result.TotalSettlements > 0 {
 		result.AvgProfitPerSettlement = result.TotalProfitCAD / float64(result.TotalSettlements)
 	}
 
-	// Rate spread analysis
+	// Rate spread analysis (Simplified for now as we aggregate mixed pairs)
 	result.RateSpread = RateSpreadAnalysis{
-		AvgBuyRate:  summaryResult.AvgBuyRate,
-		AvgSellRate: summaryResult.AvgSellRate,
-	}
-	if summaryResult.AvgSellRate > 0 {
-		result.RateSpread.AvgSpread = summaryResult.AvgBuyRate - summaryResult.AvgSellRate
-		result.RateSpread.SpreadPct = (result.RateSpread.AvgSpread / summaryResult.AvgSellRate) * 100
+		AvgSellRate: summaryResult.AvgRate,
 	}
 
 	// Profit by period (daily breakdown)
-	result.ByPeriod = s.getProfitByPeriod(tenantID, startDate, endDate)
+	result.ByPeriod = s.GetProfitByPeriod(tenantID, startDate, endDate)
 
 	// Profit by branch
-	result.ByBranch = s.getProfitByBranch(tenantID, startDate, endDate, result.TotalProfitCAD)
+	result.ByBranch = s.GetProfitByBranch(tenantID, startDate, endDate, result.TotalProfitCAD)
 
 	// Profit by currency pair (from transactions)
-	result.ByCurrencyPair = s.getProfitByCurrencyPair(tenantID, startDate, endDate)
+	result.ByCurrencyPair = s.GetProfitByCurrencyPair(tenantID, startDate, endDate)
 
 	// Customer segments
-	result.ByCustomerSegment = s.getProfitByCustomerSegment(tenantID, startDate, endDate, result.TotalProfitCAD)
+	result.ByCustomerSegment = s.GetProfitByCustomerSegment(tenantID, startDate, endDate, result.TotalProfitCAD)
 
 	// Trends
-	result.VsLastMonth = s.getTrendComparison(tenantID, startDate, endDate, "month")
-	result.VsLastYear = s.getTrendComparison(tenantID, startDate, endDate, "year")
+	result.VsLastMonth = s.GetTrendComparison(tenantID, startDate, endDate, "month")
+	result.VsLastYear = s.GetTrendComparison(tenantID, startDate, endDate, "year")
 
 	return result, nil
 }
 
-func (s *ProfitAnalysisService) getProfitByPeriod(tenantID uint, startDate, endDate time.Time) []ProfitByPeriod {
+func (s *ProfitAnalysisService) GetProfitByPeriod(tenantID uint, startDate, endDate time.Time) []ProfitByPeriod {
 	var results []struct {
 		Period          string
 		TotalProfit     float64
 		SettlementCount int
-		VolumeIRR       float64
-		AvgBuyRate      float64
-		AvgSellRate     float64
+		Volume          float64
 	}
 
-	s.db.Model(&models.RemittanceSettlement{}).
+	s.db.Model(&models.Transaction{}).
 		Select(`
-			DATE(created_at) as period,
-			COALESCE(SUM(profit_cad), 0) as total_profit,
+			DATE(transaction_date) as period,
+			COALESCE(SUM(profit + fee_charged), 0) as total_profit,
 			COUNT(*) as settlement_count,
-			COALESCE(SUM(settled_amount_irr), 0) as volume_irr,
-			COALESCE(AVG(outgoing_buy_rate), 0) as avg_buy_rate,
-			COALESCE(AVG(incoming_sell_rate), 0) as avg_sell_rate
+			COALESCE(SUM(send_amount), 0) as volume
 		`).
-		Where("tenant_id = ? AND created_at BETWEEN ? AND ?", tenantID, startDate, endDate).
-		Group("DATE(created_at)").
+		Where("tenant_id = ? AND status = ? AND transaction_date BETWEEN ? AND ?",
+			tenantID, models.StatusCompleted, startDate, endDate).
+		Group("DATE(transaction_date)").
 		Order("period DESC").
 		Scan(&results)
 
 	periods := make([]ProfitByPeriod, len(results))
 	for i, r := range results {
-		avgSpread := 0.0
-		if r.AvgSellRate > 0 {
-			avgSpread = ((r.AvgBuyRate - r.AvgSellRate) / r.AvgSellRate) * 100
-		}
 		periods[i] = ProfitByPeriod{
 			Period:          r.Period,
 			TotalProfitCAD:  r.TotalProfit,
 			SettlementCount: r.SettlementCount,
-			VolumeIRR:       r.VolumeIRR,
-			AvgSpread:       avgSpread,
+			VolumeIRR:       r.Volume, // Renaming field in struct might be better later
+			AvgSpread:       0,        // Hard to calc avg spread across mixed currencies
 		}
 	}
 	return periods
 }
 
-func (s *ProfitAnalysisService) getProfitByBranch(tenantID uint, startDate, endDate time.Time, totalProfit float64) []ProfitByBranch {
+func (s *ProfitAnalysisService) GetProfitByBranch(tenantID uint, startDate, endDate time.Time, totalProfit float64) []ProfitByBranch {
 	var results []struct {
 		BranchID        uint
 		BranchName      string
 		TotalProfit     float64
 		SettlementCount int
-		VolumeIRR       float64
+		Volume          float64
 	}
 
-	s.db.Model(&models.RemittanceSettlement{}).
+	s.db.Model(&models.Transaction{}).
 		Select(`
-			COALESCE(outgoing_remittances.branch_id, 0) as branch_id,
+			COALESCE(transactions.branch_id, 0) as branch_id,
 			COALESCE(branches.name, 'Unassigned') as branch_name,
-			COALESCE(SUM(remittance_settlements.profit_cad), 0) as total_profit,
+			COALESCE(SUM(transactions.profit + transactions.fee_charged), 0) as total_profit,
 			COUNT(*) as settlement_count,
-			COALESCE(SUM(remittance_settlements.settled_amount_irr), 0) as volume_irr
+			COALESCE(SUM(transactions.send_amount), 0) as volume
 		`).
-		Joins("LEFT JOIN outgoing_remittances ON remittance_settlements.outgoing_remittance_id = outgoing_remittances.id").
-		Joins("LEFT JOIN branches ON outgoing_remittances.branch_id = branches.id").
-		Where("remittance_settlements.tenant_id = ? AND remittance_settlements.created_at BETWEEN ? AND ?", tenantID, startDate, endDate).
-		Group("outgoing_remittances.branch_id, branches.name").
+		Joins("LEFT JOIN branches ON transactions.branch_id = branches.id").
+		Where("transactions.tenant_id = ? AND transactions.status = ? AND transactions.transaction_date BETWEEN ? AND ?",
+			tenantID, models.StatusCompleted, startDate, endDate).
+		Group("transactions.branch_id, branches.name").
 		Order("total_profit DESC").
 		Scan(&results)
 
@@ -242,14 +230,14 @@ func (s *ProfitAnalysisService) getProfitByBranch(tenantID uint, startDate, endD
 			BranchName:      r.BranchName,
 			TotalProfitCAD:  r.TotalProfit,
 			SettlementCount: r.SettlementCount,
-			VolumeIRR:       r.VolumeIRR,
+			VolumeIRR:       r.Volume,
 			Percentage:      pct,
 		}
 	}
 	return branches
 }
 
-func (s *ProfitAnalysisService) getProfitByCurrencyPair(tenantID uint, startDate, endDate time.Time) []ProfitByCurrencyPair {
+func (s *ProfitAnalysisService) GetProfitByCurrencyPair(tenantID uint, startDate, endDate time.Time) []ProfitByCurrencyPair {
 	var results []struct {
 		SendCurrency    string
 		ReceiveCurrency string
@@ -260,12 +248,11 @@ func (s *ProfitAnalysisService) getProfitByCurrencyPair(tenantID uint, startDate
 		AvgRate         float64
 	}
 
-	// This uses transactions table for currency pair analysis
 	s.db.Model(&models.Transaction{}).
 		Select(`
 			send_currency,
 			receive_currency,
-			COALESCE(SUM(fee_charged), 0) as total_profit,
+			COALESCE(SUM(profit + fee_charged), 0) as total_profit,
 			COUNT(*) as txn_count,
 			COALESCE(SUM(send_amount), 0) as volume_send,
 			COALESCE(SUM(receive_amount), 0) as volume_receive,
@@ -302,10 +289,7 @@ func (s *ProfitAnalysisService) getProfitByCurrencyPair(tenantID uint, startDate
 	return pairs
 }
 
-func (s *ProfitAnalysisService) getProfitByCustomerSegment(tenantID uint, startDate, endDate time.Time, totalProfit float64) []ProfitByCustomerSegment {
-	// Define segments based on transaction count
-	// VIP: 10+ transactions, Regular: 3-9 transactions, New: 1-2 transactions
-
+func (s *ProfitAnalysisService) GetProfitByCustomerSegment(tenantID uint, startDate, endDate time.Time, totalProfit float64) []ProfitByCustomerSegment {
 	var results []struct {
 		Segment     string
 		CustCount   int
@@ -318,7 +302,7 @@ func (s *ProfitAnalysisService) getProfitByCustomerSegment(tenantID uint, startD
 			SELECT 
 				client_id,
 				COUNT(*) as txn_count,
-				SUM(fee_charged) as total_fees
+				SUM(profit + fee_charged) as total_gain
 			FROM transactions 
 			WHERE tenant_id = ? AND status = 'COMPLETED' AND transaction_date BETWEEN ? AND ?
 			GROUP BY client_id
@@ -330,7 +314,7 @@ func (s *ProfitAnalysisService) getProfitByCustomerSegment(tenantID uint, startD
 				ELSE 'New'
 			END as segment,
 			COUNT(DISTINCT client_id) as cust_count,
-			SUM(total_fees) as total_profit,
+			SUM(total_gain) as total_profit,
 			SUM(txn_count) as txn_count
 		FROM customer_stats
 		GROUP BY segment
@@ -361,7 +345,7 @@ func (s *ProfitAnalysisService) getProfitByCustomerSegment(tenantID uint, startD
 	return segments
 }
 
-func (s *ProfitAnalysisService) getTrendComparison(tenantID uint, startDate, endDate time.Time, compareType string) TrendComparison {
+func (s *ProfitAnalysisService) GetTrendComparison(tenantID uint, startDate, endDate time.Time, compareType string) TrendComparison {
 	duration := endDate.Sub(startDate)
 
 	var prevStart, prevEnd time.Time
@@ -375,16 +359,18 @@ func (s *ProfitAnalysisService) getTrendComparison(tenantID uint, startDate, end
 
 	// Current period profit
 	var currentProfit float64
-	s.db.Model(&models.RemittanceSettlement{}).
-		Select("COALESCE(SUM(profit_cad), 0)").
-		Where("tenant_id = ? AND created_at BETWEEN ? AND ?", tenantID, startDate, endDate).
+	s.db.Model(&models.Transaction{}).
+		Select("COALESCE(SUM(profit + fee_charged), 0)").
+		Where("tenant_id = ? AND status = ? AND transaction_date BETWEEN ? AND ?",
+			tenantID, models.StatusCompleted, startDate, endDate).
 		Scan(&currentProfit)
 
 	// Previous period profit
 	var previousProfit float64
-	s.db.Model(&models.RemittanceSettlement{}).
-		Select("COALESCE(SUM(profit_cad), 0)").
-		Where("tenant_id = ? AND created_at BETWEEN ? AND ?", tenantID, prevStart, prevEnd).
+	s.db.Model(&models.Transaction{}).
+		Select("COALESCE(SUM(profit + fee_charged), 0)").
+		Where("tenant_id = ? AND status = ? AND transaction_date BETWEEN ? AND ?",
+			tenantID, models.StatusCompleted, prevStart, prevEnd).
 		Scan(&previousProfit)
 
 	change := currentProfit - previousProfit
@@ -406,7 +392,7 @@ func (s *ProfitAnalysisService) getTrendComparison(tenantID uint, startDate, end
 func (s *ProfitAnalysisService) GetDailyProfit(tenantID uint, days int) ([]ProfitByPeriod, error) {
 	endDate := time.Now()
 	startDate := endDate.AddDate(0, 0, -days)
-	return s.getProfitByPeriod(tenantID, startDate, endDate), nil
+	return s.GetProfitByPeriod(tenantID, startDate, endDate), nil
 }
 
 // GetMonthlyProfit returns monthly profit summary
@@ -415,21 +401,22 @@ func (s *ProfitAnalysisService) GetMonthlyProfit(tenantID uint, months int) ([]P
 		Period          string
 		TotalProfit     float64
 		SettlementCount int
-		VolumeIRR       float64
+		Volume          float64
 	}
 
 	endDate := time.Now()
 	startDate := endDate.AddDate(0, -months, 0)
 
-	s.db.Model(&models.RemittanceSettlement{}).
+	s.db.Model(&models.Transaction{}).
 		Select(`
-			strftime('%Y-%m', created_at) as period,
-			COALESCE(SUM(profit_cad), 0) as total_profit,
+			strftime('%Y-%m', transaction_date) as period,
+			COALESCE(SUM(profit + fee_charged), 0) as total_profit,
 			COUNT(*) as settlement_count,
-			COALESCE(SUM(settled_amount_irr), 0) as volume_irr
+			COALESCE(SUM(send_amount), 0) as volume
 		`).
-		Where("tenant_id = ? AND created_at BETWEEN ? AND ?", tenantID, startDate, endDate).
-		Group("strftime('%Y-%m', created_at)").
+		Where("tenant_id = ? AND status = ? AND transaction_date BETWEEN ? AND ?",
+			tenantID, models.StatusCompleted, startDate, endDate).
+		Group("strftime('%Y-%m', transaction_date)").
 		Order("period DESC").
 		Scan(&results)
 
@@ -439,8 +426,58 @@ func (s *ProfitAnalysisService) GetMonthlyProfit(tenantID uint, months int) ([]P
 			Period:          r.Period,
 			TotalProfitCAD:  r.TotalProfit,
 			SettlementCount: r.SettlementCount,
-			VolumeIRR:       r.VolumeIRR,
+			VolumeIRR:       r.Volume,
 		}
 	}
 	return periods, nil
+}
+
+// CustomerProfit represents profit by customer
+type CustomerProfit struct {
+	CustomerID       uint    `json:"customerId"`
+	CustomerName     string  `json:"customerName"`
+	TotalProfit      float64 `json:"totalProfit"`
+	TransactionCount int     `json:"transactionCount"`
+	AverageProfit    float64 `json:"averageProfit"`
+}
+
+// GetTopCustomers returns top profitable customers
+func (s *ProfitAnalysisService) GetTopCustomers(tenantID uint, limit int, startDate, endDate time.Time) ([]CustomerProfit, error) {
+	var results []struct {
+		ClientID    uint
+		ClientName  string
+		TotalProfit float64
+		TxnCount    int
+	}
+
+	s.db.Model(&models.Transaction{}).
+		Select(`
+			transactions.client_id,
+			COALESCE(clients.name, 'Unknown') as client_name,
+			COALESCE(SUM(transactions.profit + transactions.fee_charged), 0) as total_profit,
+			COUNT(*) as txn_count
+		`).
+		Joins("LEFT JOIN clients ON transactions.client_id = clients.id").
+		Where("transactions.tenant_id = ? AND transactions.status = ? AND transactions.transaction_date BETWEEN ? AND ?",
+			tenantID, models.StatusCompleted, startDate, endDate).
+		Group("transactions.client_id, clients.name").
+		Order("total_profit DESC").
+		Limit(limit).
+		Scan(&results)
+
+	customers := make([]CustomerProfit, len(results))
+	for i, r := range results {
+		avgProfit := 0.0
+		if r.TxnCount > 0 {
+			avgProfit = r.TotalProfit / float64(r.TxnCount)
+		}
+		customers[i] = CustomerProfit{
+			CustomerID:       r.ClientID,
+			CustomerName:     r.ClientName,
+			TotalProfit:      r.TotalProfit,
+			TransactionCount: r.TxnCount,
+			AverageProfit:    avgProfit,
+		}
+	}
+	return customers, nil
 }

@@ -236,6 +236,7 @@ func (h *PaymentHandler) DeletePaymentHandler(w http.ResponseWriter, r *http.Req
 	vars := mux.Vars(r)
 	paymentIDStr := vars["id"]
 	tenantID := middleware.GetTenantID(r)
+	user := r.Context().Value("user").(*models.User)
 
 	if tenantID == nil {
 		http.Error(w, "Tenant ID required", http.StatusBadRequest)
@@ -248,7 +249,7 @@ func (h *PaymentHandler) DeletePaymentHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := h.paymentService.DeletePayment(uint(paymentID), *tenantID); err != nil {
+	if err := h.paymentService.DeletePayment(uint(paymentID), *tenantID, user.ID); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

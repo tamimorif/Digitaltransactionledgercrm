@@ -11,6 +11,27 @@ import (
 	"gorm.io/gorm"
 )
 
+// contextKey is a custom type for context keys to avoid collisions
+type contextKey string
+
+// Context key constants for type-safe context value storage
+const (
+	UserContextKey   contextKey = "user"
+	ClaimsContextKey contextKey = "claims"
+)
+
+// GetUserFromContext safely retrieves the user from request context
+func GetUserFromContext(r *http.Request) (*models.User, bool) {
+	user, ok := r.Context().Value(UserContextKey).(*models.User)
+	return user, ok
+}
+
+// GetClaimsFromContext safely retrieves the JWT claims from request context
+func GetClaimsFromContext(r *http.Request) (*services.JWTClaims, bool) {
+	claims, ok := r.Context().Value(ClaimsContextKey).(*services.JWTClaims)
+	return claims, ok
+}
+
 // AuthMiddleware verifies JWT token and adds user to context
 func AuthMiddleware(db *gorm.DB) func(http.Handler) http.Handler {
 	authService := services.NewAuthService(db)
@@ -57,9 +78,9 @@ func AuthMiddleware(db *gorm.DB) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Add user to context
-			ctx := context.WithValue(r.Context(), "user", &user)
-			ctx = context.WithValue(ctx, "claims", claims)
+			// Add user to context using typed keys
+			ctx := context.WithValue(r.Context(), UserContextKey, &user)
+			ctx = context.WithValue(ctx, ClaimsContextKey, claims)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
@@ -70,7 +91,7 @@ func AuthMiddleware(db *gorm.DB) func(http.Handler) http.Handler {
 func RequireRole(allowedRoles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			user, ok := r.Context().Value("user").(*models.User)
+			user, ok := GetUserFromContext(r)
 			if !ok {
 				respondWithError(w, http.StatusUnauthorized, "Unauthorized")
 				return
@@ -109,7 +130,7 @@ func RequireTenantOwner(next http.Handler) http.Handler {
 func RequireFeature(db *gorm.DB, feature string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			user, ok := r.Context().Value("user").(*models.User)
+			user, ok := GetUserFromContext(r)
 			if !ok {
 				respondWithError(w, http.StatusUnauthorized, "Unauthorized")
 				return

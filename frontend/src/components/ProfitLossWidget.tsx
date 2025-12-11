@@ -22,7 +22,7 @@ export function ProfitLossWidget() {
         try {
             const response = await fetch('/api/analytics/daily', {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
                 }
             });
 

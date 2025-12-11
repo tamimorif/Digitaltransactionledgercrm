@@ -77,6 +77,8 @@ interface Transaction {
   remainingBalance?: number;
   paymentStatus?: string;
   allowPartialPayment?: boolean;
+  // Profit field
+  profit?: number;
 }
 
 interface ClientProfileProps {
@@ -498,6 +500,11 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
                             <p>
                               Rate: {tx.rateApplied.toLocaleString()} | Fee:{' '}
                               {tx.feeCharged.toLocaleString()}
+                              {tx.profit !== undefined && (
+                                <span className="ml-2 font-medium text-green-600">
+                                  | Profit: {tx.profit.toLocaleString()} CAD
+                                </span>
+                              )}
                             </p>
                             {tx.type === 'BANK_TRANSFER' && tx.beneficiaryDetails && (
                               <p>

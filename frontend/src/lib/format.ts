@@ -92,3 +92,20 @@ export function handleNumberInput(value: string): string {
     // Format with commas
     return formatNumberWithCommas(cleaned);
 }
+
+/**
+ * Format a date string to a readable format
+ * @param dateStr - ISO date string
+ * @returns Formatted date string (e.g., "Oct 25, 2023 14:30")
+ */
+export function formatDate(dateStr?: string): string {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(date);
+}

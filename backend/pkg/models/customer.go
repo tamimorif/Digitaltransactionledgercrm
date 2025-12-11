@@ -2,17 +2,20 @@ package models
 
 import (
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // Customer represents a global customer across all tenants
 // This is intentionally NOT tenant-scoped to enable cross-tenant customer identification
 type Customer struct {
-	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	Phone     string    `gorm:"type:varchar(50);uniqueIndex;not null" json:"phone"` // Primary identifier
-	FullName  string    `gorm:"type:varchar(255);not null" json:"fullName"`
-	Email     *string   `gorm:"type:varchar(255)" json:"email"` // Optional
-	CreatedAt time.Time `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"createdAt"`
-	UpdatedAt time.Time `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"updatedAt"`
+	ID        uint           `gorm:"primaryKey;autoIncrement" json:"id"`
+	Phone     string         `gorm:"type:varchar(50);uniqueIndex;not null" json:"phone"` // Primary identifier
+	FullName  string         `gorm:"type:varchar(255);not null" json:"fullName"`
+	Email     *string        `gorm:"type:varchar(255)" json:"email"` // Optional
+	CreatedAt time.Time      `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"createdAt"`
+	UpdatedAt time.Time      `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"updatedAt"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"deletedAt,omitempty"` // Soft delete support
 
 	// Relations
 	TenantLinks []CustomerTenantLink `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"tenantLinks,omitempty"`

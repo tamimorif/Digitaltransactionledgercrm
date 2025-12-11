@@ -62,7 +62,7 @@ func (s *StatisticsService) GetTransactionStatistics(tenantID uint, branchID *ui
 		Currency string
 		Total    float64
 	}
-	if err := query.Select("currency, SUM(amount) as total").Group("currency").Scan(&volumeResults).Error; err != nil {
+	if err := query.Select("send_currency as currency, SUM(send_amount) as total").Group("send_currency").Scan(&volumeResults).Error; err != nil {
 		return nil, err
 	}
 	for _, result := range volumeResults {
@@ -86,7 +86,7 @@ func (s *StatisticsService) GetTransactionStatistics(tenantID uint, branchID *ui
 		Currency string
 		Count    int64
 	}
-	if err := query.Select("currency, COUNT(*) as count").Group("currency").Scan(&currencyResults).Error; err != nil {
+	if err := query.Select("send_currency as currency, COUNT(*) as count").Group("send_currency").Scan(&currencyResults).Error; err != nil {
 		return nil, err
 	}
 	for _, result := range currencyResults {
@@ -96,7 +96,7 @@ func (s *StatisticsService) GetTransactionStatistics(tenantID uint, branchID *ui
 	// Average amount
 	if stats.TotalCount > 0 {
 		var totalAmount float64
-		query.Select("SUM(amount)").Scan(&totalAmount)
+		query.Select("SUM(send_amount)").Scan(&totalAmount)
 		stats.AverageAmount = totalAmount / float64(stats.TotalCount)
 	}
 

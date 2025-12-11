@@ -12,6 +12,7 @@ import { BuySellRatesWidget } from '@/src/components/BuySellRatesWidget';
 import { DashboardCashBalance } from '@/src/components/dashboard/DashboardCashBalance';
 import { QuickConvertWidget } from '@/src/components/dashboard/QuickConvertWidget';
 import { RecentActivityFeed } from '@/src/components/dashboard/RecentActivityFeed';
+import { TransferList } from '@/src/components/transfers/TransferList';
 import { GlobalSearch } from '@/src/components/GlobalSearch';
 import { AdvancedSearchDialog } from '@/src/components/AdvancedSearchDialog';
 import { SavedSearchesDialog } from '@/src/components/SavedSearchesDialog';
@@ -111,6 +112,11 @@ export default function DashboardPage() {
         <div className="lg:col-span-1">
           <QuickConvertWidget />
         </div>
+      </div>
+
+      {/* Transfers Row */}
+      <div className="grid grid-cols-1">
+        <TransferList />
       </div>
 
       {/* Bottom Row: Recent Activity */}

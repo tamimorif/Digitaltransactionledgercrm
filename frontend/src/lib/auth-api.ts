@@ -1,7 +1,7 @@
 // API client for backend communication
 
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+import { API_BASE_URL } from './constants';
+import { tokenStorage } from './api-client';
 
 // Types
 export interface User {
@@ -182,48 +182,61 @@ export const licenseAPI = {
   },
 };
 
-// Storage helpers
+/**
+ * @deprecated Use tokenStorage from './api-client' instead.
+ * This is kept for backward compatibility.
+ */
 export const storage = {
   setToken(token: string) {
-    localStorage.setItem('token', token);
+    tokenStorage.setAccessToken(token);
   },
 
   getToken(): string | null {
-    return localStorage.getItem('token');
+    return tokenStorage.getAccessToken();
   },
 
   removeToken() {
-    localStorage.removeItem('token');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('token'); // Clean up old key
+    }
   },
 
   setRefreshToken(refreshToken: string) {
-    localStorage.setItem('refreshToken', refreshToken);
+    tokenStorage.setRefreshToken(refreshToken);
   },
 
   getRefreshToken(): string | null {
-    return localStorage.getItem('refreshToken');
+    return tokenStorage.getRefreshToken();
   },
 
   removeRefreshToken() {
-    localStorage.removeItem('refreshToken');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('refreshToken'); // Clean up old key
+    }
   },
 
   setUser(user: User) {
-    localStorage.setItem('user', JSON.stringify(user));
+    tokenStorage.setUser(user);
   },
 
   getUser(): User | null {
-    const user = localStorage.getItem('user');
-    return user ? JSON.parse(user) : null;
+    return tokenStorage.getUser<User>();
   },
 
   removeUser() {
-    localStorage.removeItem('user');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('user');
+    }
   },
 
   clear() {
-    this.removeToken();
-    this.removeRefreshToken();
-    this.removeUser();
+    tokenStorage.clearAll();
+    // Also clean up old keys
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+    }
   },
 };

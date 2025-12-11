@@ -255,9 +255,9 @@ func (s *SearchService) searchTransactions(tenantID uint, filter SearchFilter, o
 		query = query.Where("branch_id = ?", *filter.BranchID)
 	}
 
-	// Get total count
+	// Get total count using a new session to avoid modifying the original query
 	var total int64
-	query.Count(&total)
+	query.Session(&gorm.Session{}).Count(&total)
 
 	// Get results
 	var transactions []models.Transaction
@@ -344,7 +344,7 @@ func (s *SearchService) searchPickups(tenantID uint, filter SearchFilter, offset
 	}
 
 	var total int64
-	query.Count(&total)
+	query.Session(&gorm.Session{}).Count(&total)
 
 	var pickups []models.PickupTransaction
 	err := query.Preload("Customer").Preload("Branch").
@@ -377,7 +377,7 @@ func (s *SearchService) searchCustomers(tenantID uint, filter SearchFilter, offs
 	}
 
 	var total int64
-	query.Count(&total)
+	query.Session(&gorm.Session{}).Count(&total)
 
 	var customers []models.Customer
 	err := query.Order("customers.created_at DESC").

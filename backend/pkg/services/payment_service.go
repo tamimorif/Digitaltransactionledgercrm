@@ -379,7 +379,33 @@ func (s *PaymentService) UpdatePayment(paymentID uint, updates map[string]interf
 
 			if oldPaymentMethod == models.PaymentMethodCash {
 				// Decrease Cash for old currency
-				// ... (Implementation omitted for brevity, but logic is same as CancelPayment)
+				var oldCashBalance models.CashBalance
+				err := tx.Where("tenant_id = ? AND currency = ? AND branch_id = ?",
+					payment.TenantID, oldCurrency, payment.BranchID).
+					First(&oldCashBalance).Error
+				if err == nil {
+					adjustment := models.CashAdjustment{
+						TenantID:      payment.TenantID,
+						BranchID:      payment.BranchID,
+						Currency:      oldCurrency,
+						Amount:        -oldAmount,
+						Reason:        fmt.Sprintf("Currency change reversal for Payment #%d: %s", payment.ID, reason),
+						AdjustedBy:    userID,
+						BalanceBefore: oldCashBalance.FinalBalance,
+						BalanceAfter:  oldCashBalance.FinalBalance - oldAmount,
+					}
+					if err := tx.Create(&adjustment).Error; err != nil {
+						return fmt.Errorf("failed to create cash adjustment for old currency: %w", err)
+					}
+					if err := tx.Model(&oldCashBalance).Updates(map[string]interface{}{
+						"manual_adjustment":         oldCashBalance.ManualAdjustment - oldAmount,
+						"final_balance":             oldCashBalance.FinalBalance - oldAmount,
+						"last_manual_adjustment_at": time.Now(),
+						"updated_at":                time.Now(),
+					}).Error; err != nil {
+						return fmt.Errorf("failed to update old currency cash balance: %w", err)
+					}
+				}
 			}
 
 			// Add New
@@ -402,7 +428,49 @@ func (s *PaymentService) UpdatePayment(paymentID uint, updates map[string]interf
 
 			if payment.PaymentMethod == models.PaymentMethodCash {
 				// Increase Cash for new currency
-				// ... (Implementation omitted for brevity, but logic is same as CreatePayment)
+				var newCashBalance models.CashBalance
+				err := tx.Where("tenant_id = ? AND currency = ? AND branch_id = ?",
+					payment.TenantID, payment.Currency, payment.BranchID).
+					First(&newCashBalance).Error
+				if err != nil {
+					if errors.Is(err, gorm.ErrRecordNotFound) {
+						// Create new cash balance
+						newCashBalance = models.CashBalance{
+							TenantID:         payment.TenantID,
+							BranchID:         payment.BranchID,
+							Currency:         payment.Currency,
+							ManualAdjustment: 0,
+							FinalBalance:     0,
+							LastCalculatedAt: time.Now(),
+						}
+						if err := tx.Create(&newCashBalance).Error; err != nil {
+							return fmt.Errorf("failed to create new currency cash balance: %w", err)
+						}
+					} else {
+						return fmt.Errorf("failed to get new currency cash balance: %w", err)
+					}
+				}
+				adjustment := models.CashAdjustment{
+					TenantID:      payment.TenantID,
+					BranchID:      payment.BranchID,
+					Currency:      payment.Currency,
+					Amount:        payment.Amount,
+					Reason:        fmt.Sprintf("Currency change credit for Payment #%d: %s", payment.ID, reason),
+					AdjustedBy:    userID,
+					BalanceBefore: newCashBalance.FinalBalance,
+					BalanceAfter:  newCashBalance.FinalBalance + payment.Amount,
+				}
+				if err := tx.Create(&adjustment).Error; err != nil {
+					return fmt.Errorf("failed to create cash adjustment for new currency: %w", err)
+				}
+				if err := tx.Model(&newCashBalance).Updates(map[string]interface{}{
+					"manual_adjustment":         newCashBalance.ManualAdjustment + payment.Amount,
+					"final_balance":             newCashBalance.FinalBalance + payment.Amount,
+					"last_manual_adjustment_at": time.Now(),
+					"updated_at":                time.Now(),
+				}).Error; err != nil {
+					return fmt.Errorf("failed to update new currency cash balance: %w", err)
+				}
 			}
 		}
 
@@ -411,7 +479,7 @@ func (s *PaymentService) UpdatePayment(paymentID uint, updates map[string]interf
 }
 
 // DeletePayment removes a payment and recalculates transaction totals
-func (s *PaymentService) DeletePayment(paymentID uint, tenantID uint) error {
+func (s *PaymentService) DeletePayment(paymentID uint, tenantID uint, userID uint) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		// 1. Load payment
 		var payment models.Payment
@@ -458,7 +526,7 @@ func (s *PaymentService) DeletePayment(paymentID uint, tenantID uint) error {
 			Amount:        -payment.Amount,
 			Description:   fmt.Sprintf("Reversal (Deletion) of Payment #%d", payment.ID),
 			ExchangeRate:  &payment.ExchangeRate,
-			CreatedBy:     0, // System or unknown if not passed
+			CreatedBy:     userID,
 			CreatedAt:     time.Now(),
 		}
 		if err := tx.Create(&ledgerEntry).Error; err != nil {
@@ -479,7 +547,7 @@ func (s *PaymentService) DeletePayment(paymentID uint, tenantID uint) error {
 					Currency:      payment.Currency,
 					Amount:        -payment.Amount,
 					Reason:        fmt.Sprintf("Reversal (Deletion) of Payment #%d", payment.ID),
-					AdjustedBy:    0,
+					AdjustedBy:    userID,
 					BalanceBefore: cashBalance.FinalBalance,
 					BalanceAfter:  cashBalance.FinalBalance - payment.Amount,
 				}

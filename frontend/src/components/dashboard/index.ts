@@ -7,3 +7,5 @@ export { RecentActivityFeed } from './RecentActivityFeed';
 export { QuickConvertWidget } from './QuickConvertWidget';
 export { LicenseActivationCard } from './LicenseActivationCard';
 export { MyLicensesCard } from './MyLicensesCard';
+export { PendingPaymentsWidget } from './PendingPaymentsWidget';
+

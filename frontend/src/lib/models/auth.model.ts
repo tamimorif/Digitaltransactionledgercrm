@@ -22,6 +22,12 @@ export interface ResendCodeRequest {
 
 // ==================== Response Types ====================
 
+export interface Branch {
+  id: number;
+  name: string;
+  branchCode?: string;
+}
+
 export interface User {
   id: number;
   email: string;
@@ -29,6 +35,7 @@ export interface User {
   role: 'superadmin' | 'tenant_owner' | 'tenant_admin' | 'tenant_user';
   tenantId: number | null;
   primaryBranchId?: number | null;
+  primaryBranch?: Branch | null;
   status: 'active' | 'suspended' | 'trial_expired' | 'license_expired';
   trialEndsAt: string | null;
   licenseActivatedAt?: string | null;
@@ -60,13 +67,18 @@ export interface LoginResponse {
   tenant?: Tenant;
 }
 
-export interface GetMeResponse {
-  id: number;
-  email: string;
-  role: string;
-  tenantId: number | null;
-  status: string;
-  trialEndsAt: string | null;
-  emailVerified: boolean;
-  createdAt: string;
+export interface GetMeResponse extends User {
+  // GetMeResponse is now an alias for User with the same structure
+}
+
+// ==================== Context Types ====================
+
+export interface AuthContextType {
+  user: User | null;
+  tenant: Tenant | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  refreshUser: () => void;
 }
