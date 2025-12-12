@@ -35,7 +35,7 @@ func (h *ReceiptHandler) GetOutgoingRemittanceReceiptHandler(w http.ResponseWrit
 	tenantID := r.Context().Value("tenantID").(uint)
 	vars := mux.Vars(r)
 
-	remittanceID, err := strconv.ParseUint(vars["id"], 10, 32)
+	remittanceID, err := strconv.ParseUint(vars["id"], 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid remittance ID", http.StatusBadRequest)
 		return
@@ -67,7 +67,7 @@ func (h *ReceiptHandler) GetIncomingRemittanceReceiptHandler(w http.ResponseWrit
 	tenantID := r.Context().Value("tenantID").(uint)
 	vars := mux.Vars(r)
 
-	remittanceID, err := strconv.ParseUint(vars["id"], 10, 32)
+	remittanceID, err := strconv.ParseUint(vars["id"], 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid remittance ID", http.StatusBadRequest)
 		return

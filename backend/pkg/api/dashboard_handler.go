@@ -36,7 +36,7 @@ func (h *DashboardHandler) GetDashboardHandler(w http.ResponseWriter, r *http.Re
 
 	var branchID *uint
 	if branchIDStr := r.URL.Query().Get("branchId"); branchIDStr != "" {
-		id, err := strconv.ParseUint(branchIDStr, 10, 32)
+		id, err := strconv.ParseUint(branchIDStr, 10, 64)
 		if err == nil {
 			bid := uint(id)
 			branchID = &bid

@@ -31,7 +31,7 @@ func (h *StatisticsHandler) GetStatisticsHandler(w http.ResponseWriter, r *http.
 
 	var branchID *uint
 	if branchIDStr != "" {
-		id, err := strconv.ParseUint(branchIDStr, 10, 32)
+		id, err := strconv.ParseUint(branchIDStr, 10, 64)
 		if err == nil {
 			branchIDUint := uint(id)
 			branchID = &branchIDUint
@@ -76,7 +76,7 @@ func (h *StatisticsHandler) ExportCSVHandler(w http.ResponseWriter, r *http.Requ
 
 	var branchID *uint
 	if branchIDStr != "" {
-		id, err := strconv.ParseUint(branchIDStr, 10, 32)
+		id, err := strconv.ParseUint(branchIDStr, 10, 64)
 		if err == nil {
 			branchIDUint := uint(id)
 			branchID = &branchIDUint
@@ -165,7 +165,7 @@ func (h *StatisticsHandler) ExportJSONHandler(w http.ResponseWriter, r *http.Req
 
 	var branchID *uint
 	if branchIDStr != "" {
-		id, err := strconv.ParseUint(branchIDStr, 10, 32)
+		id, err := strconv.ParseUint(branchIDStr, 10, 64)
 		if err == nil {
 			branchIDUint := uint(id)
 			branchID = &branchIDUint
@@ -222,7 +222,7 @@ func (h *StatisticsHandler) ExportPDFHandler(w http.ResponseWriter, r *http.Requ
 
 	var branchID *uint
 	if branchIDStr != "" {
-		id, err := strconv.ParseUint(branchIDStr, 10, 32)
+		id, err := strconv.ParseUint(branchIDStr, 10, 64)
 		if err == nil {
 			branchIDUint := uint(id)
 			branchID = &branchIDUint

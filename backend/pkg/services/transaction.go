@@ -45,14 +45,16 @@ func (s *TransactionService) CreateTransaction(transaction *models.Transaction) 
 		// Since ReceiveAmount = SendAmount * RateApplied
 		// Profit = SendAmount * (StandardRate - RateApplied)
 		transaction.Profit = transaction.SendAmount * (transaction.StandardRate - transaction.RateApplied)
+		transaction.ProfitCalculationStatus = models.ProfitStatusCalculated
 	} else {
-		// If no standard rate found, we can't calculate profit yet
+		// If no standard rate found, mark as PENDING for background job to retry
 		if err != nil {
 			log.Printf("Warning: Could not fetch standard rate for %s/%s (tenant %d): %v",
 				transaction.SendCurrency, transaction.ReceiveCurrency, transaction.TenantID, err)
 		}
 		transaction.StandardRate = 0
 		transaction.Profit = 0
+		transaction.ProfitCalculationStatus = models.ProfitStatusPending
 	}
 
 	// Save to database

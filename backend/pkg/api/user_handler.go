@@ -134,7 +134,7 @@ func hashPassword(password string) (string, error) {
 func getIDFromPath(path string, prefix string) uint {
 	// Extract ID from path like /api/users/123
 	idStr := strings.TrimPrefix(path, prefix)
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		return 0
 	}
@@ -461,7 +461,7 @@ func (h *UserHandler) GetBranchUsersHandler(w http.ResponseWriter, r *http.Reque
 
 	// Get branch ID from URL using mux.Vars
 	vars := mux.Vars(r)
-	branchID, err := strconv.ParseUint(vars["id"], 10, 32)
+	branchID, err := strconv.ParseUint(vars["id"], 10, 64)
 	if err != nil || branchID == 0 {
 		respondWithError(w, http.StatusBadRequest, "Invalid branch ID")
 		return

@@ -39,7 +39,7 @@ func (h *AutoSettlementHandler) GetSettlementSuggestionsHandler(w http.ResponseW
 	tenantID := r.Context().Value("tenantID").(uint)
 	vars := mux.Vars(r)
 
-	incomingID, err := strconv.ParseUint(vars["id"], 10, 32)
+	incomingID, err := strconv.ParseUint(vars["id"], 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid remittance ID", http.StatusBadRequest)
 		return
