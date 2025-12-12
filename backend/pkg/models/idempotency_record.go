@@ -10,7 +10,7 @@ import "time"
 type IdempotencyRecord struct {
 	ID uint `gorm:"primaryKey;autoIncrement" json:"id"`
 
-	TenantID uint  `gorm:"type:bigint;not null;index" json:"tenantId"`
+	TenantID uint  `gorm:"type:bigint;not null;uniqueIndex:uidx_idem" json:"tenantId"`
 	UserID   *uint `gorm:"type:bigint;index" json:"userId,omitempty"`
 
 	Key    string `gorm:"type:varchar(128);not null;uniqueIndex:uidx_idem" json:"key"`
