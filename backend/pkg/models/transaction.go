@@ -44,8 +44,9 @@ type Transaction struct {
 	BeneficiaryDetails *string `gorm:"column:beneficiary_details;type:text" json:"beneficiaryDetails"`
 	UserNotes          *string `gorm:"column:user_notes;type:text" json:"userNotes"`
 	// Profit & Loss Tracking (NEW)
-	StandardRate float64 `gorm:"column:standard_rate;type:real;default:0" json:"standardRate"` // Market/Base rate at time of transaction
-	Profit       float64 `gorm:"column:profit;type:real;default:0" json:"profit"`              // Calculated profit
+	StandardRate            float64 `gorm:"column:standard_rate;type:real;default:0" json:"standardRate"`                            // Market/Base rate at time of transaction
+	Profit                  float64 `gorm:"column:profit;type:real;default:0" json:"profit"`                                         // Calculated profit
+	ProfitCalculationStatus string  `gorm:"column:profit_calc_status;type:varchar(20);default:'CALCULATED'" json:"profitCalcStatus"` // CALCULATED, PENDING, FAILED
 
 	// Multi-Payment Support (NEW)
 	TotalReceived       float64    `gorm:"column:total_received;type:real" json:"totalReceived"`                               // Total amount client gave us
@@ -63,6 +64,7 @@ type Transaction struct {
 	CancelledAt         *time.Time `gorm:"column:cancelled_at;type:datetime" json:"cancelledAt,omitempty"`
 	CancelledBy         *uint      `gorm:"column:cancelled_by;type:bigint" json:"cancelledBy,omitempty"` // User ID who cancelled
 	TransactionDate     time.Time  `gorm:"column:transaction_date;type:datetime;default:CURRENT_TIMESTAMP;index" json:"transactionDate"`
+	Version             int        `gorm:"not null;default:0" json:"version"` // Optimistic locking
 	CreatedAt           time.Time  `gorm:"column:created_at;type:datetime;default:CURRENT_TIMESTAMP;autoCreateTime" json:"createdAt"`
 	UpdatedAt           time.Time  `gorm:"column:updated_at;type:datetime;autoUpdateTime" json:"updatedAt"`
 
@@ -97,4 +99,11 @@ const (
 	PaymentStatusOpen      = "OPEN"       // Multi-payment: No payments yet
 	PaymentStatusPartial   = "PARTIAL"    // Multi-payment: Some payments made
 	PaymentStatusFullyPaid = "FULLY_PAID" // Multi-payment: Fully paid
+)
+
+// ProfitCalculationStatus constants
+const (
+	ProfitStatusCalculated = "CALCULATED" // Profit was successfully calculated
+	ProfitStatusPending    = "PENDING"    // Awaiting background job to calculate (rate unavailable)
+	ProfitStatusFailed     = "FAILED"     // Calculation failed permanently
 )

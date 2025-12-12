@@ -89,7 +89,7 @@ func (h *RemittanceSettlementHandler) GetSettlementHistoryHandler(w http.Respons
 
 	vars := mux.Vars(r)
 	idStr := vars["id"]
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid remittance ID", http.StatusBadRequest)
 		return
@@ -115,7 +115,7 @@ func (h *RemittanceSettlementHandler) GetSettlementSummaryHandler(w http.Respons
 
 	vars := mux.Vars(r)
 	idStr := vars["id"]
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid remittance ID", http.StatusBadRequest)
 		return

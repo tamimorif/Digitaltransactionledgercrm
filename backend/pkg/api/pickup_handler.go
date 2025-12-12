@@ -163,7 +163,7 @@ func (h *PickupHandler) GetPickupTransactionsHandler(w http.ResponseWriter, r *h
 	// Parse query parameters
 	var branchID *uint
 	if branchIDStr := r.URL.Query().Get("branch_id"); branchIDStr != "" {
-		if id, err := strconv.ParseUint(branchIDStr, 10, 32); err == nil {
+		if id, err := strconv.ParseUint(branchIDStr, 10, 64); err == nil {
 			branchIDUint := uint(id)
 			branchID = &branchIDUint
 		}
@@ -217,7 +217,7 @@ func (h *PickupHandler) GetPickupTransactionHandler(w http.ResponseWriter, r *ht
 
 	vars := mux.Vars(r)
 	idStr := vars["id"]
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid pickup ID", http.StatusBadRequest)
 		return
@@ -300,7 +300,7 @@ func (h *PickupHandler) MarkAsPickedUpHandler(w http.ResponseWriter, r *http.Req
 
 	vars := mux.Vars(r)
 	idStr := vars["id"]
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid pickup ID", http.StatusBadRequest)
 		return
@@ -333,7 +333,7 @@ func (h *PickupHandler) CancelPickupTransactionHandler(w http.ResponseWriter, r 
 
 	vars := mux.Vars(r)
 	idStr := vars["id"]
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid pickup ID", http.StatusBadRequest)
 		return
@@ -375,7 +375,7 @@ func (h *PickupHandler) EditPickupTransactionHandler(w http.ResponseWriter, r *h
 
 	vars := mux.Vars(r)
 	idStr := vars["id"]
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid pickup ID", http.StatusBadRequest)
 		return
@@ -424,7 +424,7 @@ func (h *PickupHandler) GetPendingPickupsCountHandler(w http.ResponseWriter, r *
 		return
 	}
 
-	branchID, err := strconv.ParseUint(branchIDStr, 10, 32)
+	branchID, err := strconv.ParseUint(branchIDStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid branch_id", http.StatusBadRequest)
 		return

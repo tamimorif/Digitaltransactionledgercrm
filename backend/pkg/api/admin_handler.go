@@ -84,7 +84,7 @@ func (h *AdminHandler) GetAllTenantsHandler(w http.ResponseWriter, r *http.Reque
 // GetTenantByIDHandler handler
 func (h *AdminHandler) GetTenantByIDHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id, _ := strconv.ParseUint(vars["id"], 10, 32)
+	id, _ := strconv.ParseUint(vars["id"], 10, 64)
 	tenant, err := h.adminService.GetTenantByID(uint(id))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -96,7 +96,7 @@ func (h *AdminHandler) GetTenantByIDHandler(w http.ResponseWriter, r *http.Reque
 // SuspendTenantHandler handler
 func (h *AdminHandler) SuspendTenantHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id, _ := strconv.ParseUint(vars["id"], 10, 32)
+	id, _ := strconv.ParseUint(vars["id"], 10, 64)
 	if err := h.adminService.UpdateTenantStatus(uint(id), "suspended"); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -107,7 +107,7 @@ func (h *AdminHandler) SuspendTenantHandler(w http.ResponseWriter, r *http.Reque
 // ActivateTenantHandler handler
 func (h *AdminHandler) ActivateTenantHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id, _ := strconv.ParseUint(vars["id"], 10, 32)
+	id, _ := strconv.ParseUint(vars["id"], 10, 64)
 	if err := h.adminService.UpdateTenantStatus(uint(id), "active"); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -118,7 +118,7 @@ func (h *AdminHandler) ActivateTenantHandler(w http.ResponseWriter, r *http.Requ
 // GetTenantCashBalancesHandler handler
 func (h *AdminHandler) GetTenantCashBalancesHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id, _ := strconv.ParseUint(vars["id"], 10, 32)
+	id, _ := strconv.ParseUint(vars["id"], 10, 64)
 	balances, err := h.adminService.GetTenantCashBalances(uint(id))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -130,7 +130,7 @@ func (h *AdminHandler) GetTenantCashBalancesHandler(w http.ResponseWriter, r *ht
 // GetTenantCustomerCountHandler handler
 func (h *AdminHandler) GetTenantCustomerCountHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id, _ := strconv.ParseUint(vars["id"], 10, 32)
+	id, _ := strconv.ParseUint(vars["id"], 10, 64)
 	count, err := h.adminService.GetTenantCustomerCount(uint(id))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -150,7 +150,7 @@ func (h *AdminHandler) GetTenantCustomerCountHandler(w http.ResponseWriter, r *h
 // @Router /api/admin/tenants/{id}/users [get]
 func (h *AdminHandler) GetTenantUsersHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	tenantID, err := strconv.ParseUint(vars["id"], 10, 32)
+	tenantID, err := strconv.ParseUint(vars["id"], 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid tenant ID", http.StatusBadRequest)
 		return
@@ -175,7 +175,7 @@ func (h *AdminHandler) GetTenantUsersHandler(w http.ResponseWriter, r *http.Requ
 // @Router /api/admin/tenants/{id} [delete]
 func (h *AdminHandler) DeleteTenantHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	tenantID, err := strconv.ParseUint(vars["id"], 10, 32)
+	tenantID, err := strconv.ParseUint(vars["id"], 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid tenant ID", http.StatusBadRequest)
 		return
@@ -217,7 +217,7 @@ func (h *AdminHandler) GetAllLicensesHandler(w http.ResponseWriter, r *http.Requ
 // @Router /api/admin/licenses/{id} [delete]
 func (h *AdminHandler) RevokeLicenseHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	licenseID, err := strconv.ParseUint(vars["id"], 10, 32)
+	licenseID, err := strconv.ParseUint(vars["id"], 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid license ID", http.StatusBadRequest)
 		return

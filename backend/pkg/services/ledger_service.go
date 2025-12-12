@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type LedgerService struct {
@@ -16,7 +17,8 @@ func NewLedgerService(db *gorm.DB) *LedgerService {
 	return &LedgerService{db: db}
 }
 
-// GetClientBalances calculates the current balance for each currency for a client
+// GetClientBalances calculates the current balance for each currency for a client.
+// Uses FOR SHARE lock to prevent concurrent modifications during read.
 func (s *LedgerService) GetClientBalances(clientID string, tenantID uint) (map[string]float64, error) {
 	type Result struct {
 		Currency string
@@ -25,6 +27,7 @@ func (s *LedgerService) GetClientBalances(clientID string, tenantID uint) (map[s
 
 	var results []Result
 	err := s.db.Model(&models.LedgerEntry{}).
+		Clauses(clause.Locking{Strength: "SHARE"}).
 		Select("currency, sum(amount) as total").
 		Where("client_id = ? AND tenant_id = ?", clientID, tenantID).
 		Group("currency").
@@ -40,6 +43,22 @@ func (s *LedgerService) GetClientBalances(clientID string, tenantID uint) (map[s
 	}
 
 	return balances, nil
+}
+
+// GetClientBalanceForCurrency gets the balance for a specific currency with row locking.
+// This is safer for withdrawal checks as it uses FOR UPDATE to prevent race conditions.
+func (s *LedgerService) GetClientBalanceForCurrency(tx *gorm.DB, clientID string, tenantID uint, currency string) (float64, error) {
+	var total float64
+	err := tx.Model(&models.LedgerEntry{}).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Select("COALESCE(sum(amount), 0)").
+		Where("client_id = ? AND tenant_id = ? AND currency = ?", clientID, tenantID, currency).
+		Scan(&total).Error
+
+	if err != nil {
+		return 0, err
+	}
+	return total, nil
 }
 
 // AddEntry adds a single ledger entry (e.g. Deposit or Withdrawal)

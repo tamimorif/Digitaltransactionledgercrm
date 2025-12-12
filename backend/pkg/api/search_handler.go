@@ -203,7 +203,7 @@ func (sh *SearchHandler) DeleteSavedSearchHandler(w http.ResponseWriter, r *http
 
 	// Get ID from URL path
 	idStr := r.URL.Query().Get("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid search ID")
 		return

@@ -123,7 +123,7 @@ func (h *CustomerHandler) GetCustomersForTenantHandler(w http.ResponseWriter, r 
 func (h *CustomerHandler) UpdateCustomerHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idStr := vars["id"]
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid customer ID", http.StatusBadRequest)
 		return
@@ -172,7 +172,7 @@ func (h *CustomerHandler) SearchCustomersGlobalHandler(w http.ResponseWriter, r 
 func (h *CustomerHandler) GetCustomerWithTenantsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idStr := vars["id"]
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid customer ID", http.StatusBadRequest)
 		return

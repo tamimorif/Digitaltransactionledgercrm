@@ -33,7 +33,7 @@ func (h *CashBalanceHandler) GetAllBalancesHandler(w http.ResponseWriter, r *htt
 
 	var branchID *uint
 	if branchIDStr := r.URL.Query().Get("branch_id"); branchIDStr != "" {
-		if id, err := strconv.ParseUint(branchIDStr, 10, 32); err == nil {
+		if id, err := strconv.ParseUint(branchIDStr, 10, 64); err == nil {
 			branchIDUint := uint(id)
 			branchID = &branchIDUint
 		}
@@ -66,7 +66,7 @@ func (h *CashBalanceHandler) GetBalanceByCurrencyHandler(w http.ResponseWriter, 
 
 	var branchID *uint
 	if branchIDStr := r.URL.Query().Get("branch_id"); branchIDStr != "" {
-		if id, err := strconv.ParseUint(branchIDStr, 10, 32); err == nil {
+		if id, err := strconv.ParseUint(branchIDStr, 10, 64); err == nil {
 			branchIDUint := uint(id)
 			branchID = &branchIDUint
 		}
@@ -86,7 +86,7 @@ func (h *CashBalanceHandler) GetBalanceByCurrencyHandler(w http.ResponseWriter, 
 func (h *CashBalanceHandler) RefreshBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idStr := vars["id"]
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid balance ID", http.StatusBadRequest)
 		return
@@ -157,7 +157,7 @@ func (h *CashBalanceHandler) GetAdjustmentHistoryHandler(w http.ResponseWriter, 
 
 	var branchID *uint
 	if branchIDStr := r.URL.Query().Get("branch_id"); branchIDStr != "" {
-		if id, err := strconv.ParseUint(branchIDStr, 10, 32); err == nil {
+		if id, err := strconv.ParseUint(branchIDStr, 10, 64); err == nil {
 			branchIDUint := uint(id)
 			branchID = &branchIDUint
 		}
@@ -228,7 +228,7 @@ func (h *CashBalanceHandler) GetActiveCurrenciesHandler(w http.ResponseWriter, r
 
 	var branchID *uint
 	if branchIDStr := r.URL.Query().Get("branch_id"); branchIDStr != "" {
-		if id, err := strconv.ParseUint(branchIDStr, 10, 32); err == nil {
+		if id, err := strconv.ParseUint(branchIDStr, 10, 64); err == nil {
 			branchIDUint := uint(id)
 			branchID = &branchIDUint
 		}

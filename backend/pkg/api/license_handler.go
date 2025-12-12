@@ -216,7 +216,7 @@ func (lh *LicenseHandler) RevokeLicenseHandler(w http.ResponseWriter, r *http.Re
 
 	vars := mux.Vars(r)
 	idStr := vars["id"]
-	licenseID, err := strconv.ParseUint(idStr, 10, 32)
+	licenseID, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid license ID")
 		return

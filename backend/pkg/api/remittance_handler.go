@@ -260,7 +260,7 @@ func (h *Handler) GetOutgoingRemittances(w http.ResponseWriter, r *http.Request)
 
 	var branchID *uint
 	if branchIDStr != "" {
-		id, err := strconv.ParseUint(branchIDStr, 10, 32)
+		id, err := strconv.ParseUint(branchIDStr, 10, 64)
 		if err == nil {
 			branchIDUint := uint(id)
 			branchID = &branchIDUint
@@ -297,7 +297,7 @@ func (h *Handler) GetIncomingRemittances(w http.ResponseWriter, r *http.Request)
 
 	var branchID *uint
 	if branchIDStr != "" {
-		id, err := strconv.ParseUint(branchIDStr, 10, 32)
+		id, err := strconv.ParseUint(branchIDStr, 10, 64)
 		if err == nil {
 			branchIDUint := uint(id)
 			branchID = &branchIDUint
@@ -330,7 +330,7 @@ func (h *Handler) GetOutgoingRemittanceDetails(w http.ResponseWriter, r *http.Re
 	user := r.Context().Value("user").(*models.User)
 	vars := mux.Vars(r)
 
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["id"], 10, 64)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid remittance ID")
 		return
@@ -362,7 +362,7 @@ func (h *Handler) GetIncomingRemittanceDetails(w http.ResponseWriter, r *http.Re
 	user := r.Context().Value("user").(*models.User)
 	vars := mux.Vars(r)
 
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["id"], 10, 64)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid remittance ID")
 		return
@@ -395,7 +395,7 @@ func (h *Handler) MarkIncomingAsPaid(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
 	vars := mux.Vars(r)
 
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["id"], 10, 64)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid remittance ID")
 		return
@@ -437,7 +437,7 @@ func (h *Handler) CancelOutgoingRemittance(w http.ResponseWriter, r *http.Reques
 	user := r.Context().Value("user").(*models.User)
 	vars := mux.Vars(r)
 
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["id"], 10, 64)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid remittance ID")
 		return
@@ -474,7 +474,7 @@ func (h *Handler) CancelIncomingRemittance(w http.ResponseWriter, r *http.Reques
 	user := r.Context().Value("user").(*models.User)
 	vars := mux.Vars(r)
 
-	id, err := strconv.ParseUint(vars["id"], 10, 32)
+	id, err := strconv.ParseUint(vars["id"], 10, 64)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Invalid remittance ID")
 		return

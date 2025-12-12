@@ -38,7 +38,7 @@ func (h *ReportHandler) GetDailyReportHandler(w http.ResponseWriter, r *http.Req
 
 	var branchID *uint
 	if branchIDStr != "" && branchIDStr != "all" {
-		id, err := strconv.ParseUint(branchIDStr, 10, 32)
+		id, err := strconv.ParseUint(branchIDStr, 10, 64)
 		if err == nil {
 			branchIDUint := uint(id)
 			branchID = &branchIDUint
@@ -83,7 +83,7 @@ func (h *ReportHandler) GetMonthlyReportHandler(w http.ResponseWriter, r *http.R
 
 	var branchID *uint
 	if branchIDStr != "" && branchIDStr != "all" {
-		id, err := strconv.ParseUint(branchIDStr, 10, 32)
+		id, err := strconv.ParseUint(branchIDStr, 10, 64)
 		if err == nil {
 			branchIDUint := uint(id)
 			branchID = &branchIDUint
@@ -131,7 +131,7 @@ func (h *ReportHandler) GetCustomReportHandler(w http.ResponseWriter, r *http.Re
 
 	var branchID *uint
 	if branchIDStr != "" && branchIDStr != "all" {
-		id, err := strconv.ParseUint(branchIDStr, 10, 32)
+		id, err := strconv.ParseUint(branchIDStr, 10, 64)
 		if err == nil {
 			branchIDUint := uint(id)
 			branchID = &branchIDUint
