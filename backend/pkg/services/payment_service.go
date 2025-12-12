@@ -122,9 +122,13 @@ func (s *PaymentService) CreatePayment(payment *models.Payment, userID uint) err
 
 			// Get or create cash balance
 			var cashBalance models.CashBalance
-			err := tx.Where("tenant_id = ? AND currency = ? AND branch_id = ?",
-				payment.TenantID, payment.Currency, payment.BranchID).
-				First(&cashBalance).Error
+			query := tx.Where("tenant_id = ? AND currency = ?", payment.TenantID, payment.Currency)
+			if payment.BranchID != nil {
+				query = query.Where("branch_id = ?", *payment.BranchID)
+			} else {
+				query = query.Where("branch_id IS NULL")
+			}
+			err := query.First(&cashBalance).Error
 
 			if err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -160,14 +164,20 @@ func (s *PaymentService) CreatePayment(payment *models.Payment, userID uint) err
 				return fmt.Errorf("failed to create cash adjustment: %w", err)
 			}
 
-			// Update balance
-			if err := tx.Model(&cashBalance).Updates(map[string]interface{}{
-				"manual_adjustment":         cashBalance.ManualAdjustment + payment.Amount,
-				"final_balance":             cashBalance.FinalBalance + payment.Amount,
-				"last_manual_adjustment_at": time.Now(),
-				"updated_at":                time.Now(),
-			}).Error; err != nil {
+			// Update balance (optimistic lock)
+			res := tx.Model(&models.CashBalance{}).
+				Where("id = ? AND version = ?", cashBalance.ID, cashBalance.Version).
+				Updates(map[string]interface{}{
+					"auto_calculated_balance": cashBalance.AutoCalculatedBalance + payment.Amount,
+					"final_balance":           cashBalance.FinalBalance + payment.Amount,
+					"version":                 gorm.Expr("version + 1"),
+					"updated_at":              time.Now(),
+				})
+			if res.Error != nil {
 				return fmt.Errorf("failed to update cash balance: %w", err)
+			}
+			if res.RowsAffected == 0 {
+				return errors.New("cash balance was updated concurrently; please retry")
 			}
 		}
 
@@ -206,11 +216,11 @@ func (s *PaymentService) GetPayment(paymentID uint, tenantID uint) (*models.Paym
 }
 
 // UpdatePayment updates a payment and recalculates transaction totals
-func (s *PaymentService) UpdatePayment(paymentID uint, updates map[string]interface{}, userID uint, reason string) error {
+func (s *PaymentService) UpdatePayment(paymentID uint, tenantID uint, updates map[string]interface{}, userID uint, reason string) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		// 1. Load current payment
 		var payment models.Payment
-		if err := tx.Where("id = ?", paymentID).First(&payment).Error; err != nil {
+		if err := tx.Where("id = ? AND tenant_id = ?", paymentID, tenantID).First(&payment).Error; err != nil {
 			return fmt.Errorf("payment not found: %w", err)
 		}
 
@@ -322,9 +332,13 @@ func (s *PaymentService) UpdatePayment(paymentID uint, updates map[string]interf
 				// Update Cash Balance if method is Cash
 				if payment.PaymentMethod == models.PaymentMethodCash && oldPaymentMethod == models.PaymentMethodCash {
 					var cashBalance models.CashBalance
-					err := tx.Where("tenant_id = ? AND currency = ? AND branch_id = ?",
-						payment.TenantID, payment.Currency, payment.BranchID).
-						First(&cashBalance).Error
+					query := tx.Where("tenant_id = ? AND currency = ?", payment.TenantID, payment.Currency)
+					if payment.BranchID != nil {
+						query = query.Where("branch_id = ?", *payment.BranchID)
+					} else {
+						query = query.Where("branch_id IS NULL")
+					}
+					err := query.First(&cashBalance).Error
 
 					if err == nil {
 						adjustment := models.CashAdjustment{
@@ -341,13 +355,19 @@ func (s *PaymentService) UpdatePayment(paymentID uint, updates map[string]interf
 							return fmt.Errorf("failed to create cash adjustment: %w", err)
 						}
 
-						if err := tx.Model(&cashBalance).Updates(map[string]interface{}{
-							"manual_adjustment":         cashBalance.ManualAdjustment + amountDifference,
-							"final_balance":             cashBalance.FinalBalance + amountDifference,
-							"last_manual_adjustment_at": time.Now(),
-							"updated_at":                time.Now(),
-						}).Error; err != nil {
+						res := tx.Model(&models.CashBalance{}).
+							Where("id = ? AND version = ?", cashBalance.ID, cashBalance.Version).
+							Updates(map[string]interface{}{
+								"auto_calculated_balance": cashBalance.AutoCalculatedBalance + amountDifference,
+								"final_balance":           cashBalance.FinalBalance + amountDifference,
+								"version":                 gorm.Expr("version + 1"),
+								"updated_at":              time.Now(),
+							})
+						if res.Error != nil {
 							return fmt.Errorf("failed to update cash balance: %w", err)
+						}
+						if res.RowsAffected == 0 {
+							return errors.New("cash balance was updated concurrently; please retry")
 						}
 					}
 				}
@@ -380,9 +400,13 @@ func (s *PaymentService) UpdatePayment(paymentID uint, updates map[string]interf
 			if oldPaymentMethod == models.PaymentMethodCash {
 				// Decrease Cash for old currency
 				var oldCashBalance models.CashBalance
-				err := tx.Where("tenant_id = ? AND currency = ? AND branch_id = ?",
-					payment.TenantID, oldCurrency, payment.BranchID).
-					First(&oldCashBalance).Error
+				oldQuery := tx.Where("tenant_id = ? AND currency = ?", payment.TenantID, oldCurrency)
+				if payment.BranchID != nil {
+					oldQuery = oldQuery.Where("branch_id = ?", *payment.BranchID)
+				} else {
+					oldQuery = oldQuery.Where("branch_id IS NULL")
+				}
+				err := oldQuery.First(&oldCashBalance).Error
 				if err == nil {
 					adjustment := models.CashAdjustment{
 						TenantID:      payment.TenantID,
@@ -397,13 +421,19 @@ func (s *PaymentService) UpdatePayment(paymentID uint, updates map[string]interf
 					if err := tx.Create(&adjustment).Error; err != nil {
 						return fmt.Errorf("failed to create cash adjustment for old currency: %w", err)
 					}
-					if err := tx.Model(&oldCashBalance).Updates(map[string]interface{}{
-						"manual_adjustment":         oldCashBalance.ManualAdjustment - oldAmount,
-						"final_balance":             oldCashBalance.FinalBalance - oldAmount,
-						"last_manual_adjustment_at": time.Now(),
-						"updated_at":                time.Now(),
-					}).Error; err != nil {
+					res := tx.Model(&models.CashBalance{}).
+						Where("id = ? AND version = ?", oldCashBalance.ID, oldCashBalance.Version).
+						Updates(map[string]interface{}{
+							"auto_calculated_balance": oldCashBalance.AutoCalculatedBalance - oldAmount,
+							"final_balance":           oldCashBalance.FinalBalance - oldAmount,
+							"version":                 gorm.Expr("version + 1"),
+							"updated_at":              time.Now(),
+						})
+					if res.Error != nil {
 						return fmt.Errorf("failed to update old currency cash balance: %w", err)
+					}
+					if res.RowsAffected == 0 {
+						return errors.New("cash balance was updated concurrently; please retry")
 					}
 				}
 			}
@@ -429,19 +459,24 @@ func (s *PaymentService) UpdatePayment(paymentID uint, updates map[string]interf
 			if payment.PaymentMethod == models.PaymentMethodCash {
 				// Increase Cash for new currency
 				var newCashBalance models.CashBalance
-				err := tx.Where("tenant_id = ? AND currency = ? AND branch_id = ?",
-					payment.TenantID, payment.Currency, payment.BranchID).
-					First(&newCashBalance).Error
+				newQuery := tx.Where("tenant_id = ? AND currency = ?", payment.TenantID, payment.Currency)
+				if payment.BranchID != nil {
+					newQuery = newQuery.Where("branch_id = ?", *payment.BranchID)
+				} else {
+					newQuery = newQuery.Where("branch_id IS NULL")
+				}
+				err := newQuery.First(&newCashBalance).Error
 				if err != nil {
 					if errors.Is(err, gorm.ErrRecordNotFound) {
 						// Create new cash balance
 						newCashBalance = models.CashBalance{
-							TenantID:         payment.TenantID,
-							BranchID:         payment.BranchID,
-							Currency:         payment.Currency,
-							ManualAdjustment: 0,
-							FinalBalance:     0,
-							LastCalculatedAt: time.Now(),
+							TenantID:              payment.TenantID,
+							BranchID:              payment.BranchID,
+							Currency:              payment.Currency,
+							AutoCalculatedBalance: 0,
+							ManualAdjustment:      0,
+							FinalBalance:          0,
+							LastCalculatedAt:      time.Now(),
 						}
 						if err := tx.Create(&newCashBalance).Error; err != nil {
 							return fmt.Errorf("failed to create new currency cash balance: %w", err)
@@ -463,13 +498,19 @@ func (s *PaymentService) UpdatePayment(paymentID uint, updates map[string]interf
 				if err := tx.Create(&adjustment).Error; err != nil {
 					return fmt.Errorf("failed to create cash adjustment for new currency: %w", err)
 				}
-				if err := tx.Model(&newCashBalance).Updates(map[string]interface{}{
-					"manual_adjustment":         newCashBalance.ManualAdjustment + payment.Amount,
-					"final_balance":             newCashBalance.FinalBalance + payment.Amount,
-					"last_manual_adjustment_at": time.Now(),
-					"updated_at":                time.Now(),
-				}).Error; err != nil {
+				res := tx.Model(&models.CashBalance{}).
+					Where("id = ? AND version = ?", newCashBalance.ID, newCashBalance.Version).
+					Updates(map[string]interface{}{
+						"auto_calculated_balance": newCashBalance.AutoCalculatedBalance + payment.Amount,
+						"final_balance":           newCashBalance.FinalBalance + payment.Amount,
+						"version":                 gorm.Expr("version + 1"),
+						"updated_at":              time.Now(),
+					})
+				if res.Error != nil {
 					return fmt.Errorf("failed to update new currency cash balance: %w", err)
+				}
+				if res.RowsAffected == 0 {
+					return errors.New("cash balance was updated concurrently; please retry")
 				}
 			}
 		}
@@ -536,9 +577,13 @@ func (s *PaymentService) DeletePayment(paymentID uint, tenantID uint, userID uin
 		// 8. Update Cash Balance (Decrease Cash - Reversal)
 		if payment.PaymentMethod == models.PaymentMethodCash {
 			var cashBalance models.CashBalance
-			err := tx.Where("tenant_id = ? AND currency = ? AND branch_id = ?",
-				payment.TenantID, payment.Currency, payment.BranchID).
-				First(&cashBalance).Error
+			query := tx.Where("tenant_id = ? AND currency = ?", payment.TenantID, payment.Currency)
+			if payment.BranchID != nil {
+				query = query.Where("branch_id = ?", *payment.BranchID)
+			} else {
+				query = query.Where("branch_id IS NULL")
+			}
+			err := query.First(&cashBalance).Error
 
 			if err == nil {
 				adjustment := models.CashAdjustment{
@@ -555,13 +600,19 @@ func (s *PaymentService) DeletePayment(paymentID uint, tenantID uint, userID uin
 					return fmt.Errorf("failed to create cash adjustment reversal: %w", err)
 				}
 
-				if err := tx.Model(&cashBalance).Updates(map[string]interface{}{
-					"manual_adjustment":         cashBalance.ManualAdjustment - payment.Amount,
-					"final_balance":             cashBalance.FinalBalance - payment.Amount,
-					"last_manual_adjustment_at": time.Now(),
-					"updated_at":                time.Now(),
-				}).Error; err != nil {
+				res := tx.Model(&models.CashBalance{}).
+					Where("id = ? AND version = ?", cashBalance.ID, cashBalance.Version).
+					Updates(map[string]interface{}{
+						"auto_calculated_balance": cashBalance.AutoCalculatedBalance - payment.Amount,
+						"final_balance":           cashBalance.FinalBalance - payment.Amount,
+						"version":                 gorm.Expr("version + 1"),
+						"updated_at":              time.Now(),
+					})
+				if res.Error != nil {
 					return fmt.Errorf("failed to update cash balance reversal: %w", err)
+				}
+				if res.RowsAffected == 0 {
+					return errors.New("cash balance was updated concurrently; please retry")
 				}
 			}
 		}
@@ -638,9 +689,13 @@ func (s *PaymentService) CancelPayment(paymentID uint, tenantID uint, userID uin
 		// 8. Update Cash Balance (Decrease Cash - Reversal)
 		if payment.PaymentMethod == models.PaymentMethodCash {
 			var cashBalance models.CashBalance
-			err := tx.Where("tenant_id = ? AND currency = ? AND branch_id = ?",
-				payment.TenantID, payment.Currency, payment.BranchID).
-				First(&cashBalance).Error
+			query := tx.Where("tenant_id = ? AND currency = ?", payment.TenantID, payment.Currency)
+			if payment.BranchID != nil {
+				query = query.Where("branch_id = ?", *payment.BranchID)
+			} else {
+				query = query.Where("branch_id IS NULL")
+			}
+			err := query.First(&cashBalance).Error
 
 			if err == nil {
 				// Create adjustment
@@ -658,14 +713,20 @@ func (s *PaymentService) CancelPayment(paymentID uint, tenantID uint, userID uin
 					return fmt.Errorf("failed to create cash adjustment reversal: %w", err)
 				}
 
-				// Update balance
-				if err := tx.Model(&cashBalance).Updates(map[string]interface{}{
-					"manual_adjustment":         cashBalance.ManualAdjustment - payment.Amount,
-					"final_balance":             cashBalance.FinalBalance - payment.Amount,
-					"last_manual_adjustment_at": time.Now(),
-					"updated_at":                time.Now(),
-				}).Error; err != nil {
+				// Update balance (optimistic lock)
+				res := tx.Model(&models.CashBalance{}).
+					Where("id = ? AND version = ?", cashBalance.ID, cashBalance.Version).
+					Updates(map[string]interface{}{
+						"auto_calculated_balance": cashBalance.AutoCalculatedBalance - payment.Amount,
+						"final_balance":           cashBalance.FinalBalance - payment.Amount,
+						"version":                 gorm.Expr("version + 1"),
+						"updated_at":              time.Now(),
+					})
+				if res.Error != nil {
 					return fmt.Errorf("failed to update cash balance reversal: %w", err)
+				}
+				if res.RowsAffected == 0 {
+					return errors.New("cash balance was updated concurrently; please retry")
 				}
 			}
 		}

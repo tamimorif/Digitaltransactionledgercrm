@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type CashBalanceService struct {
@@ -20,14 +21,20 @@ func NewCashBalanceService(db *gorm.DB) *CashBalanceService {
 func (s *CashBalanceService) CalculateBalanceFromTransactions(tenantID uint, branchID *uint, currency string) (float64, error) {
 	var balance float64
 
-	query := s.DB.Model(&models.Transaction{}).Where("tenant_id = ? AND currency = ?", tenantID, currency)
+	// NOTE: transactions table does not have generic (currency, amount) columns.
+	// Cash balances are primarily affected by CASH payments.
+	query := s.DB.Model(&models.Payment{}).
+		Where("tenant_id = ? AND currency = ? AND payment_method = ? AND status = ?",
+			tenantID, currency, models.PaymentMethodCash, models.PaymentStatusCompleted)
 
-	// Filter by branch if specified
+	// Filter by branch, including NULL branch balances
 	if branchID != nil {
 		query = query.Where("branch_id = ?", *branchID)
+	} else {
+		query = query.Where("branch_id IS NULL")
 	}
 
-	// Sum all transaction amounts
+	// Sum all completed cash payments
 	err := query.Select("COALESCE(SUM(amount), 0)").Scan(&balance).Error
 	if err != nil {
 		return 0, err
@@ -192,15 +199,28 @@ func (s *CashBalanceService) CreateManualAdjustment(tenantID uint, branchID *uin
 
 		// Update cash balance
 		now := time.Now()
+
+		// Lock row version for optimistic update
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&cashBalance, cashBalance.ID).Error; err != nil {
+			return err
+		}
+
 		updates := map[string]interface{}{
 			"manual_adjustment":         cashBalance.ManualAdjustment + amount,
 			"final_balance":             cashBalance.FinalBalance + amount,
 			"last_manual_adjustment_at": &now,
 			"updated_at":                now,
+			"version":                   gorm.Expr("version + 1"),
 		}
 
-		if err := tx.Model(&cashBalance).Updates(updates).Error; err != nil {
-			return err
+		res := tx.Model(&models.CashBalance{}).
+			Where("id = ? AND version = ?", cashBalance.ID, cashBalance.Version).
+			Updates(updates)
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return errors.New("cash balance was updated concurrently; please retry")
 		}
 
 		return nil
@@ -217,9 +237,13 @@ func (s *CashBalanceService) CreateManualAdjustment(tenantID uint, branchID *uin
 func (s *CashBalanceService) calculateBalanceWithTx(tx *gorm.DB, tenantID uint, branchID *uint, currency string) (float64, error) {
 	var balance float64
 
-	query := tx.Model(&models.Transaction{}).Where("tenant_id = ? AND currency = ?", tenantID, currency)
+	query := tx.Model(&models.Payment{}).
+		Where("tenant_id = ? AND currency = ? AND payment_method = ? AND status = ?",
+			tenantID, currency, models.PaymentMethodCash, models.PaymentStatusCompleted)
 	if branchID != nil {
 		query = query.Where("branch_id = ?", *branchID)
+	} else {
+		query = query.Where("branch_id IS NULL")
 	}
 
 	err := query.Select("COALESCE(SUM(amount), 0)").Scan(&balance).Error

@@ -212,7 +212,7 @@ func (h *PaymentHandler) UpdatePaymentHandler(w http.ResponseWriter, r *http.Req
 		updates["receiptNumber"] = *req.ReceiptNumber
 	}
 
-	if err := h.paymentService.UpdatePayment(uint(paymentID), updates, user.ID, req.EditReason); err != nil {
+	if err := h.paymentService.UpdatePayment(uint(paymentID), *tenantID, updates, user.ID, req.EditReason); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

@@ -10,6 +10,7 @@ type CashBalance struct {
 	TenantID               uint       `gorm:"type:bigint;not null;index" json:"tenantId"`
 	BranchID               *uint      `gorm:"type:bigint;index" json:"branchId"` // NULL for company-wide balance
 	Currency               string     `gorm:"type:varchar(10);not null" json:"currency"`
+	Version                int        `gorm:"not null;default:0" json:"version"`
 	AutoCalculatedBalance  float64    `gorm:"type:real;not null;default:0" json:"autoCalculatedBalance"`
 	ManualAdjustment       float64    `gorm:"type:real;not null;default:0" json:"manualAdjustment"`
 	FinalBalance           float64    `gorm:"type:real;not null;default:0" json:"finalBalance"` // Auto + Manual
