@@ -134,7 +134,7 @@ func NewRouter(db *gorm.DB) http.Handler {
 
 			// Transaction routes (protected)
 			protected.HandleFunc("/transactions", handler.GetTransactions).Methods("GET")
-			protected.HandleFunc("/transactions", handler.CreateTransaction).Methods("POST")
+			protected.Handle("/transactions", middleware.WithIdempotency(db, 24*time.Hour, http.HandlerFunc(handler.CreateTransaction))).Methods("POST")
 			protected.HandleFunc("/transactions/{id}", handler.GetTransaction).Methods("GET")
 			protected.HandleFunc("/transactions/{id}", handler.UpdateTransaction).Methods("PUT")
 			protected.HandleFunc("/transactions/{id}/cancel", handler.CancelTransaction).Methods("POST")
@@ -142,7 +142,7 @@ func NewRouter(db *gorm.DB) http.Handler {
 			protected.HandleFunc("/transactions/search", handler.SearchTransactions).Methods("GET")
 
 			// Payment routes (protected)
-			protected.HandleFunc("/transactions/{id}/payments", paymentHandler.CreatePaymentHandler).Methods("POST")
+			protected.Handle("/transactions/{id}/payments", middleware.WithIdempotency(db, 24*time.Hour, http.HandlerFunc(paymentHandler.CreatePaymentHandler))).Methods("POST")
 			protected.HandleFunc("/transactions/{id}/payments", paymentHandler.GetPaymentsHandler).Methods("GET")
 			protected.HandleFunc("/transactions/{id}/complete", paymentHandler.CompleteTransactionHandler).Methods("POST")
 			protected.HandleFunc("/payments/{id}", paymentHandler.GetPaymentHandler).Methods("GET")

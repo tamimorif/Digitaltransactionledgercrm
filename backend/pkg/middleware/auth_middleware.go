@@ -82,6 +82,11 @@ func AuthMiddleware(db *gorm.DB) func(http.Handler) http.Handler {
 			ctx := context.WithValue(r.Context(), UserContextKey, &user)
 			ctx = context.WithValue(ctx, ClaimsContextKey, claims)
 
+			// Backward-compat: many handlers/middleware still use string context keys.
+			// Keep these until the codebase is fully migrated to typed keys.
+			ctx = context.WithValue(ctx, "user", &user)
+			ctx = context.WithValue(ctx, "claims", claims)
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

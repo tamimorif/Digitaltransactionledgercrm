@@ -68,6 +68,8 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 		&models.RateLimitEntry{},
 		// Search
 		&models.SavedSearch{},
+		// Idempotency
+		&models.IdempotencyRecord{},
 		// Existing models (now with TenantID)
 		&models.Client{},
 		&models.Transaction{},

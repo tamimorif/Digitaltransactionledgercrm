@@ -192,22 +192,44 @@ func (h *Handler) UpdateClient(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 
-	var client models.Client
-
 	// Apply tenant isolation
 	db := middleware.ApplyTenantScope(h.db, r)
 
+	var client models.Client
 	if err := db.First(&client, "id = ?", id).Error; err != nil {
 		http.Error(w, "Client not found", http.StatusNotFound)
 		return
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&client); err != nil {
+	// Decode into a separate payload to avoid overwriting protected fields (ID, TenantID)
+	var payload struct {
+		Name        *string `json:"name"`
+		PhoneNumber *string `json:"phoneNumber"`
+		Email       *string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	h.db.Save(&client)
+	updates := map[string]interface{}{}
+	if payload.Name != nil {
+		updates["name"] = *payload.Name
+	}
+	if payload.PhoneNumber != nil {
+		updates["phone_number"] = *payload.PhoneNumber
+	}
+	if payload.Email != nil {
+		updates["email"] = payload.Email
+	}
+
+	if len(updates) > 0 {
+		if err := db.Model(&client).Updates(updates).Error; err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
 	respondJSON(w, http.StatusOK, client)
 }
 
