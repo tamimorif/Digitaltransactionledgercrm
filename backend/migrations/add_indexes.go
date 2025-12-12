@@ -60,6 +60,10 @@ func AddIndexes(db *gorm.DB) error {
 		// Pickup transaction indexes
 		{"pickup_transactions", "idx_pickup_tenant_status", "tenant_id, status"},
 		{"pickup_transactions", "idx_pickup_code", "pickup_code"},
+
+		// Idempotency indexes
+		{"idempotency_records", "idx_idem_expires", "expires_at"},
+		{"idempotency_records", "idx_idem_state", "state"},
 	}
 
 	for _, idx := range indexes {
