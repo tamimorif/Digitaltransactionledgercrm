@@ -174,7 +174,7 @@ func (s *PaymentService) CreatePayment(payment *models.Payment, userID uint) err
 					"updated_at":              time.Now(),
 				})
 			if res.Error != nil {
-				return fmt.Errorf("failed to update cash balance: %w", err)
+				return fmt.Errorf("failed to update cash balance: %w", res.Error)
 			}
 			if res.RowsAffected == 0 {
 				return errors.New("cash balance was updated concurrently; please retry")
@@ -364,7 +364,7 @@ func (s *PaymentService) UpdatePayment(paymentID uint, tenantID uint, updates ma
 								"updated_at":              time.Now(),
 							})
 						if res.Error != nil {
-							return fmt.Errorf("failed to update cash balance: %w", err)
+							return fmt.Errorf("failed to update cash balance: %w", res.Error)
 						}
 						if res.RowsAffected == 0 {
 							return errors.New("cash balance was updated concurrently; please retry")
@@ -430,7 +430,7 @@ func (s *PaymentService) UpdatePayment(paymentID uint, tenantID uint, updates ma
 							"updated_at":              time.Now(),
 						})
 					if res.Error != nil {
-						return fmt.Errorf("failed to update old currency cash balance: %w", err)
+						return fmt.Errorf("failed to update old currency cash balance: %w", res.Error)
 					}
 					if res.RowsAffected == 0 {
 						return errors.New("cash balance was updated concurrently; please retry")
@@ -507,7 +507,7 @@ func (s *PaymentService) UpdatePayment(paymentID uint, tenantID uint, updates ma
 						"updated_at":              time.Now(),
 					})
 				if res.Error != nil {
-					return fmt.Errorf("failed to update new currency cash balance: %w", err)
+					return fmt.Errorf("failed to update new currency cash balance: %w", res.Error)
 				}
 				if res.RowsAffected == 0 {
 					return errors.New("cash balance was updated concurrently; please retry")
@@ -609,7 +609,7 @@ func (s *PaymentService) DeletePayment(paymentID uint, tenantID uint, userID uin
 						"updated_at":              time.Now(),
 					})
 				if res.Error != nil {
-					return fmt.Errorf("failed to update cash balance reversal: %w", err)
+					return fmt.Errorf("failed to update cash balance reversal: %w", res.Error)
 				}
 				if res.RowsAffected == 0 {
 					return errors.New("cash balance was updated concurrently; please retry")
@@ -723,7 +723,7 @@ func (s *PaymentService) CancelPayment(paymentID uint, tenantID uint, userID uin
 						"updated_at":              time.Now(),
 					})
 				if res.Error != nil {
-					return fmt.Errorf("failed to update cash balance reversal: %w", err)
+					return fmt.Errorf("failed to update cash balance reversal: %w", res.Error)
 				}
 				if res.RowsAffected == 0 {
 					return errors.New("cash balance was updated concurrently; please retry")
