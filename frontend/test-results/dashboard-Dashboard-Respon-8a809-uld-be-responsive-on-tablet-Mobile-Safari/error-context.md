@@ -140,5 +140,5 @@
   - region "Notifications alt+T"
   - button "Open Next.js Dev Tools" [ref=e164] [cursor=pointer]:
     - img [ref=e165]
-  - alert [ref=e170]: Accounting & Transaction Management System
+  - alert [ref=e170]
 ```
