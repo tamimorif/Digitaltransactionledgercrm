@@ -1,0 +1,21 @@
+# Binaries
+/bin
+/dist
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# SQLite
+*.db
+*.db-journal
+*.sqlite
+
+# Logs
+*.log
+
+# OS
+.DS_Store
