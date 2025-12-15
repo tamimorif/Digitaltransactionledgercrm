@@ -148,7 +148,7 @@ func (s *BatchPaymentService) ProcessBatchPayment(tenantID uint, userID uint, re
 			}
 
 			// Use payment service to create (handles ledger + cash balance)
-			if err := s.paymentService.CreatePayment(payment, userID); err != nil {
+			if err := s.paymentService.CreatePaymentWithTx(tx, payment, userID); err != nil {
 				result.FailedPayments = append(result.FailedPayments, allocation.TransactionID)
 				continue
 			}

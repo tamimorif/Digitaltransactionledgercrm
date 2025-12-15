@@ -75,16 +75,21 @@ export function getLastRate(fromCurrency: string, toCurrency: string): string | 
     return history.length > 0 ? history[0].rate : null;
 }
 
-/**
- * Detect duplicate transaction within timeframe
- */
+export interface Transaction {
+    createdAt: string;
+    amount: string;
+    senderName: string;
+    currency: string;
+    [key: string]: string | number | boolean | null; // Allow other properties
+}
+
 export function findDuplicateTransaction(
     senderName: string,
     amount: string,
     currency: string,
-    recentTransactions: any[],
+    recentTransactions: Transaction[],
     timeframeMinutes: number = 10
-): any | null {
+): Transaction | undefined {
     const now = new Date();
     const threshold = new Date(now.getTime() - timeframeMinutes * 60000);
 
@@ -96,7 +101,7 @@ export function findDuplicateTransaction(
         const withinTimeframe = txDate >= threshold;
 
         return amountMatch && nameMatch && currencyMatch && withinTimeframe;
-    });
+    }) || undefined;
 }
 
 /**

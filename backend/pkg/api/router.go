@@ -2,6 +2,7 @@ package api
 
 import (
 	"api/pkg/middleware"
+	"api/pkg/models"
 	"api/pkg/services"
 	"encoding/json"
 	"time"
@@ -134,7 +135,7 @@ func NewRouter(db *gorm.DB) http.Handler {
 
 			// Transaction routes (protected)
 			protected.HandleFunc("/transactions", handler.GetTransactions).Methods("GET")
-			protected.Handle("/transactions", middleware.WithIdempotency(db, 24*time.Hour, http.HandlerFunc(handler.CreateTransaction))).Methods("POST")
+			protected.Handle("/transactions", middleware.WithIdempotency(db, 24*time.Hour, middleware.ValidateRequestMiddleware(models.Transaction{}, handler.CreateTransaction))).Methods("POST")
 			protected.HandleFunc("/transactions/{id}", handler.GetTransaction).Methods("GET")
 			protected.HandleFunc("/transactions/{id}", handler.UpdateTransaction).Methods("PUT")
 			protected.HandleFunc("/transactions/{id}/cancel", handler.CancelTransaction).Methods("POST")
@@ -176,7 +177,7 @@ func NewRouter(db *gorm.DB) http.Handler {
 
 			// Client routes (protected)
 			protected.HandleFunc("/clients", handler.GetClients).Methods("GET")
-			protected.HandleFunc("/clients", handler.CreateClient).Methods("POST")
+			protected.HandleFunc("/clients", middleware.ValidateRequestMiddleware(models.Client{}, handler.CreateClient)).Methods("POST")
 			protected.HandleFunc("/clients/{id}", handler.GetClient).Methods("GET")
 			protected.HandleFunc("/clients/{id}", handler.UpdateClient).Methods("PUT")
 			protected.HandleFunc("/clients/{id}", handler.DeleteClient).Methods("DELETE")

@@ -280,7 +280,7 @@ func TestProfitAnalysisService(t *testing.T) {
 		ID:              "profit-analysis-txn-001",
 		TenantID:        tenant.ID,
 		ClientID:        client.ID,
-		Type:            models.TypeCashExchange,
+		PaymentMethod:   models.TransactionMethodCash,
 		SendCurrency:    "CAD",
 		SendAmount:      1250.00,
 		ReceiveCurrency: "IRR",

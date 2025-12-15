@@ -9,20 +9,20 @@ type Transaction struct {
 	ID                 string  `gorm:"primaryKey;type:text" json:"id"`
 	TenantID           uint    `gorm:"type:bigint;not null;index" json:"tenantId"` // *** ADDED FOR TENANT ISOLATION ***
 	BranchID           *uint   `gorm:"type:bigint;index" json:"branchId"`          // Which branch created this transaction
-	ClientID           string  `gorm:"column:client_id;type:text;not null;index" json:"clientId"`
-	Type               string  `gorm:"type:text;not null" json:"type"` // "CASH_EXCHANGE" or "BANK_TRANSFER"
-	SendCurrency       string  `gorm:"column:send_currency;type:text;not null" json:"sendCurrency"`
-	SendAmount         float64 `gorm:"column:send_amount;type:real;not null" json:"sendAmount"`
-	ReceiveCurrency    string  `gorm:"column:receive_currency;type:text;not null" json:"receiveCurrency"`
-	ReceiveAmount      float64 `gorm:"column:receive_amount;type:real;not null" json:"receiveAmount"`
-	RateApplied        float64 `gorm:"column:rate_applied;type:real;not null" json:"rateApplied"`
-	FeeCharged         float64 `gorm:"column:fee_charged;type:real;default:0" json:"feeCharged"`
+	ClientID           string  `gorm:"column:client_id;type:text;not null;index" json:"clientId" validate:"required"`
+	PaymentMethod      string  `gorm:"column:payment_method;type:text;not null" json:"paymentMethod" validate:"required"` // "CASH", "BANK_TRANSFER", etc.
+	SendCurrency       string  `gorm:"column:send_currency;type:text;not null" json:"sendCurrency" validate:"required,len=3"`
+	SendAmount         float64 `gorm:"column:send_amount;type:real;not null" json:"sendAmount" validate:"required,gt=0"`
+	ReceiveCurrency    string  `gorm:"column:receive_currency;type:text;not null" json:"receiveCurrency" validate:"required,len=3"`
+	ReceiveAmount      float64 `gorm:"column:receive_amount;type:real;not null" json:"receiveAmount" validate:"required,gt=0"`
+	RateApplied        float64 `gorm:"column:rate_applied;type:real;not null" json:"rateApplied" validate:"required,gt=0"`
+	FeeCharged         float64 `gorm:"column:fee_charged;type:real;default:0" json:"feeCharged" validate:"gte=0"`
 	BeneficiaryName    *string `gorm:"column:beneficiary_name;type:text" json:"beneficiaryName"`
 	BeneficiaryDetails *string `gorm:"column:beneficiary_details;type:text" json:"beneficiaryDetails"`
 	UserNotes          *string `gorm:"column:user_notes;type:text" json:"userNotes"`
 	// Profit & Loss Tracking (NEW)
 	StandardRate            float64 `gorm:"column:standard_rate;type:real;default:0" json:"standardRate"`                            // Market/Base rate at time of transaction
-	Profit                  float64 `gorm:"column:profit;type:real;default:0" json:"profit"`                                         // Calculated profit
+	Profit                  float64 `gorm:"column:profit;type:real;default:0" json:"profit"`                                         // Calculated profit (in Send Currency)
 	ProfitCalculationStatus string  `gorm:"column:profit_calc_status;type:varchar(20);default:'CALCULATED'" json:"profitCalcStatus"` // CALCULATED, PENDING, FAILED
 
 	// Multi-Payment Support (NEW)
@@ -56,12 +56,12 @@ func (Transaction) TableName() string {
 	return "transactions"
 }
 
-// Transaction Type Constants
+// TransactionMethod Constants
 const (
-	TypeCashExchange   = "CASH_EXCHANGE"
-	TypeBankTransfer   = "BANK_TRANSFER"
-	TypeMoneyPickup    = "MONEY_PICKUP"
-	TypeWalkInCustomer = "WALK_IN_CUSTOMER"
+	TransactionMethodCash   = "CASH_EXCHANGE"
+	TransactionMethodBank   = "BANK_TRANSFER"
+	TransactionMethodPickup = "MONEY_PICKUP"
+	TransactionMethodWalkIn = "WALK_IN_CUSTOMER"
 )
 
 // Transaction Status Constants

@@ -60,6 +60,12 @@ var (
 	cacheOnce          sync.Once
 )
 
+// ResetGlobalCacheService resets the singleton for testing
+func ResetGlobalCacheService() {
+	globalCacheService = nil
+	cacheOnce = sync.Once{}
+}
+
 // GetCacheService returns the singleton cache service instance
 func GetCacheService(db *gorm.DB) *CacheService {
 	cacheOnce.Do(func() {

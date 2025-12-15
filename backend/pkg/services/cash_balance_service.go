@@ -254,6 +254,115 @@ func (s *CashBalanceService) calculateBalanceWithTx(tx *gorm.DB, tenantID uint, 
 	return balance, nil
 }
 
+// UpdateCashBalance updates the cash balance transactionally
+func (s *CashBalanceService) UpdateCashBalance(tx *gorm.DB, tenantID uint, branchID *uint, currency string, amount float64, reason string, adjustedBy uint) error {
+	// Get or create cash balance within transaction
+	var cashBalance models.CashBalance
+
+	query := tx.Where("tenant_id = ? AND currency = ?", tenantID, currency)
+	if branchID != nil {
+		query = query.Where("branch_id = ?", *branchID)
+	} else {
+		query = query.Where("branch_id IS NULL")
+	}
+
+	err := query.First(&cashBalance).Error
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		// Create new balance record
+		autoBalance, err := s.calculateBalanceWithTx(tx, tenantID, branchID, currency)
+		if err != nil {
+			return err
+		}
+		cashBalance = models.CashBalance{
+			TenantID:              tenantID,
+			BranchID:              branchID,
+			Currency:              currency,
+			AutoCalculatedBalance: autoBalance,
+			ManualAdjustment:      0,
+			FinalBalance:          autoBalance,
+			LastCalculatedAt:      time.Now(),
+		}
+		if err := tx.Create(&cashBalance).Error; err != nil {
+			return err
+		}
+	}
+
+	// Create adjustment record
+	adjustment := models.CashAdjustment{
+		TenantID:      tenantID,
+		BranchID:      branchID,
+		Currency:      currency,
+		Amount:        amount,
+		Reason:        reason,
+		AdjustedBy:    adjustedBy,
+		BalanceBefore: cashBalance.FinalBalance,
+		BalanceAfter:  cashBalance.FinalBalance + amount,
+	}
+
+	if err := tx.Create(&adjustment).Error; err != nil {
+		return err
+	}
+
+	// Update cash balance
+	now := time.Now()
+
+	// Lock row version for optimistic update
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&cashBalance, cashBalance.ID).Error; err != nil {
+		return err
+	}
+
+	// Determine what field to update based on context?
+	// Actually, payments affect "auto_calculated_balance" (implicitly, if we re-summed) AND "final_balance".
+	// AND manual adjustments affect "manual_adjustment" and "final_balance".
+	//
+	// Wait. `CalculateBalanceFromTransactions` sums up ALL payments.
+	// If we increment `auto_calculated_balance` here manually, we sustain the state.
+	// But if we someday re-run `CalculateBalanceFromTransactions`, it will sum up the payments table.
+	//
+	// The current logic in `PaymentService` (lines 170-174) updates `auto_calculated_balance` + amount.
+	// This is correct for PAYMENTs.
+	//
+	// However, `CreateManualAdjustment` (Line 209) updates `manual_adjustment` + amount.
+	//
+	// So `UpdateCashBalance` needs to know if it's a structural payment or a manual tweak?
+	//
+	// Actually, `PaymentService` is handling *Payments*. Payments are "Auto Calculated" sources.
+	// Manual adjustments are different.
+	//
+	// Let's add a parameter `isManual bool` or separate methods.
+	// `PaymentService` deals with `Payments`.
+
+	// Let's rename this to `RecordPaymentImpact` or `UpdateBalanceForPayment`?
+	// Or just generic `UpdateCashBalance` with `isManual` flag.
+	//
+	// Let's look at `PaymentService`:
+	// It updates `auto_calculated_balance`.
+
+	// So let's add `UpdateAutoBalance` specifically for payments.
+
+	updates := map[string]interface{}{
+		"auto_calculated_balance": cashBalance.AutoCalculatedBalance + amount,
+		"final_balance":           cashBalance.FinalBalance + amount,
+		"updated_at":              now,
+		"version":                 gorm.Expr("version + 1"),
+	}
+
+	res := tx.Model(&models.CashBalance{}).
+		Where("id = ? AND version = ?", cashBalance.ID, cashBalance.Version).
+		Updates(updates)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return errors.New("cash balance was updated concurrently; please retry")
+	}
+
+	return nil
+}
+
 // GetAdjustmentHistory retrieves adjustment history for a tenant
 func (s *CashBalanceService) GetAdjustmentHistory(tenantID uint, branchID *uint, currency *string, limit, offset int) ([]models.CashAdjustment, int64, error) {
 	var adjustments []models.CashAdjustment

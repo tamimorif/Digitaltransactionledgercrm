@@ -1,0 +1,144 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - img [ref=e6]
+          - generic [ref=e14]: Accounting System
+        - generic [ref=e15]:
+          - link "Login" [ref=e16] [cursor=pointer]:
+            - /url: /login
+            - button "Login" [ref=e17]
+          - link "Sign Up Free" [ref=e18] [cursor=pointer]:
+            - /url: /register
+            - button "Sign Up Free" [ref=e19]
+    - generic [ref=e20]:
+      - heading "Accounting & Transaction Management System" [level=1] [ref=e21]
+      - paragraph [ref=e22]: A powerful platform for managing currency exchange, remittance, and money transfer with multi-tenancy capabilities and advanced licensing system
+      - generic [ref=e23]:
+        - link "Start Free 7-Day Trial" [ref=e24] [cursor=pointer]:
+          - /url: /register
+          - button "Start Free 7-Day Trial" [ref=e25]
+        - link "Login to Account" [ref=e26] [cursor=pointer]:
+          - /url: /login
+          - button "Login to Account" [ref=e27]
+    - generic [ref=e28]:
+      - heading "Key Features" [level=2] [ref=e29]
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - generic [ref=e32]:
+            - img [ref=e33]
+            - heading "Multi-Tenant Management" [level=4] [ref=e41]
+          - paragraph [ref=e43]: Each company with separate database and complete features
+        - generic [ref=e44]:
+          - generic [ref=e45]:
+            - img [ref=e46]
+            - heading "High Security" [level=4] [ref=e48]
+          - paragraph [ref=e50]: Two-factor authentication and email verification
+        - generic [ref=e51]:
+          - generic [ref=e52]:
+            - img [ref=e53]
+            - heading "User Management" [level=4] [ref=e58]
+          - paragraph [ref=e60]: Different roles and access levels
+        - generic [ref=e61]:
+          - generic [ref=e62]:
+            - img [ref=e63]
+            - heading "Free Trial" [level=4] [ref=e65]
+          - paragraph [ref=e67]: 7 days free access to all features
+    - generic [ref=e68]:
+      - heading "Pricing Plans" [level=2] [ref=e69]
+      - generic [ref=e70]:
+        - generic [ref=e71]:
+          - generic [ref=e72]:
+            - heading "Starter" [level=4] [ref=e73]
+            - paragraph [ref=e74]: 5 Users
+          - generic [ref=e75]:
+            - generic [ref=e76]: Contact Us
+            - list [ref=e77]:
+              - listitem [ref=e78]:
+                - img [ref=e79]
+                - generic [ref=e81]: 7-Day Free Trial
+              - listitem [ref=e82]:
+                - img [ref=e83]
+                - generic [ref=e85]: Email Support
+              - listitem [ref=e86]:
+                - img [ref=e87]
+                - generic [ref=e89]: Free Updates
+            - link "Get Started" [ref=e90] [cursor=pointer]:
+              - /url: /register
+              - button "Get Started" [ref=e91]
+        - generic [ref=e92]:
+          - generic [ref=e93]:
+            - generic [ref=e94]: Most Popular
+            - heading "Professional" [level=4] [ref=e95]
+            - paragraph [ref=e96]: 20 Users
+          - generic [ref=e97]:
+            - generic [ref=e98]: Contact Us
+            - list [ref=e99]:
+              - listitem [ref=e100]:
+                - img [ref=e101]
+                - generic [ref=e103]: 7-Day Free Trial
+              - listitem [ref=e104]:
+                - img [ref=e105]
+                - generic [ref=e107]: Email Support
+              - listitem [ref=e108]:
+                - img [ref=e109]
+                - generic [ref=e111]: Free Updates
+            - link "Get Started" [ref=e112] [cursor=pointer]:
+              - /url: /register
+              - button "Get Started" [ref=e113]
+        - generic [ref=e114]:
+          - generic [ref=e115]:
+            - heading "Business" [level=4] [ref=e116]
+            - paragraph [ref=e117]: 50 Users
+          - generic [ref=e118]:
+            - generic [ref=e119]: Contact Us
+            - list [ref=e120]:
+              - listitem [ref=e121]:
+                - img [ref=e122]
+                - generic [ref=e124]: 7-Day Free Trial
+              - listitem [ref=e125]:
+                - img [ref=e126]
+                - generic [ref=e128]: Email Support
+              - listitem [ref=e129]:
+                - img [ref=e130]
+                - generic [ref=e132]: Free Updates
+            - link "Get Started" [ref=e133] [cursor=pointer]:
+              - /url: /register
+              - button "Get Started" [ref=e134]
+        - generic [ref=e135]:
+          - generic [ref=e136]:
+            - heading "Enterprise" [level=4] [ref=e137]
+            - paragraph [ref=e138]: Unlimited
+          - generic [ref=e139]:
+            - generic [ref=e140]: Contact Us
+            - list [ref=e141]:
+              - listitem [ref=e142]:
+                - img [ref=e143]
+                - generic [ref=e145]: 7-Day Free Trial
+              - listitem [ref=e146]:
+                - img [ref=e147]
+                - generic [ref=e149]: Email Support
+              - listitem [ref=e150]:
+                - img [ref=e151]
+                - generic [ref=e153]: Free Updates
+            - link "Get Started" [ref=e154] [cursor=pointer]:
+              - /url: /register
+              - button "Get Started" [ref=e155]
+    - generic [ref=e157]:
+      - generic [ref=e158]:
+        - heading "Get Started Now" [level=4] [ref=e159]
+        - paragraph [ref=e160]: Free sign-up with no credit card required. Try it for 7 days.
+      - link "Sign Up Free" [ref=e162] [cursor=pointer]:
+        - /url: /register
+        - button "Sign Up Free" [ref=e163]
+    - contentinfo [ref=e164]:
+      - paragraph [ref=e166]: © 2024 Digital Transaction Ledger CRM. All rights reserved.
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e172] [cursor=pointer]:
+    - img [ref=e173]
+  - alert [ref=e177]: Digital Transaction Ledger CRM
+```
