@@ -1,12 +1,15 @@
 package main
 
 import (
+	_ "api/docs" // Import generated docs
 	"api/pkg/api"
 	"api/pkg/database"
-	_ "api/docs" // Import generated docs
 	"log"
 	"net/http"
 	"os"
+	"time"
+
+	"github.com/joho/godotenv"
 )
 
 // @title Transaction Ledger & Client CRM API
@@ -29,6 +32,11 @@ import (
 // @name Authorization
 
 func main() {
+	// Load environment variables from .env file if it exists
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using system environment variables")
+	}
+
 	// Initialize database
 	dbPath := os.Getenv("DATABASE_URL")
 	if dbPath == "" {
@@ -49,9 +57,18 @@ func main() {
 		port = "8080"
 	}
 
+	// Create server with timeouts to prevent resource exhaustion
+	server := &http.Server{
+		Addr:         ":" + port,
+		Handler:      handler,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
 	log.Printf("Starting server on :%s\n", port)
 	log.Printf("API available at http://localhost:%s/api\n", port)
-	if err := http.ListenAndServe(":"+port, handler); err != nil {
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Could not start server: %v", err)
 	}
 }

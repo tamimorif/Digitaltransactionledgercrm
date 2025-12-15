@@ -1,0 +1,146 @@
+{
+    "transaction": {
+        "types": {
+            "CASH_PICKUP": "تبدیل ارز حضوری",
+            "CARD_SWAP_IRR": "برداشت نقدی از کارت ایرانی",
+            "CASH_EXCHANGE": "انتقال به شعبه",
+            "BANK_TRANSFER": "واریز به حساب بانکی"
+        },
+        "descriptions": {
+            "CASH_PICKUP": "مشتری ارز تبدیل می‌کند و بلافاصله پول نقد دریافت می‌کند",
+            "CARD_SWAP_IRR": "مشتری کارت ایرانی خود را می‌کشد و پول نقد به ارز دلخواه دریافت می‌کند",
+            "CASH_EXCHANGE": "ارسال پول به شعبه دیگر برای دریافت توسط گیرنده",
+            "BANK_TRANSFER": "انتقال مستقیم پول به حساب بانکی ایرانی گیرنده"
+        },
+        "labels": {
+            "customerName": "نام مشتری",
+            "customerPhone": "تلفن مشتری",
+            "cardholderName": "نام دارنده کارت",
+            "cardholderPhone": "تلفن دارنده کارت",
+            "senderName": "نام فرستنده",
+            "senderPhone": "تلفن فرستنده",
+            "recipientName": "نام گیرنده",
+            "recipientPhone": "تلفن گیرنده",
+            "recipientPhoneOptional": "تلفن گیرنده (اختیاری)",
+            "recipientIban": "شبا گیرنده",
+            "transactionType": "نوع تراکنش",
+            "amountReceivedFromCustomer": "مبلغ دریافتی از مشتری",
+            "currencyReceived": "ارز دریافتی",
+            "currencyToProvide": "ارز قابل ارائه",
+            "cardSwipeAmount": "مبلغ کارت کشیده شده (تومان)",
+            "cashPayoutCurrency": "ارز پرداخت نقدی",
+            "amountToSend": "مبلغ ارسالی",
+            "currency": "ارز",
+            "amountToTransfer": "مبلغ انتقال",
+            "sourceCurrency": "ارز مبدا",
+            "recipientReceives": "گیرنده دریافت می‌کند (ارز)",
+            "exchangeRate": "نرخ تبدیل",
+            "exchangeRatePerCAD": "نرخ تبدیل (تومان به ازای ۱ {{currency}})",
+            "transactionFee": "کارمزد تراکنش",
+            "transferFee": "کارمزد انتقال",
+            "notes": "یادداشت‌ها (اختیاری)",
+            "receivingBranch": "شعبه دریافت کننده",
+            "idType": "نوع مدرک شناسایی",
+            "idNumber": "شماره مدرک شناسایی"
+        },
+        "placeholders": {
+            "searchCustomer": "نام را برای جستجو تایپ کنید (مثال: نعمت)",
+            "phone": "۰۹۱۲۳۴۵۶۷۸۹",
+            "amount": "۱۰۰۰",
+            "rate": "۸۰,۳۰۰",
+            "iban": "IR123456789012345678901234",
+            "notes": "اطلاعات تکمیلی...",
+            "selectBranch": "شعبه‌ای را که پول در آن دریافت خواهد شد انتخاب کنید",
+            "selectCurrency": "انتخاب ارز",
+            "idNumber": "ID12345678"
+        },
+        "buttons": {
+            "completeExchange": "تکمیل تبدیل",
+            "completeCashOut": "تکمیل برداشت نقدی",
+            "createTransfer": "ایجاد انتقال",
+            "sendToBankAccount": "ارسال به حساب بانکی",
+            "clear": "پاک کردن",
+            "cancel": "لغو",
+            "createAnother": "ایجاد تراکنش جدید",
+            "showCalculator": "نمایش ماشین حساب",
+            "hideCalculator": "مخفی کردن ماشین حساب",
+            "useLastRate": "استفاده از آخرین نرخ",
+            "printReceipt": "چاپ رسید"
+        },
+        "success": {
+            "CASH_PICKUP": "تبدیل ارز انجام شد!",
+            "CARD_SWAP_IRR": "برداشت نقدی انجام شد!",
+            "CASH_EXCHANGE": "انتقال ایجاد شد!",
+            "BANK_TRANSFER": "واریز بانکی آغاز شد!",
+            "description": "تراکنش با موفقیت انجام شد"
+        },
+        "helpers": {
+            "customerExists": "✓ در سیستم یافت شد",
+            "newCustomer": "⚠️ مشتری جدید ایجاد خواهد شد",
+            "recipientPhoneHelper": "این شماره برای تایید هویت در هنگام دریافت استفاده می‌شود",
+            "recipientPhoneOptionalHelper": "شماره تماس اختیاری برای گیرنده",
+            "ibanHelper": "شبای ایرانی (باید با IR شروع شود، ۲۶ کاراکتر)",
+            "rateHelper": "نرخ: ۱ {{from}} = X {{to}}",
+            "customerReceives": "مشتری دریافت می‌کند: {{amount}} {{currency}}",
+            "recipientReceives": "گیرنده دریافت می‌کند: {{amount}} {{currency}}",
+            "cashOnHand": "موجودی نقدی",
+            "todayStats": "آمار امروز",
+            "totalTransactions": "کل تراکنش‌ها",
+            "totalFees": "کل کارمزد دریافتی",
+            "recentRecipients": "گیرندگان اخیر"
+        },
+        "sections": {
+            "customerInfo": "اطلاعات مشتری",
+            "cardholderInfo": "اطلاعات دارنده کارت",
+            "senderRecipientInfo": "اطلاعات فرستنده و گیرنده",
+            "customerInfoDesc": "اطلاعات مشتری را برای تبدیل ارز وارد کنید",
+            "cardholderInfoDesc": "اطلاعات دارنده کارت را برای برداشت نقدی وارد کنید",
+            "senderRecipientDesc": "اطلاعات فرستنده و گیرنده را وارد کنید"
+        },
+        "notices": {
+            "walkInExchange": "تبدیل ارز حضوری",
+            "walkInExchangeDesc": "مشتری یک ارز می‌آورد، با ارز دیگر به صورت نقدی خارج می‌شود",
+            "cardCashOut": "برداشت نقدی از کارت (حضوری)",
+            "cardCashOutDesc": "مشتری کارت ایرانی خود را می‌کشد، شما پول نقد به ارز انتخابی او می‌دهید",
+            "cardSwiped": "مرحله ۱: کارت کشیده شد",
+            "sameCurrencyTransfer": "گیرنده دریافت خواهد کرد: {{amount}} {{currency}}",
+            "sameCurrencyDesc": "انتقال با ارز یکسان - نرخ تبدیل اعمال نمی‌شود",
+            "duplicateWarning": "⚠️ تراکنش مشابه شناسایی شد",
+            "duplicateDesc": "{{name}} - {{amount}} {{currency}} - {{time}} پیش"
+        },
+        "quickAmounts": {
+            "title": "مبالغ سریع",
+            "custom": "سفارشی"
+        },
+        "keyboard": {
+            "title": "⌨️ میانبرهای صفحه کلید:",
+            "submit": "بررسی تراکنش",
+            "calculator": "نمایش/مخفی کردن ماشین حساب",
+            "clear": "پاک کردن فرم",
+            "autoSave": "ذخیره خودکار هر ثانیه"
+        },
+        "validation": {
+            "fillRequired": "لطفاً تمام فیلدهای الزامی را پر کنید",
+            "invalidPhone": "لطفاً شماره تلفن معتبر وارد کنید",
+            "invalidIban": "لطفاً شبای ایرانی ۲۶ کاراکتری معتبر وارد کنید",
+            "ibanMustStartIR": "شبا باید با IR شروع شود",
+            "selectBranch": "لطفاً شعبه دریافت کننده را انتخاب کنید",
+            "sameBranch": "نمی‌توانید به همان شعبه پول ارسال کنید. لطفاً شعبه دیگری انتخاب کنید.",
+            "noBranches": "هیچ شعبه‌ای در دسترس نیست. لطفاً ابتدا دفتر مرکزی خود را ایجاد کنید."
+        },
+        "idTypes": {
+            "passport": "پاسپورت",
+            "national_id": "کارت ملی",
+            "drivers_license": "گواهینامه",
+            "other": "سایر"
+        }
+    },
+    "common": {
+        "loading": "در حال بارگذاری...",
+        "error": "خطا",
+        "success": "موفق",
+        "language": "زبان",
+        "english": "English",
+        "persian": "فارسی"
+    }
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useCreateTransaction } from '@/src/lib/queries/client.query';
 import {
   Dialog,
   DialogContent,
@@ -15,8 +16,27 @@ import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Card, CardContent } from './ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 import { toast } from 'sonner';
-import { ArrowRight, Calculator } from 'lucide-react';
+import { ArrowRight, Calculator, Loader2, Star, Save } from 'lucide-react';
+import { Checkbox } from './ui/checkbox';
+
+const FAVORITES_KEY = 'transaction_favorites';
+
+interface FavoriteTransaction {
+  name: string;
+  type: TransactionType;
+  sendCurrency: string;
+  receiveCurrency: string;
+  beneficiaryName?: string;
+  beneficiaryDetails?: string;
+}
 
 interface Transaction {
   id: string;
@@ -31,6 +51,10 @@ interface Transaction {
   beneficiaryName?: string;
   beneficiaryDetails?: string;
   userNotes?: string;
+  status?: string;
+  cancellationReason?: string;
+  cancelledAt?: string;
+  cancelledBy?: number;
   transactionDate: string;
   createdAt: string;
   updatedAt: string;
@@ -44,9 +68,9 @@ interface TransactionFormProps {
   onTransactionCreated: (transaction: Transaction) => void;
 }
 
-type TransactionType = 'CASH_EXCHANGE' | 'BANK_TRANSFER';
+type TransactionType = 'CASH_EXCHANGE' | 'BANK_TRANSFER' | 'MONEY_PICKUP' | 'WALK_IN_CUSTOMER';
 
-const CURRENCIES = ['EUR', 'USD', 'GBP', 'CAD', 'IRR'];
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'IRR', 'AED', 'TRY'];
 
 export function TransactionForm({
   open,
@@ -57,17 +81,57 @@ export function TransactionForm({
 }: TransactionFormProps) {
   const [transactionType, setTransactionType] = useState<TransactionType>('CASH_EXCHANGE');
   const [formData, setFormData] = useState({
-    sendCurrency: 'EUR',
+    sendCurrency: '',
     sendAmount: '',
-    receiveCurrency: 'IRR',
+    receiveCurrency: '',
     receiveAmount: '',
     rateApplied: '',
-    feeCharged: '',
+    feeCharged: '0',
     beneficiaryName: '',
     beneficiaryDetails: '',
     userNotes: '',
+    allowPartialPayment: false,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Favorites State
+  const [favorites, setFavorites] = useState<FavoriteTransaction[]>([]);
+  const [saveAsFavorite, setSaveAsFavorite] = useState(false);
+  const [favoriteName, setFavoriteName] = useState('');
+
+  useEffect(() => {
+    const stored = localStorage.getItem(FAVORITES_KEY);
+    if (stored) {
+      setFavorites(JSON.parse(stored));
+    }
+  }, []);
+
+  const loadFavorite = (fav: FavoriteTransaction) => {
+    setTransactionType(fav.type);
+    setFormData(prev => ({
+      ...prev,
+      sendCurrency: fav.sendCurrency,
+      receiveCurrency: fav.receiveCurrency,
+      beneficiaryName: fav.beneficiaryName || '',
+      beneficiaryDetails: fav.beneficiaryDetails || '',
+    }));
+    toast.success(`Loaded favorite: ${fav.name}`);
+  };
+
+  const saveFavorite = () => {
+    if (!favoriteName) return;
+    const newFav: FavoriteTransaction = {
+      name: favoriteName,
+      type: transactionType,
+      sendCurrency: formData.sendCurrency,
+      receiveCurrency: formData.receiveCurrency,
+      beneficiaryName: formData.beneficiaryName,
+      beneficiaryDetails: formData.beneficiaryDetails,
+    };
+    const newFavorites = [...favorites, newFav];
+    setFavorites(newFavorites);
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(newFavorites));
+  };
 
   // Calculate receive amount based on rate and fee
   const calculateReceiveAmount = () => {
@@ -81,6 +145,8 @@ export function TransactionForm({
       setFormData(prev => ({ ...prev, receiveAmount: received.toFixed(2) }));
     }
   };
+
+  const createTransaction = useCreateTransaction();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,50 +172,51 @@ export function TransactionForm({
 
     setIsSubmitting(true);
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${API_BASE_URL}/api/transactions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          clientId,
-          type: transactionType,
-          sendCurrency: formData.sendCurrency,
-          sendAmount: parseFloat(formData.sendAmount),
-          receiveCurrency: formData.receiveCurrency,
-          receiveAmount: parseFloat(formData.receiveAmount),
-          rateApplied: parseFloat(formData.rateApplied),
-          feeCharged: parseFloat(formData.feeCharged),
-          beneficiaryName: formData.beneficiaryName,
-          beneficiaryDetails: formData.beneficiaryDetails,
-          userNotes: formData.userNotes,
-        }),
+      const newTransaction = await createTransaction.mutateAsync({
+        clientId,
+        type: transactionType,
+        sendCurrency: formData.sendCurrency,
+        sendAmount: parseFloat(formData.sendAmount),
+        receiveCurrency: formData.receiveCurrency,
+        receiveAmount: parseFloat(formData.receiveAmount),
+        rateApplied: parseFloat(formData.rateApplied),
+        feeCharged: parseFloat(formData.feeCharged),
+        beneficiaryName: formData.beneficiaryName || undefined,
+        beneficiaryDetails: formData.beneficiaryDetails || undefined,
+        userNotes: formData.userNotes || undefined,
+        allowPartialPayment: formData.allowPartialPayment,
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create transaction');
+      toast.success('Transaction created successfully');
+
+      if (saveAsFavorite && favoriteName) {
+        saveFavorite();
+        toast.success('Saved as favorite');
       }
 
-      const newTransaction = await response.json();
-      toast.success('Transaction created successfully');
       onTransactionCreated(newTransaction);
       onOpenChange(false);
+
       // Reset form
       setFormData({
-        sendCurrency: 'EUR',
+        sendCurrency: '',
         sendAmount: '',
-        receiveCurrency: 'IRR',
+        receiveCurrency: '',
         receiveAmount: '',
         rateApplied: '',
-        feeCharged: '',
+        feeCharged: '0',
         beneficiaryName: '',
         beneficiaryDetails: '',
         userNotes: '',
+        allowPartialPayment: false,
       });
-    } catch (error) {
+      setSaveAsFavorite(false);
+      setFavoriteName('');
+    } catch (error: any) {
       console.error('Error creating transaction:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create transaction');
+      toast.error('Failed to create transaction', {
+        description: error?.response?.data?.error || 'Please try again',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -166,6 +233,28 @@ export function TransactionForm({
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-6 py-4">
+            {/* Favorites Selection */}
+            {favorites.length > 0 && (
+              <div className="bg-slate-50 p-3 rounded-md border">
+                <Label className="text-xs text-muted-foreground mb-2 block">Load from Favorites</Label>
+                <div className="flex flex-wrap gap-2">
+                  {favorites.map((fav, idx) => (
+                    <Button
+                      key={idx}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => loadFavorite(fav)}
+                    >
+                      <Star className="h-3 w-3 mr-1 text-yellow-500" />
+                      {fav.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Transaction Type Selection */}
             <div className="space-y-3">
               <Label>Transaction Type *</Label>
@@ -185,6 +274,18 @@ export function TransactionForm({
                     Bank Transfer (Remittance) - Send money to Iranian bank account
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="MONEY_PICKUP" id="pickup" />
+                  <Label htmlFor="pickup" className="cursor-pointer">
+                    Money Pickup - Customer receives money sent from another branch
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="WALK_IN_CUSTOMER" id="walkin" />
+                  <Label htmlFor="walkin" className="cursor-pointer">
+                    Walk-in Customer - One-time cash exchange
+                  </Label>
+                </div>
               </RadioGroup>
             </div>
 
@@ -194,20 +295,23 @@ export function TransactionForm({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="sendCurrency">Send Currency *</Label>
-                    <select
-                      id="sendCurrency"
+                    <Select
                       value={formData.sendCurrency}
-                      onChange={(e) =>
-                        setFormData({ ...formData, sendCurrency: e.target.value })
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, sendCurrency: value })
                       }
-                      className="w-full rounded-md border border-gray-300 px-3 py-2"
                     >
-                      {CURRENCIES.map((curr) => (
-                        <option key={curr} value={curr}>
-                          {curr}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger id="sendCurrency">
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CURRENCIES.map((curr) => (
+                          <SelectItem key={curr} value={curr}>
+                            {curr}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="sendAmount">Send Amount *</Label>
@@ -272,20 +376,23 @@ export function TransactionForm({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="receiveCurrency">Receive Currency *</Label>
-                    <select
-                      id="receiveCurrency"
+                    <Select
                       value={formData.receiveCurrency}
-                      onChange={(e) =>
-                        setFormData({ ...formData, receiveCurrency: e.target.value })
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, receiveCurrency: value })
                       }
-                      className="w-full rounded-md border border-gray-300 px-3 py-2"
                     >
-                      {CURRENCIES.map((curr) => (
-                        <option key={curr} value={curr}>
-                          {curr}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger id="receiveCurrency">
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CURRENCIES.map((curr) => (
+                          <SelectItem key={curr} value={curr}>
+                            {curr}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="receiveAmount">Receive Amount *</Label>
@@ -336,6 +443,39 @@ export function TransactionForm({
               </Card>
             )}
 
+            {/* Walk-in Customer Optional Details */}
+            {transactionType === 'WALK_IN_CUSTOMER' && (
+              <Card className="bg-yellow-50 border-yellow-200">
+                <CardContent className="pt-6 space-y-4">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Optional: Add customer details for future reference
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="beneficiaryName">Customer Name (Optional)</Label>
+                    <Input
+                      id="beneficiaryName"
+                      value={formData.beneficiaryName}
+                      onChange={(e) =>
+                        setFormData({ ...formData, beneficiaryName: e.target.value })
+                      }
+                      placeholder="John Doe"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="beneficiaryDetails">Phone / ID (Optional)</Label>
+                    <Input
+                      id="beneficiaryDetails"
+                      value={formData.beneficiaryDetails}
+                      onChange={(e) =>
+                        setFormData({ ...formData, beneficiaryDetails: e.target.value })
+                      }
+                      placeholder="+1-555-1234 or ID number"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Notes */}
             <div className="space-y-2">
               <Label htmlFor="userNotes">Internal Notes</Label>
@@ -348,7 +488,55 @@ export function TransactionForm({
               />
             </div>
           </div>
-          <DialogFooter>
+
+          {/* Open Transaction Checkbox */}
+          <div className="flex items-center space-x-2 pt-2">
+            <Checkbox
+              id="allowPartialPayment"
+              checked={formData.allowPartialPayment}
+              onCheckedChange={(checked) =>
+                setFormData({ ...formData, allowPartialPayment: checked as boolean })
+              }
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label
+                htmlFor="allowPartialPayment"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Open Transaction (Credit)
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Check this if the client is depositing money to be used later (Partial Drawdown).
+              </p>
+            </div>
+          </div>
+
+          {/* Save as Favorite Option */}
+          <div className="pt-4 border-t mt-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="saveFavorite"
+                checked={saveAsFavorite}
+                onCheckedChange={(checked) => setSaveAsFavorite(checked as boolean)}
+              />
+              <Label htmlFor="saveFavorite" className="flex items-center gap-2 cursor-pointer">
+                <Save className="h-4 w-4" />
+                Save this transaction as a favorite
+              </Label>
+            </div>
+            {saveAsFavorite && (
+              <div className="mt-2 pl-6">
+                <Input
+                  placeholder="Name this favorite (e.g., 'Transfer to Dubai')"
+                  value={favoriteName}
+                  onChange={(e) => setFavoriteName(e.target.value)}
+                  className="max-w-sm"
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="mt-6">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>

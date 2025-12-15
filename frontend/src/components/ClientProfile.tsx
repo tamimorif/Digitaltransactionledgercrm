@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useGetTransactions } from '@/src/lib/queries/client.query';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
 import {
   User,
   Phone,
@@ -17,14 +20,28 @@ import {
   Edit,
   Info,
   History,
+  Loader2,
+  Filter,
+  FilterX,
+  Wallet,
 } from 'lucide-react';
 import { TransactionForm } from './TransactionForm';
 import { EditTransactionDialog } from './EditTransactionDialog';
+import { CurrencySummary } from './CurrencySummary';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { toast } from 'sonner';
+import { PaymentDialog } from './PaymentDialog';
+import { useGetBranches } from '@/src/lib/queries/branch.query';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/src/components/ui/select';
 
 interface Client {
-  id: string;
+  id: number | string;
   name: string;
   phoneNumber: string;
   email: string;
@@ -50,6 +67,18 @@ interface Transaction {
   transactionDate: string;
   createdAt: string;
   updatedAt: string;
+  branch?: {
+    id: number;
+    name: string;
+  };
+  // Multi-payment fields
+  totalReceived?: number;
+  receivedCurrency?: string;
+  remainingBalance?: number;
+  paymentStatus?: string;
+  allowPartialPayment?: boolean;
+  // Profit field
+  profit?: number;
 }
 
 interface ClientProfileProps {
@@ -58,45 +87,39 @@ interface ClientProfileProps {
 }
 
 export function ClientProfile({ client, onClose }: ClientProfileProps) {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const clientIdString = String(client.id);
+  const [dateFilter, setDateFilter] = useState<{ startDate?: string; endDate?: string }>({});
+  const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const { data: transactions = [], isLoading, refetch } = useGetTransactions(clientIdString, dateFilter, selectedBranch);
+  const { data: branches } = useGetBranches();
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [paymentDialogTransaction, setPaymentDialogTransaction] = useState<Transaction | null>(null);
 
-  useEffect(() => {
-    fetchTransactions();
-  }, [client.id]);
-
-  const fetchTransactions = async () => {
-    setIsLoading(true);
-    try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${API_BASE_URL}/api/clients/${client.id}/transactions`);
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch transactions');
-      }
-
-      const transactions = await response.json();
-      setTransactions(transactions);
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-      toast.error('Failed to load transaction history');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleApplyDateFilter = (start?: string, end?: string) => {
+    setDateFilter({ startDate: start, endDate: end });
   };
 
-  const handleTransactionCreated = (newTransaction: Transaction) => {
-    setTransactions((prev) => [newTransaction, ...prev]);
+  const handleClearDateFilter = () => {
+    setDateFilter({});
   };
 
-  const handleTransactionUpdated = (updatedTransaction: Transaction) => {
-    setTransactions((prev) =>
-      prev.map((tx) =>
-        tx.id === updatedTransaction.id ? updatedTransaction : tx
-      )
-    );
+  const handleTransactionCreated = () => {
+    refetch();
+    setShowTransactionForm(false);
+    toast.success('Transaction created successfully');
+  };
+
+  const handleTransactionUpdated = () => {
+    refetch();
+    setEditingTransaction(null);
+    toast.success('Transaction updated successfully');
+  };
+
+  const handlePaymentAdded = () => {
+    refetch();
+    toast.success('Payment added successfully');
   };
 
   const formatCurrency = (amount: number, currency: string) => {
@@ -120,6 +143,10 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
             </div>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => window.location.href = `/clients/${client.id}/ledger`}>
+              <Wallet className="h-4 w-4 mr-2" />
+              View Ledger
+            </Button>
             <Button onClick={() => setShowTransactionForm(true)}>
               <Plus className="h-4 w-4 mr-2" />
               New Transaction
@@ -171,11 +198,104 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
             </Card>
           </div>
 
+          {/* Currency Summary */}
+          {transactions.length > 0 && (
+            <>
+              <Separator className="my-6" />
+              <CurrencySummary transactions={transactions} />
+            </>
+          )}
+
           <Separator className="my-6" />
 
           {/* Transaction History */}
           <div>
-            <h3 className="mb-4">Transaction History</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3>Transaction History</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by Branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Branches</SelectItem>
+                  {branches?.map((branch: any) => (
+                    <SelectItem key={branch.id} value={String(branch.id)}>
+                      {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Popover open={showDateFilter} onOpenChange={setShowDateFilter}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Filter className="h-4 w-4 mr-2" />
+                    Filter by Date
+                    {(dateFilter.startDate || dateFilter.endDate) && (
+                      <Badge variant="secondary" className="ml-2">
+                        Active
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80" align="end">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <h4 className="font-medium leading-none">Date Range Filter</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Filter transactions by date range
+                      </p>
+                    </div>
+                    <div className="grid gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="startDate">Start Date</Label>
+                        <Input
+                          id="startDate"
+                          type="date"
+                          value={dateFilter.startDate || ''}
+                          onChange={(e) =>
+                            handleApplyDateFilter(e.target.value, dateFilter.endDate)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="endDate">End Date</Label>
+                        <Input
+                          id="endDate"
+                          type="date"
+                          value={dateFilter.endDate || ''}
+                          onChange={(e) =>
+                            handleApplyDateFilter(dateFilter.startDate, e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            handleClearDateFilter();
+                            setShowDateFilter(false);
+                          }}
+                          className="flex-1"
+                        >
+                          <FilterX className="h-4 w-4 mr-2" />
+                          Clear
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => setShowDateFilter(false)}
+                          className="flex-1"
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
             {isLoading ? (
               <div className="text-center py-8 text-gray-500">Loading transactions...</div>
             ) : transactions.length === 0 ? (
@@ -192,7 +312,7 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
             ) : (
               <div className="space-y-3">
                 {transactions.map((tx) => (
-                  <Card key={tx.id} className="hover:shadow-md transition-shadow">
+                  <Card key={tx.id} className={`hover:shadow-md transition-shadow ${tx.paymentStatus === 'OPEN' || tx.paymentStatus === 'PARTIAL' ? 'border-l-4 border-l-blue-500' : ''}`}>
                     <CardContent className="pt-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -204,6 +324,11 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
                             >
                               {tx.type === 'CASH_EXCHANGE' ? 'Cash Exchange' : 'Bank Transfer'}
                             </Badge>
+                            {tx.paymentStatus && tx.paymentStatus !== 'SINGLE' && (
+                              <Badge variant={tx.paymentStatus === 'FULLY_PAID' ? 'outline' : 'default'} className={tx.paymentStatus === 'FULLY_PAID' ? 'text-green-600 border-green-600' : 'bg-blue-600'}>
+                                {tx.paymentStatus === 'OPEN' ? 'Open Credit' : tx.paymentStatus === 'PARTIAL' ? 'Partial' : 'Fully Paid'}
+                              </Badge>
+                            )}
                             {tx.isEdited && (
                               <Badge variant="outline" className="bg-yellow-50">
                                 Edited
@@ -212,6 +337,11 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
                             <span className="text-xs text-gray-500">
                               {new Date(tx.transactionDate).toLocaleString()}
                             </span>
+                            {tx.branch && (
+                              <Badge variant="outline" className="text-gray-500 border-gray-300">
+                                {tx.branch.name}
+                              </Badge>
+                            )}
                             {tx.isEdited && tx.editHistory && (
                               <Popover>
                                 <PopoverTrigger asChild>
@@ -355,10 +485,26 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
                               <span>{formatCurrency(tx.receiveAmount, tx.receiveCurrency)}</span>
                             </div>
                           </div>
+
+                          {/* Remaining Balance for Open Transactions */}
+                          {(tx.paymentStatus === 'OPEN' || tx.paymentStatus === 'PARTIAL') && tx.remainingBalance !== undefined && (
+                            <div className="mt-2 mb-2 p-2 bg-blue-50 rounded border border-blue-100 flex justify-between items-center">
+                              <span className="text-xs font-medium text-blue-700">Remaining Balance:</span>
+                              <span className="text-sm font-bold text-blue-800">
+                                {tx.remainingBalance.toLocaleString()} {tx.receivedCurrency}
+                              </span>
+                            </div>
+                          )}
+
                           <div className="text-xs text-gray-600 space-y-1">
                             <p>
                               Rate: {tx.rateApplied.toLocaleString()} | Fee:{' '}
                               {tx.feeCharged.toLocaleString()}
+                              {tx.profit !== undefined && (
+                                <span className="ml-2 font-medium text-green-600">
+                                  | Profit: {tx.profit.toLocaleString()} CAD
+                                </span>
+                              )}
                             </p>
                             {tx.type === 'BANK_TRANSFER' && tx.beneficiaryDetails && (
                               <p>
@@ -369,14 +515,26 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
                             {tx.userNotes && <p className="italic">Note: {tx.userNotes}</p>}
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditingTransaction(tx)}
-                          className="ml-2"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        <div className="flex flex-col gap-2 ml-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingTransaction(tx)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+
+                          {/* Drawdown Button */}
+                          {(tx.paymentStatus === 'OPEN' || tx.paymentStatus === 'PARTIAL') && (
+                            <Button
+                              size="sm"
+                              className="bg-blue-600 hover:bg-blue-700 text-white h-7 text-xs"
+                              onClick={() => setPaymentDialogTransaction(tx)}
+                            >
+                              Drawdown
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -390,21 +548,33 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
       <TransactionForm
         open={showTransactionForm}
         onOpenChange={setShowTransactionForm}
-        clientId={client.id}
+        clientId={String(client.id)}
         clientName={client.name}
         onTransactionCreated={handleTransactionCreated}
       />
 
-      {
-        editingTransaction && (
-          <EditTransactionDialog
-            open={!!editingTransaction}
-            onOpenChange={(open) => !open && setEditingTransaction(null)}
-            transaction={editingTransaction}
-            onTransactionUpdated={handleTransactionUpdated}
-          />
-        )
-      }
+      {editingTransaction && (
+        <EditTransactionDialog
+          open={!!editingTransaction}
+          onOpenChange={(open) => !open && setEditingTransaction(null)}
+          transaction={editingTransaction}
+          onTransactionUpdated={handleTransactionUpdated}
+        />
+      )}
+
+      {paymentDialogTransaction && (
+        <PaymentDialog
+          open={!!paymentDialogTransaction}
+          onOpenChange={(open) => !open && setPaymentDialogTransaction(null)}
+          transaction={{
+            id: paymentDialogTransaction.id,
+            remainingBalance: paymentDialogTransaction.remainingBalance || 0,
+            receivedCurrency: paymentDialogTransaction.receivedCurrency || paymentDialogTransaction.receiveCurrency,
+            totalReceived: paymentDialogTransaction.totalReceived || paymentDialogTransaction.receiveAmount,
+          }}
+          onPaymentAdded={handlePaymentAdded}
+        />
+      )}
     </>
   );
 }

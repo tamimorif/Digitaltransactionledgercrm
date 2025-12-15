@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DailyRatesWidget } from './components/DailyRatesWidget';
+import { ProfitLossWidget } from './components/ProfitLossWidget';
 import { ClientSearch } from './components/ClientSearch';
 import { ClientProfile } from './components/ClientProfile';
 import { NewClientDialog } from './components/NewClientDialog';
@@ -9,7 +10,7 @@ import { toast } from 'sonner';
 import { Building2, TrendingUp } from 'lucide-react';
 
 interface Client {
-  id: string;
+  id: string | number;
   name: string;
   phoneNumber: string;
   email: string;
@@ -82,9 +83,10 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Daily Rates Widget */}
-        <div className="mb-8">
+        {/* Daily Rates & Analytics Widgets */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <DailyRatesWidget />
+          <ProfitLossWidget />
         </div>
 
         {/* Main Content */}

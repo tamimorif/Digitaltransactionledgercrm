@@ -1,8 +1,10 @@
 ﻿@import "tailwindcss";
 @import "tw-animate-css";
+@import './rtl.css';
 
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant hover (&:hover);
 
 :root {
   --font-size: 16px;

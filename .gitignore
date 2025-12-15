@@ -1,12 +1,66 @@
-# IDEs
+# Editor/IDE
 .idea/
 .vscode/
 *.swp
 *.swo
 
-# OS
+# Operating system
 .DS_Store
+**/.DS_Store
 Thumbs.db
 
-# Logs
+# Dependencies
+node_modules/
+frontend/node_modules/
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Testing
+/coverage
+
+# Next.js
+.next/
+frontend/.next/
+/out/
+
+# Production builds
+/build
+
+# Misc
+*.pem
+
+# Debug and logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 *.log
+server.log
+
+# Local env files
+.env*.local
+.env
+
+# SQLite/local databases
+*.db
+*.db-journal
+dev.db
+dev.db-journal
+transactions.db
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Go compiled binaries
+backend/server
+backend/server_new
+backend/main
+backend/bin/
+backend/*.exe
+backend/activate_branches
+backend/debug_rates
+backend/hash_password
