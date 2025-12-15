@@ -166,10 +166,20 @@ func (s *StatisticsService) GetTransactionsForExport(tenantID uint, branchID *ui
 			branchName = tx.Branch.Name
 		}
 
+		var paymentMethod string
+		switch tx.PaymentMethod {
+		case models.TransactionMethodCash:
+			paymentMethod = "Cash"
+		case models.TransactionMethodBank:
+			paymentMethod = "Bank Transfer"
+		default:
+			paymentMethod = string(tx.PaymentMethod) // Fallback to raw value
+		}
+
 		exportRows[i] = TransactionExportRow{
 			ID:                 tx.ID,
 			Date:               tx.CreatedAt.Format("2006-01-02 15:04:05"),
-			Type:               tx.Type,
+			Type:               paymentMethod, // Assign the derived payment method to the 'Type' field
 			SendCurrency:       tx.SendCurrency,
 			SendAmount:         tx.SendAmount,
 			ReceiveCurrency:    tx.ReceiveCurrency,

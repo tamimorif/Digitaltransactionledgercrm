@@ -3,7 +3,7 @@ import { tokenStorage } from './api-client';
 export interface WSMessage {
     type: 'transaction' | 'pickup' | 'cash_balance' | 'remittance';
     action: 'created' | 'updated' | 'deleted' | 'status_changed';
-    data: Record<string, any>;
+    data: Record<string, unknown>;
     tenantId: number;
     timestamp: string;
 }
@@ -55,8 +55,7 @@ class WebSocketService {
                 }
             };
 
-            this.ws.onerror = (error) => {
-                // Silently handle WebSocket errors (backend may not be running)
+            this.ws.onerror = () => {
                 console.warn('WebSocket connection failed - backend may not be available');
                 this.isConnecting = false;
             };
@@ -67,7 +66,7 @@ class WebSocketService {
                 this.ws = null;
                 this.scheduleReconnect();
             };
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to create WebSocket connection:', error);
             this.isConnecting = false;
             this.scheduleReconnect();

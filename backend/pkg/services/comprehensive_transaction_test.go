@@ -2,7 +2,9 @@ package services
 
 import (
 	"api/pkg/models"
+	"context"
 	"fmt"
+	"math"
 	"testing"
 
 	"gorm.io/driver/sqlite"
@@ -94,31 +96,30 @@ func TestComprehensiveTransactions(t *testing.T) {
 			TenantID:            tenant.ID,
 			BranchID:            &branch.ID,
 			ClientID:            client.ID,
-			Type:                models.TypeBankTransfer,
+			PaymentMethod:       models.TransactionMethodBank,
 			SendAmount:          1000,
 			SendCurrency:        "CAD",
 			ReceiveCurrency:     "IRR",
-			RateApplied:         44000, // We sell at 44000 (Customer gets less IRR per CAD than market)
+			RateApplied:         44000,
 			AllowPartialPayment: false,
-			Status:              "PENDING",                     // Using string literal as StatusPending is not defined
-			PaymentStatus:       models.PaymentStatusFullyPaid, // Assume paid upfront
+			Status:              "PENDING",
+			PaymentStatus:       models.PaymentStatusFullyPaid,
 		}
-		// Receive Amount = 1000 * 44000 = 44,000,000 IRR
 
-		err := transactionService.CreateTransaction(tx)
+		err := transactionService.CreateTransaction(context.Background(), tx)
 		if err != nil {
 			t.Fatalf("Failed to create transaction: %v", err)
 		}
 
-		// Verify Profit
-		// Standard Value of 1000 CAD = 1000 * 45000 = 45,000,000 IRR
-		// We gave customer: 44,000,000 IRR
-		// Profit = 1,000,000 IRR
-		if tx.Profit != 1000000 {
-			t.Errorf("Expected profit 1,000,000, got %.2f", tx.Profit)
+		// Verify Profit (in Send Currency - CAD)
+		// Irr Profit: 1000 * (45000 - 44000) = 1,000,000 IRR
+		// Cad Profit: 1,000,000 / 45000 = 22.22 CAD
+		expectedProfit := 22.22
+		if math.Abs(tx.Profit-expectedProfit) > 0.1 {
+			t.Errorf("Expected profit ~%.2f CAD, got %.2f", expectedProfit, tx.Profit)
 		}
 		fmt.Printf("   ✅ Transaction Created: %s\n", tx.ID)
-		fmt.Printf("   💰 Profit Calculated: %.2f IRR\n", tx.Profit)
+		fmt.Printf("   💰 Profit Calculated: %.2f CAD\n", tx.Profit)
 	})
 
 	// Test Case 2: Cash Pickup (Loss Scenario)
@@ -128,26 +129,29 @@ func TestComprehensiveTransactions(t *testing.T) {
 			TenantID:            tenant.ID,
 			BranchID:            &branch.ID,
 			ClientID:            client.ID,
-			Type:                models.TypeMoneyPickup,
+			PaymentMethod:       models.TransactionMethodPickup,
 			SendAmount:          100,
 			SendCurrency:        "USD",
 			ReceiveCurrency:     "IRR",
-			RateApplied:         61000, // We sell at 61000 (Higher than market 60000 - We lose money)
+			RateApplied:         61000,
 			AllowPartialPayment: false,
 			Status:              "PENDING",
 		}
 
-		err := transactionService.CreateTransaction(tx)
+		err := transactionService.CreateTransaction(context.Background(), tx)
 		if err != nil {
 			t.Fatalf("Failed to create transaction: %v", err)
 		}
 
-		// Profit = 100 * (60000 - 61000) = -100,000 IRR
-		if tx.Profit != -100000 {
-			t.Errorf("Expected profit -100,000, got %.2f", tx.Profit)
+		// Profit (in Send Currency - USD)
+		// Irr Loss: 100 * (60000 - 61000) = -100,000 IRR
+		// Usd Loss: -100,000 / 60000 = -1.66 USD
+		expectedProfit := -1.66
+		if math.Abs(tx.Profit-expectedProfit) > 0.1 {
+			t.Errorf("Expected profit ~%.2f USD, got %.2f", expectedProfit, tx.Profit)
 		}
 		fmt.Printf("   ✅ Transaction Created: %s\n", tx.ID)
-		fmt.Printf("   📉 Loss Calculated: %.2f IRR\n", tx.Profit)
+		fmt.Printf("   📉 Loss Calculated: %.2f USD\n", tx.Profit)
 	})
 
 	// Test Case 3: Multi-Payment (Partial -> Complete)
@@ -157,7 +161,7 @@ func TestComprehensiveTransactions(t *testing.T) {
 			TenantID:            tenant.ID,
 			BranchID:            &branch.ID,
 			ClientID:            client.ID,
-			Type:                models.TypeBankTransfer,
+			PaymentMethod:       models.TransactionMethodBank,
 			SendAmount:          2000,
 			SendCurrency:        "CAD",
 			ReceiveCurrency:     "IRR",
@@ -166,7 +170,7 @@ func TestComprehensiveTransactions(t *testing.T) {
 			Status:              "PENDING",
 		}
 
-		err := transactionService.CreateTransaction(tx)
+		err := transactionService.CreateTransaction(context.Background(), tx)
 		if err != nil {
 			t.Fatalf("Failed to create transaction: %v", err)
 		}
@@ -196,7 +200,7 @@ func TestComprehensiveTransactions(t *testing.T) {
 		}
 
 		// Reload transaction
-		updatedTx, _ := transactionService.GetTransaction(tx.ID, tenant.ID)
+		updatedTx, _ := transactionService.GetTransaction(context.Background(), tx.ID, tenant.ID)
 		if updatedTx.PaymentStatus != models.PaymentStatusPartial {
 			t.Errorf("Expected status PARTIAL, got %s", updatedTx.PaymentStatus)
 		}
@@ -215,6 +219,11 @@ func TestComprehensiveTransactions(t *testing.T) {
 			Currency:      "CAD",
 			ExchangeRate:  1.0,
 			PaymentMethod: models.PaymentMethodBankTransfer,
+			Details: map[string]interface{}{
+				"bankName":      "Test Bank",
+				"accountNumber": "123456789",
+				"referenceId":   "REF-123",
+			},
 		}
 		err = paymentService.CreatePayment(payment2, user.ID)
 		if err != nil {
@@ -222,7 +231,7 @@ func TestComprehensiveTransactions(t *testing.T) {
 		}
 
 		// Reload transaction
-		updatedTx, _ = transactionService.GetTransaction(tx.ID, tenant.ID)
+		updatedTx, _ = transactionService.GetTransaction(context.Background(), tx.ID, tenant.ID)
 		if updatedTx.PaymentStatus != models.PaymentStatusFullyPaid {
 			t.Errorf("Expected status FULLY_PAID, got %s", updatedTx.PaymentStatus)
 		}

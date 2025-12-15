@@ -3,6 +3,8 @@ package services_test
 import (
 	"api/pkg/models"
 	"api/pkg/services"
+	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -20,6 +22,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
+	services.ResetGlobalCacheService()
 
 	// Migrate all required tables
 	err = db.AutoMigrate(
@@ -68,7 +71,7 @@ func TestTransactionProfitCalculationStatus(t *testing.T) {
 	transaction := &models.Transaction{
 		TenantID:        tenant.ID,
 		ClientID:        client.ID,
-		Type:            models.TypeCashExchange,
+		PaymentMethod:   models.TransactionMethodCash,
 		SendCurrency:    "USD",
 		SendAmount:      1000,
 		ReceiveCurrency: "CAD",
@@ -77,36 +80,37 @@ func TestTransactionProfitCalculationStatus(t *testing.T) {
 		TransactionDate: time.Now(),
 	}
 
-	err := transactionService.CreateTransaction(transaction)
-	if err != nil {
-		t.Fatalf("Failed to create transaction: %v", err)
+	// 4. Create Transactions with Service (which handles profit calc)
+	// Transaction 1
+	if err := transactionService.CreateTransaction(context.Background(), transaction); err != nil {
+		t.Fatalf("Failed to create transaction 1: %v", err)
 	}
 
-	// Verify the transaction was created - status depends on whether rate was found
-	var savedTxn models.Transaction
-	db.First(&savedTxn, "id = ?", transaction.ID)
-
-	// Without a rate, it should be PENDING. The test validates the field exists and is set.
-	if savedTxn.ProfitCalculationStatus == "" {
-		t.Errorf("Expected ProfitCalculationStatus to be set, got empty string")
+	// Verify it was marked as PENDING (since no rate exists yet, effectively - though we haven't strictly enforced that in the mock setup,
+	// let's assume the service does the check).
+	// Actually, CreateTransaction logic: if standardRateObj found -> Calculated. Else -> Pending.
+	// Since we haven't seeded ExchangeRate for USD->CAD in this test DB yet (we just created services),
+	// CreateTransaction will fail to find rate and set it to PENDING.
+	if transaction.ProfitCalculationStatus != models.ProfitStatusPending {
+		t.Errorf("Expected profit status PENDING, got %s", transaction.ProfitCalculationStatus)
 	}
-	t.Logf("First transaction profit status: %s", savedTxn.ProfitCalculationStatus)
+	t.Logf("First transaction profit status: %s", transaction.ProfitCalculationStatus)
 
 	// Now add an exchange rate
-	rate := models.ExchangeRate{
+	rate := &models.ExchangeRate{
 		TenantID:       tenant.ID,
 		BaseCurrency:   "USD",
 		TargetCurrency: "CAD",
-		Rate:           1.40, // Market rate is better than applied rate
-		Source:         models.RateSourceManual,
+		Rate:           1.30, // Standard rate
+		Source:         "MANUAL",
 	}
-	db.Create(&rate)
+	db.Create(rate)
 
 	// Create another transaction - this one should have CALCULATED status
 	transaction2 := &models.Transaction{
 		TenantID:        tenant.ID,
 		ClientID:        client.ID,
-		Type:            models.TypeCashExchange,
+		PaymentMethod:   models.TransactionMethodCash,
 		SendCurrency:    "USD",
 		SendAmount:      500,
 		ReceiveCurrency: "CAD",
@@ -115,35 +119,31 @@ func TestTransactionProfitCalculationStatus(t *testing.T) {
 		TransactionDate: time.Now(),
 	}
 
-	err = transactionService.CreateTransaction(transaction2)
-	if err != nil {
-		t.Fatalf("Failed to create transaction2: %v", err)
+	// Transaction 2 (should be CALCULATED immediately)
+	if err := transactionService.CreateTransaction(context.Background(), transaction2); err != nil {
+		t.Fatalf("Failed to create transaction 2: %v", err)
 	}
 
 	var savedTxn2 models.Transaction
 	db.First(&savedTxn2, "id = ?", transaction2.ID)
 
-	// The second transaction may or may not find the rate depending on cache
-	// What we're testing is that the field is set to a valid value
-	validStatuses := map[string]bool{
-		models.ProfitStatusCalculated: true,
-		models.ProfitStatusPending:    true,
-		models.ProfitStatusFailed:     true,
-	}
-	if !validStatuses[savedTxn2.ProfitCalculationStatus] {
-		t.Errorf("Expected valid ProfitCalculationStatus, got=%s", savedTxn2.ProfitCalculationStatus)
+	if savedTxn2.ProfitCalculationStatus != models.ProfitStatusCalculated {
+		t.Errorf("Expected profit status CALCULATED, got %s", savedTxn2.ProfitCalculationStatus)
 	}
 	t.Logf("Second transaction profit status: %s, profit: %.2f", savedTxn2.ProfitCalculationStatus, savedTxn2.Profit)
 
-	// If status is CALCULATED, verify profit calculation
-	if savedTxn2.ProfitCalculationStatus == models.ProfitStatusCalculated {
-		// Profit = SendAmount * (StandardRate - RateApplied)
-		expectedProfit := 500 * (savedTxn2.StandardRate - savedTxn2.RateApplied)
-		if savedTxn2.Profit != expectedProfit {
-			t.Errorf("Expected Profit=%.2f, got=%.2f", expectedProfit, savedTxn2.Profit)
-		}
-		t.Logf("Expected Profit=%.2f, got=%.2f", expectedProfit, savedTxn2.Profit)
+	// Profit = SendAmount - (ReceiveAmount / StandardRate)
+	// Service calculates profit in Base Currency (USD).
+	// We received 500 USD. We gave 675 CAD.
+	// Cost of 675 CAD at Standard Rate (1.30) is 675 / 1.30 = 519.23 USD.
+	// Profit = 500 - 519.23 = -19.23.
+	expectedProfit := 500.0 - (675.0 / savedTxn2.StandardRate)
+
+	// Allow small float difference
+	if math.Abs(savedTxn2.Profit-expectedProfit) > 0.01 {
+		t.Errorf("Expected Profit=%.2f, got=%.2f", expectedProfit, savedTxn2.Profit)
 	}
+	t.Logf("Expected Profit=%.2f, got=%.2f", expectedProfit, savedTxn2.Profit)
 
 	t.Logf("✅ Transaction profit calculation status tracking works correctly")
 }
@@ -167,7 +167,7 @@ func TestTransactionVersionField(t *testing.T) {
 		ID:              uuid.New().String(),
 		TenantID:        tenant.ID,
 		ClientID:        client.ID,
-		Type:            models.TypeCashExchange,
+		PaymentMethod:   models.TransactionMethodCash,
 		SendCurrency:    "USD",
 		SendAmount:      100,
 		ReceiveCurrency: "CAD",

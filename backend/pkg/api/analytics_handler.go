@@ -42,7 +42,7 @@ func (h *Handler) GetDailyAnalyticsHandler(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	query := h.db.Where("transaction_date >= ? AND transaction_date < ? AND status = ?", startOfDay, endOfDay, models.StatusCompleted)
+	query := h.db.WithContext(r.Context()).Where("transaction_date >= ? AND transaction_date < ? AND status = ?", startOfDay, endOfDay, models.StatusCompleted)
 
 	if tenantID != 0 {
 		query = query.Where("tenant_id = ?", tenantID)

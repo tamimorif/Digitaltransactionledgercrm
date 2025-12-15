@@ -7,31 +7,31 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Authentication', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/login');
     });
 
     test('should display login page', async ({ page }) => {
         // Check that login form is visible
-        await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible();
+        await expect(page.getByRole('heading', { name: /login/i })).toBeVisible();
         await expect(page.getByLabel(/email/i)).toBeVisible();
         await expect(page.getByLabel(/password/i)).toBeVisible();
-        await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
+        await expect(page.getByRole('button', { name: /login/i })).toBeVisible();
     });
 
     test('should show validation errors for empty form', async ({ page }) => {
         // Click sign in without filling form
-        await page.getByRole('button', { name: /sign in/i }).click();
+        await page.getByRole('button', { name: /login/i }).click();
 
         // Should show validation errors
-        await expect(page.getByText(/email is required/i)).toBeVisible();
-        await expect(page.getByText(/password is required/i)).toBeVisible();
+        await expect(page.getByText(/email.*required/i)).toBeVisible();
+        await expect(page.getByText(/password.*required/i)).toBeVisible();
     });
 
     test('should show error for invalid credentials', async ({ page }) => {
         // Fill with invalid credentials
         await page.getByLabel(/email/i).fill('invalid@example.com');
         await page.getByLabel(/password/i).fill('wrongpassword');
-        await page.getByRole('button', { name: /sign in/i }).click();
+        await page.getByRole('button', { name: /login/i }).click();
 
         // Should show error message
         await expect(page.getByText(/invalid credentials/i)).toBeVisible({ timeout: 5000 });
@@ -41,7 +41,7 @@ test.describe('Authentication', () => {
         // Fill with valid credentials (adjust based on test account)
         await page.getByLabel(/email/i).fill('test@example.com');
         await page.getByLabel(/password/i).fill('testpassword123');
-        await page.getByRole('button', { name: /sign in/i }).click();
+        await page.getByRole('button', { name: /login/i }).click();
 
         // Should redirect to dashboard
         await expect(page).toHaveURL(/.*dashboard/, { timeout: 10000 });
@@ -54,7 +54,7 @@ test.describe('Authentication', () => {
         // First login
         await page.getByLabel(/email/i).fill('test@example.com');
         await page.getByLabel(/password/i).fill('testpassword123');
-        await page.getByRole('button', { name: /sign in/i }).click();
+        await page.getByRole('button', { name: /login/i }).click();
 
         // Wait for dashboard
         await expect(page).toHaveURL(/.*dashboard/, { timeout: 10000 });

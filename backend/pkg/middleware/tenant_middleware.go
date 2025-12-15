@@ -37,8 +37,9 @@ func TenantIsolationMiddleware(next http.Handler) http.Handler {
 
 // ApplyTenantScope applies tenant filtering to GORM queries
 func ApplyTenantScope(db *gorm.DB, r *http.Request) *gorm.DB {
+	db = db.WithContext(r.Context())
 	tenantID := r.Context().Value("tenantId")
-	
+
 	// If tenantId is nil (SuperAdmin), don't apply scope
 	if tenantID == nil {
 		return db
