@@ -65,7 +65,7 @@ func (h *RemittanceSettlementHandler) CreateSettlementHandler(w http.ResponseWri
 		*tenantID,
 		req.OutgoingRemittanceID,
 		req.IncomingRemittanceID,
-		req.SettlementAmount,
+		models.NewDecimal(req.SettlementAmount),
 		req.Notes,
 		user.ID,
 	)

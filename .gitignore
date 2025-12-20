@@ -16,7 +16,7 @@ frontend/build/
 next-env.d.ts
 
 # --- Go / Backend ---
-# Compiled binaries
+# Compiled binaries (all)
 backend/server
 backend/server_new
 backend/main
@@ -25,6 +25,11 @@ backend/*.exe
 backend/activate_branches
 backend/debug_rates
 backend/hash_password
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
 
 # Test and Coverage artifacts
 *.test
@@ -32,10 +37,18 @@ backend/hash_password
 backend/*.test
 backend/*.out
 coverage/
+*.cover
+*.prof
+
+# Go workspace and cache
+go/
+tmp/
 
 # --- Databases (Local Dev) ---
 *.db
 *.db-journal
+*.sqlite
+*.sqlite3
 transactions.db
 dev.db
 dev.db-journal
@@ -63,5 +76,20 @@ yarn-error.log*
 *.pem
 .DS_Store
 **/.DS_Store
+._*
 Thumbs.db
 desktop.ini
+*.swp
+*.swo
+*~
+
+# --- Cache Directories ---
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+
+# --- Optional: Large generated files ---
+# Uncomment if you regenerate these
+# frontend/package-lock.json
+# frontend/yarn.lock

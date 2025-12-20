@@ -61,7 +61,7 @@ func (s *AutoSettlementService) GetSettlementSuggestions(tenantID, incomingID ui
 		return nil, errors.New("incoming remittance not found")
 	}
 
-	if incoming.RemainingIRR <= 0 {
+	if incoming.RemainingIRR.LessThanOrEqual(models.Zero()) {
 		return nil, errors.New("incoming remittance has no remaining amount to allocate")
 	}
 
@@ -86,7 +86,7 @@ func (s *AutoSettlementService) GetSettlementSuggestions(tenantID, incomingID ui
 	remainingToAllocate := incoming.RemainingIRR
 
 	for _, outgoing := range outgoings {
-		if remainingToAllocate <= 0 {
+		if remainingToAllocate.LessThanOrEqual(models.Zero()) {
 			break
 		}
 		if limit > 0 && len(suggestions) >= limit {
@@ -94,12 +94,15 @@ func (s *AutoSettlementService) GetSettlementSuggestions(tenantID, incomingID ui
 		}
 
 		// Calculate suggested amount
-		suggestedAmount := min(remainingToAllocate, outgoing.RemainingIRR)
+		suggestedAmount := remainingToAllocate
+		if outgoing.RemainingIRR.LessThan(remainingToAllocate) {
+			suggestedAmount = outgoing.RemainingIRR
+		}
 
 		// Calculate estimated profit
-		costCAD := suggestedAmount / outgoing.BuyRateCAD
-		revenueCAD := suggestedAmount / incoming.SellRateCAD
-		profit := costCAD - revenueCAD
+		costCAD := suggestedAmount.Div(outgoing.BuyRateCAD)
+		revenueCAD := suggestedAmount.Div(incoming.SellRateCAD)
+		profit := costCAD.Sub(revenueCAD)
 
 		// Calculate days outstanding
 		daysOutstanding := int(time.Since(outgoing.CreatedAt).Hours() / 24)
@@ -112,14 +115,14 @@ func (s *AutoSettlementService) GetSettlementSuggestions(tenantID, incomingID ui
 
 		suggestions = append(suggestions, SettlementSuggestion{
 			OutgoingRemittance: outgoing,
-			SuggestedAmountIRR: suggestedAmount,
-			EstimatedProfitCAD: profit,
+			SuggestedAmountIRR: suggestedAmount.Float64(),
+			EstimatedProfitCAD: profit.Float64(),
 			DaysOutstanding:    daysOutstanding,
 			MatchScore:         matchScore,
 			Reason:             reason,
 		})
 
-		remainingToAllocate -= suggestedAmount
+		remainingToAllocate = remainingToAllocate.Sub(suggestedAmount)
 	}
 
 	return suggestions, nil
@@ -149,7 +152,7 @@ func (s *AutoSettlementService) AutoSettle(tenantID, incomingID, userID uint, st
 			tenantID,
 			suggestion.OutgoingRemittance.ID,
 			incomingID,
-			suggestion.SuggestedAmountIRR,
+			models.NewDecimal(suggestion.SuggestedAmountIRR),
 			userID,
 		)
 		if err != nil {
@@ -158,8 +161,8 @@ func (s *AutoSettlementService) AutoSettle(tenantID, incomingID, userID uint, st
 		}
 
 		result.Settlements = append(result.Settlements, *settlement)
-		result.TotalSettledIRR += settlement.SettledAmountIRR
-		result.TotalProfitCAD += settlement.ProfitCAD
+		result.TotalSettledIRR += settlement.SettledAmountIRR.Float64()
+		result.TotalProfitCAD += settlement.ProfitCAD.Float64()
 	}
 
 	result.SettlementCount = len(result.Settlements)
@@ -167,7 +170,7 @@ func (s *AutoSettlementService) AutoSettle(tenantID, incomingID, userID uint, st
 	// Get remaining amount
 	var incoming models.IncomingRemittance
 	s.db.First(&incoming, incomingID)
-	result.RemainingIRR = incoming.RemainingIRR
+	result.RemainingIRR = incoming.RemainingIRR.Float64()
 
 	return result, nil
 }
@@ -189,9 +192,9 @@ func (s *AutoSettlementService) sortByStrategy(outgoings []models.OutgoingRemitt
 		// Sort by profit potential (highest profit first)
 		// Profit = AmountIRR * (1/BuyRate - 1/SellRate)
 		sort.Slice(outgoings, func(i, j int) bool {
-			profitI := 1/outgoings[i].BuyRateCAD - 1/incoming.SellRateCAD
-			profitJ := 1/outgoings[j].BuyRateCAD - 1/incoming.SellRateCAD
-			return profitI > profitJ
+			profitI := models.NewDecimal(1).Div(outgoings[i].BuyRateCAD).Sub(models.NewDecimal(1).Div(incoming.SellRateCAD))
+			profitJ := models.NewDecimal(1).Div(outgoings[j].BuyRateCAD).Sub(models.NewDecimal(1).Div(incoming.SellRateCAD))
+			return profitI.GreaterThan(profitJ)
 		})
 	default:
 		// Default to FIFO
@@ -215,9 +218,9 @@ func (s *AutoSettlementService) calculateMatchScore(outgoing models.OutgoingRemi
 	}
 
 	// Profit factor (higher profit = higher score, up to 20 points)
-	profitMargin := (1/outgoing.BuyRateCAD - 1/incoming.SellRateCAD) * 100
-	if profitMargin > 0 {
-		profitFactor := profitMargin * 10
+	profitMargin := (models.NewDecimal(1).Div(outgoing.BuyRateCAD).Sub(models.NewDecimal(1).Div(incoming.SellRateCAD))).Mul(models.NewDecimal(100))
+	if profitMargin.GreaterThan(models.Zero()) {
+		profitFactor := profitMargin.Float64() * 10
 		if profitFactor > 20 {
 			profitFactor = 20
 		}
@@ -225,7 +228,7 @@ func (s *AutoSettlementService) calculateMatchScore(outgoing models.OutgoingRemi
 	}
 
 	// Amount match factor (closer to full settlement = better)
-	if outgoing.RemainingIRR <= incoming.RemainingIRR {
+	if outgoing.RemainingIRR.LessThanOrEqual(incoming.RemainingIRR) {
 		// Can fully settle this outgoing
 		score += 10
 	}
@@ -249,8 +252,8 @@ func (s *AutoSettlementService) getMatchReason(outgoing models.OutgoingRemittanc
 		}
 		return "📋 FIFO order - created " + outgoing.CreatedAt.Format("Jan 2")
 	case StrategyBestRate:
-		profit := (1/outgoing.BuyRateCAD - 1/incoming.SellRateCAD) * outgoing.RemainingIRR
-		if profit > 100 {
+		profit := (models.NewDecimal(1).Div(outgoing.BuyRateCAD).Sub(models.NewDecimal(1).Div(incoming.SellRateCAD))).Mul(outgoing.RemainingIRR)
+		if profit.GreaterThan(models.NewDecimal(100)) {
 			return "💰 High profit potential"
 		}
 		return "📈 Optimized for profit"
@@ -312,11 +315,4 @@ func (s *AutoSettlementService) GetUnsettledSummary(tenantID uint) (map[string]i
 		"byStatus": results,
 		"byAge":    agingResults,
 	}, nil
-}
-
-func min(a, b float64) float64 {
-	if a < b {
-		return a
-	}
-	return b
 }

@@ -27,20 +27,20 @@ type OutgoingRemittance struct {
 	RecipientAddress *string `gorm:"type:text" json:"recipientAddress"`
 
 	// Amount Info
-	AmountIRR     float64 `gorm:"type:decimal(20,2);not null" json:"amountIrr"`     // Amount in Toman (e.g., 200,000,000)
-	BuyRateCAD    float64 `gorm:"type:decimal(20,6);not null" json:"buyRateCad"`    // Exchange buy rate (e.g., 80,000 Toman/CAD)
-	EquivalentCAD float64 `gorm:"type:decimal(20,2);not null" json:"equivalentCad"` // CAD equivalent = AmountIRR / BuyRateCAD
-	ReceivedCAD   float64 `gorm:"type:decimal(20,2);not null" json:"receivedCad"`   // Amount received from customer in Canada
-	FeeCAD        float64 `gorm:"type:decimal(20,2);default:0" json:"feeCAD"`       // Fee charged in CAD
+	AmountIRR     Decimal `gorm:"type:decimal(20,2);not null" json:"amountIrr"`     // Amount in Toman (e.g., 200,000,000)
+	BuyRateCAD    Decimal `gorm:"type:decimal(20,6);not null" json:"buyRateCad"`    // Exchange buy rate (e.g., 80,000 Toman/CAD)
+	EquivalentCAD Decimal `gorm:"type:decimal(20,2);not null" json:"equivalentCad"` // CAD equivalent = AmountIRR / BuyRateCAD
+	ReceivedCAD   Decimal `gorm:"type:decimal(20,2);not null" json:"receivedCad"`   // Amount received from customer in Canada
+	FeeCAD        Decimal `gorm:"type:decimal(20,2);default:0" json:"feeCAD"`       // Fee charged in CAD
 
 	// Settlement Tracking
-	SettledAmountIRR float64 `gorm:"type:decimal(20,2);default:0" json:"settledAmountIrr"`                                               // How much has been settled
-	RemainingIRR     float64 `gorm:"type:decimal(20,2);not null;index:idx_outgoing_tenant_remaining" json:"remainingIrr"`                // Remaining debt
+	SettledAmountIRR Decimal `gorm:"type:decimal(20,2);default:0" json:"settledAmountIrr"`                                               // How much has been settled
+	RemainingIRR     Decimal `gorm:"type:decimal(20,2);not null;index:idx_outgoing_tenant_remaining" json:"remainingIrr"`                // Remaining debt
 	Status           string  `gorm:"type:varchar(50);not null;default:'PENDING';index:idx_outgoing_tenant_status_created" json:"status"` // PENDING, PARTIAL, COMPLETED, CANCELLED
 
 	// Profit Tracking
-	TotalProfitCAD float64 `gorm:"type:decimal(20,2);default:0" json:"totalProfitCad"` // Total profit from this remittance
-	TotalCostCAD   float64 `gorm:"type:decimal(20,2);not null" json:"totalCostCad"`    // Cost = EquivalentCAD
+	TotalProfitCAD Decimal `gorm:"type:decimal(20,2);default:0" json:"totalProfitCad"` // Total profit from this remittance
+	TotalCostCAD   Decimal `gorm:"type:decimal(20,2);not null" json:"totalCostCad"`    // Cost = EquivalentCAD
 
 	// Additional Info
 	Notes         *string `gorm:"type:text" json:"notes"`
@@ -88,15 +88,15 @@ type IncomingRemittance struct {
 	RecipientAddress *string `gorm:"type:text" json:"recipientAddress"`
 
 	// Amount Info
-	AmountIRR     float64 `gorm:"type:decimal(20,2);not null" json:"amountIrr"`     // Total sent from Iran (e.g., 80,000,000)
-	SellRateCAD   float64 `gorm:"type:decimal(20,6);not null" json:"sellRateCad"`   // Exchange sell rate (e.g., 81,000 Toman/CAD)
-	EquivalentCAD float64 `gorm:"type:decimal(20,2);not null" json:"equivalentCad"` // CAD to pay = AmountIRR / SellRateCAD
-	PaidCAD       float64 `gorm:"type:decimal(20,2);default:0" json:"paidCad"`      // Amount paid to recipient
-	FeeCAD        float64 `gorm:"type:decimal(20,2);default:0" json:"feeCAD"`       // Fee charged
+	AmountIRR     Decimal `gorm:"type:decimal(20,2);not null" json:"amountIrr"`     // Total sent from Iran (e.g., 80,000,000)
+	SellRateCAD   Decimal `gorm:"type:decimal(20,6);not null" json:"sellRateCad"`   // Exchange sell rate (e.g., 81,000 Toman/CAD)
+	EquivalentCAD Decimal `gorm:"type:decimal(20,2);not null" json:"equivalentCad"` // CAD to pay = AmountIRR / SellRateCAD
+	PaidCAD       Decimal `gorm:"type:decimal(20,2);default:0" json:"paidCad"`      // Amount paid to recipient
+	FeeCAD        Decimal `gorm:"type:decimal(20,2);default:0" json:"feeCAD"`       // Fee charged
 
 	// Settlement Tracking
-	AllocatedIRR float64 `gorm:"type:decimal(20,2);default:0" json:"allocatedIrr"`                                                   // How much allocated to settlements
-	RemainingIRR float64 `gorm:"type:decimal(20,2);not null;index:idx_incoming_tenant_remaining" json:"remainingIrr"`                // Remaining to allocate
+	AllocatedIRR Decimal `gorm:"type:decimal(20,2);default:0" json:"allocatedIrr"`                                                   // How much allocated to settlements
+	RemainingIRR Decimal `gorm:"type:decimal(20,2);not null;index:idx_incoming_tenant_remaining" json:"remainingIrr"`                // Remaining to allocate
 	Status       string  `gorm:"type:varchar(50);not null;default:'PENDING';index:idx_incoming_tenant_status_created" json:"status"` // PENDING, PARTIAL, COMPLETED, PAID, CANCELLED
 
 	// Payment Info
@@ -138,12 +138,12 @@ type RemittanceSettlement struct {
 	IncomingRemittanceID uint `gorm:"type:bigint;not null;index" json:"incomingRemittanceId"` // The incoming used for settlement
 
 	// Settlement Amount
-	SettledAmountIRR float64 `gorm:"type:decimal(20,2);not null" json:"settledAmountIrr"` // Amount in Toman used for settlement
+	SettledAmountIRR Decimal `gorm:"type:decimal(20,2);not null" json:"settledAmountIrr"` // Amount in Toman used for settlement
 
 	// Rate Difference & Profit
-	OutgoingBuyRate  float64 `gorm:"type:decimal(20,6);not null" json:"outgoingBuyRate"`  // Buy rate of outgoing
-	IncomingSellRate float64 `gorm:"type:decimal(20,6);not null" json:"incomingSellRate"` // Sell rate of incoming
-	ProfitCAD        float64 `gorm:"type:decimal(20,2);not null" json:"profitCad"`        // Profit from this settlement
+	OutgoingBuyRate  Decimal `gorm:"type:decimal(20,6);not null" json:"outgoingBuyRate"`  // Buy rate of outgoing
+	IncomingSellRate Decimal `gorm:"type:decimal(20,6);not null" json:"incomingSellRate"` // Sell rate of incoming
+	ProfitCAD        Decimal `gorm:"type:decimal(20,2);not null" json:"profitCad"`        // Profit from this settlement
 
 	// Metadata
 	Notes     *string   `gorm:"type:text" json:"notes"`

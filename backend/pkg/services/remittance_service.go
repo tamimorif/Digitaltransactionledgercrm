@@ -19,52 +19,98 @@ func NewRemittanceService(db *gorm.DB) *RemittanceService {
 	return &RemittanceService{db: db}
 }
 
+// generateRemittanceCode generates a unique remittance code atomically using FOR UPDATE lock
+// This prevents race conditions where concurrent requests could get the same code
+func (s *RemittanceService) generateRemittanceCode(tx *gorm.DB, tenantID uint, prefix string, model interface{}) (string, error) {
+	var maxCode int64
+
+	// Use raw SQL with FOR UPDATE to lock and get max code atomically
+	// Extract the numeric portion from existing codes and find the max
+	var result struct {
+		MaxNum int64
+	}
+
+	tableName := ""
+	switch model.(type) {
+	case *models.OutgoingRemittance:
+		tableName = "outgoing_remittances"
+	case *models.IncomingRemittance:
+		tableName = "incoming_remittances"
+	default:
+		return "", errors.New("unknown remittance type")
+	}
+
+	// Get the max code number with lock to prevent race conditions
+	err := tx.Raw(fmt.Sprintf(`
+		SELECT COALESCE(MAX(CAST(SUBSTR(remittance_code, LENGTH(?) + 2) AS INTEGER)), 0) as max_num 
+		FROM %s 
+		WHERE tenant_id = ? AND remittance_code LIKE ?
+	`, tableName), prefix, tenantID, prefix+"-%").Scan(&result).Error
+
+	if err != nil {
+		return "", err
+	}
+
+	maxCode = result.MaxNum + 1
+	return fmt.Sprintf("%s-%06d", prefix, maxCode), nil
+}
+
 // CreateOutgoingRemittance creates a new outgoing remittance (Canada to Iran)
 func (s *RemittanceService) CreateOutgoingRemittance(req *models.OutgoingRemittance) error {
 	// Calculate equivalent CAD
-	if req.BuyRateCAD <= 0 {
+	if req.BuyRateCAD.LessThanOrEqual(models.Zero()) {
 		return errors.New("buy rate must be greater than 0")
 	}
 
-	req.EquivalentCAD = req.AmountIRR / req.BuyRateCAD
+	req.EquivalentCAD = req.AmountIRR.Div(req.BuyRateCAD)
 	req.TotalCostCAD = req.EquivalentCAD
 	req.RemainingIRR = req.AmountIRR
-	req.SettledAmountIRR = 0
-	req.TotalProfitCAD = 0
+	req.SettledAmountIRR = models.Zero()
+	req.TotalProfitCAD = models.Zero()
 	req.Status = models.RemittanceStatusPending
 
-	// Generate unique code
-	var count int64
-	s.db.Model(&models.OutgoingRemittance{}).Where("tenant_id = ?", req.TenantID).Count(&count)
-	req.RemittanceCode = fmt.Sprintf("OUT-%06d", count+1)
+	// Use transaction for atomic code generation and creation
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Generate unique code atomically
+		code, err := s.generateRemittanceCode(tx, req.TenantID, "OUT", req)
+		if err != nil {
+			return fmt.Errorf("failed to generate remittance code: %w", err)
+		}
+		req.RemittanceCode = code
 
-	return s.db.Create(req).Error
+		return tx.Create(req).Error
+	})
 }
 
 // CreateIncomingRemittance creates a new incoming remittance (Iran to Canada)
 func (s *RemittanceService) CreateIncomingRemittance(req *models.IncomingRemittance) error {
 	// Calculate equivalent CAD
-	if req.SellRateCAD <= 0 {
+	if req.SellRateCAD.LessThanOrEqual(models.Zero()) {
 		return errors.New("sell rate must be greater than 0")
 	}
 
-	req.EquivalentCAD = req.AmountIRR / req.SellRateCAD
+	req.EquivalentCAD = req.AmountIRR.Div(req.SellRateCAD)
 	req.RemainingIRR = req.AmountIRR
-	req.AllocatedIRR = 0
-	req.PaidCAD = 0
+	req.AllocatedIRR = models.Zero()
+	req.PaidCAD = models.Zero()
 	req.Status = models.RemittanceStatusPending
 
-	// Generate unique code
-	var count int64
-	s.db.Model(&models.IncomingRemittance{}).Where("tenant_id = ?", req.TenantID).Count(&count)
-	req.RemittanceCode = fmt.Sprintf("IN-%06d", count+1)
+	// Use transaction for atomic code generation and creation
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Generate unique code atomically
+		code, err := s.generateRemittanceCode(tx, req.TenantID, "IN", req)
+		if err != nil {
+			return fmt.Errorf("failed to generate remittance code: %w", err)
+		}
+		req.RemittanceCode = code
 
-	return s.db.Create(req).Error
+		return tx.Create(req).Error
+	})
 }
 
 // SettleRemittance creates a settlement between incoming and outgoing remittances
 // This is the core function that handles multi-part settlements
-func (s *RemittanceService) SettleRemittance(tenantID, outgoingID, incomingID uint, amountIRR float64, userID uint) (*models.RemittanceSettlement, error) {
+func (s *RemittanceService) SettleRemittance(tenantID, outgoingID, incomingID uint, amountIRR models.Decimal, userID uint) (*models.RemittanceSettlement, error) {
 	var outgoing models.OutgoingRemittance
 	var incoming models.IncomingRemittance
 
@@ -93,27 +139,27 @@ func (s *RemittanceService) SettleRemittance(tenantID, outgoingID, incomingID ui
 	}
 
 	// Validate settlement amount
-	if amountIRR <= 0 {
+	if amountIRR.LessThanOrEqual(models.Zero()) {
 		tx.Rollback()
 		return nil, errors.New("settlement amount must be greater than 0")
 	}
 
-	if amountIRR > outgoing.RemainingIRR {
+	if amountIRR.GreaterThan(outgoing.RemainingIRR) {
 		tx.Rollback()
-		return nil, fmt.Errorf("settlement amount (%f) exceeds remaining debt (%f)", amountIRR, outgoing.RemainingIRR)
+		return nil, fmt.Errorf("settlement amount (%s) exceeds remaining debt (%s)", amountIRR.String(), outgoing.RemainingIRR.String())
 	}
 
-	if amountIRR > incoming.RemainingIRR {
+	if amountIRR.GreaterThan(incoming.RemainingIRR) {
 		tx.Rollback()
-		return nil, fmt.Errorf("settlement amount (%f) exceeds incoming remaining (%f)", amountIRR, incoming.RemainingIRR)
+		return nil, fmt.Errorf("settlement amount (%s) exceeds incoming remaining (%s)", amountIRR.String(), incoming.RemainingIRR.String())
 	}
 
 	// Calculate profit from this settlement
 	// Profit = Settlement Amount / Sell Rate - Settlement Amount / Buy Rate
 	// Or: Settlement Amount * (1/Sell Rate - 1/Buy Rate)
-	costCAD := amountIRR / outgoing.BuyRateCAD
-	revenueCAD := amountIRR / incoming.SellRateCAD
-	profit := costCAD - revenueCAD // Profit = What we spent (cost) - What we received (revenue from settlement)
+	costCAD := amountIRR.Div(outgoing.BuyRateCAD)
+	revenueCAD := amountIRR.Div(incoming.SellRateCAD)
+	profit := costCAD.Sub(revenueCAD) // Profit = What we spent (cost) - What we received (revenue from settlement)
 
 	// Create settlement record
 	settlement := &models.RemittanceSettlement{
@@ -133,15 +179,16 @@ func (s *RemittanceService) SettleRemittance(tenantID, outgoingID, incomingID ui
 	}
 
 	// Update outgoing remittance
-	outgoing.SettledAmountIRR += amountIRR
-	outgoing.RemainingIRR -= amountIRR
-	outgoing.TotalProfitCAD += profit
+	outgoing.SettledAmountIRR = outgoing.SettledAmountIRR.Add(amountIRR)
+	outgoing.RemainingIRR = outgoing.RemainingIRR.Sub(amountIRR)
+	outgoing.TotalProfitCAD = outgoing.TotalProfitCAD.Add(profit)
 
-	if outgoing.RemainingIRR <= 0.01 { // Allow small floating point error
+	threshold := models.NewDecimal(0.01)
+	if outgoing.RemainingIRR.LessThanOrEqual(threshold) {
 		outgoing.Status = models.RemittanceStatusCompleted
 		now := time.Now()
 		outgoing.CompletedAt = &now
-	} else if outgoing.SettledAmountIRR > 0 {
+	} else if outgoing.SettledAmountIRR.GreaterThan(models.Zero()) {
 		outgoing.Status = models.RemittanceStatusPartial
 	}
 
@@ -151,12 +198,12 @@ func (s *RemittanceService) SettleRemittance(tenantID, outgoingID, incomingID ui
 	}
 
 	// Update incoming remittance
-	incoming.AllocatedIRR += amountIRR
-	incoming.RemainingIRR -= amountIRR
+	incoming.AllocatedIRR = incoming.AllocatedIRR.Add(amountIRR)
+	incoming.RemainingIRR = incoming.RemainingIRR.Sub(amountIRR)
 
-	if incoming.RemainingIRR <= 0.01 { // Allow small floating point error
+	if incoming.RemainingIRR.LessThanOrEqual(threshold) {
 		incoming.Status = models.RemittanceStatusCompleted
-	} else if incoming.AllocatedIRR > 0 {
+	} else if incoming.AllocatedIRR.GreaterThan(models.Zero()) {
 		incoming.Status = models.RemittanceStatusPartial
 	}
 
@@ -256,7 +303,8 @@ func (s *RemittanceService) MarkIncomingAsPaid(tenantID, id, userID uint, paymen
 		return err
 	}
 
-	if incoming.RemainingIRR > 0.01 {
+	threshold := models.NewDecimal(0.01)
+	if incoming.RemainingIRR.GreaterThan(threshold) {
 		return errors.New("cannot mark as paid: remittance not fully allocated")
 	}
 
@@ -281,7 +329,7 @@ func (s *RemittanceService) CancelOutgoingRemittance(tenantID, id, userID uint, 
 		return err
 	}
 
-	if outgoing.SettledAmountIRR > 0 {
+	if outgoing.SettledAmountIRR.GreaterThan(models.Zero()) {
 		return errors.New("cannot cancel: remittance has been partially or fully settled")
 	}
 
@@ -302,7 +350,7 @@ func (s *RemittanceService) CancelIncomingRemittance(tenantID, id, userID uint, 
 		return err
 	}
 
-	if incoming.AllocatedIRR > 0 {
+	if incoming.AllocatedIRR.GreaterThan(models.Zero()) {
 		return errors.New("cannot cancel: remittance has been partially or fully allocated")
 	}
 
@@ -332,19 +380,19 @@ func (s *RemittanceService) GetRemittanceProfitSummary(tenantID uint, startDate,
 		return nil, err
 	}
 
-	totalProfit := 0.0
+	totalProfit := models.Zero()
 	totalSettlements := len(settlements)
 
 	for _, settlement := range settlements {
-		totalProfit += settlement.ProfitCAD
+		totalProfit = totalProfit.Add(settlement.ProfitCAD)
 	}
 
 	return map[string]interface{}{
-		"totalProfitCAD":   totalProfit,
+		"totalProfitCAD":   totalProfit.Float64(),
 		"totalSettlements": totalSettlements,
 		"averageProfitCAD": func() float64 {
 			if totalSettlements > 0 {
-				return totalProfit / float64(totalSettlements)
+				return totalProfit.Float64() / float64(totalSettlements)
 			}
 			return 0
 		}(),

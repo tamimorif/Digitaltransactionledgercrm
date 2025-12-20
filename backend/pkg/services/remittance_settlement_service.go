@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type RemittanceSettlementService struct {
@@ -20,7 +21,7 @@ func (s *RemittanceSettlementService) CreateSettlement(
 	tenantID uint,
 	outgoingRemittanceID uint,
 	incomingRemittanceID uint,
-	settlementAmount float64,
+	settlementAmount models.Decimal,
 	notes string,
 	settledBy uint,
 ) (*models.RemittanceSettlement, error) {
@@ -33,22 +34,22 @@ func (s *RemittanceSettlementService) CreateSettlement(
 		}
 	}()
 
-	// Get outgoing remittance
+	// Get outgoing remittance with FOR UPDATE lock to prevent race conditions
 	var outgoing models.OutgoingRemittance
-	if err := tx.Where("id = ? AND tenant_id = ?", outgoingRemittanceID, tenantID).First(&outgoing).Error; err != nil {
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND tenant_id = ?", outgoingRemittanceID, tenantID).First(&outgoing).Error; err != nil {
 		tx.Rollback()
 		return nil, errors.New("outgoing remittance not found")
 	}
 
-	// Get incoming remittance
+	// Get incoming remittance with FOR UPDATE lock to prevent race conditions
 	var incoming models.IncomingRemittance
-	if err := tx.Where("id = ? AND tenant_id = ?", incomingRemittanceID, tenantID).First(&incoming).Error; err != nil {
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND tenant_id = ?", incomingRemittanceID, tenantID).First(&incoming).Error; err != nil {
 		tx.Rollback()
 		return nil, errors.New("incoming remittance not found")
 	}
 
 	// Validate currencies match
-	if outgoing.AmountIRR <= 0 || incoming.AmountIRR <= 0 {
+	if outgoing.AmountIRR.LessThanOrEqual(models.Zero()) || incoming.AmountIRR.LessThanOrEqual(models.Zero()) {
 		tx.Rollback()
 		return nil, errors.New("invalid remittance amounts")
 	}
@@ -57,12 +58,12 @@ func (s *RemittanceSettlementService) CreateSettlement(
 	outgoingRemaining := outgoing.RemainingIRR
 
 	// Validate settlement amount
-	if settlementAmount > outgoingRemaining {
+	if settlementAmount.GreaterThan(outgoingRemaining) {
 		tx.Rollback()
 		return nil, errors.New("settlement amount exceeds outgoing remaining balance")
 	}
 
-	if settlementAmount > incoming.RemainingIRR {
+	if settlementAmount.GreaterThan(incoming.RemainingIRR) {
 		tx.Rollback()
 		return nil, errors.New("settlement amount exceeds incoming remaining balance")
 	}
@@ -75,9 +76,9 @@ func (s *RemittanceSettlementService) CreateSettlement(
 	// Cost (what we owe): settlementAmount / buyRate
 	// Revenue (what we give): settlementAmount / sellRate
 	// Profit = cost - revenue
-	cost := settlementAmount / outgoingBuyRate
-	revenue := settlementAmount / incomingSellRate
-	profitCAD := cost - revenue
+	cost := settlementAmount.Div(outgoingBuyRate)
+	revenue := settlementAmount.Div(incomingSellRate)
+	profitCAD := cost.Sub(revenue)
 
 	//Convert to pointer for notes
 	var notesPtr *string
@@ -104,20 +105,21 @@ func (s *RemittanceSettlementService) CreateSettlement(
 	}
 
 	// Update outgoing remittance
-	newSettledAmount := outgoing.SettledAmountIRR + settlementAmount
-	newRemainingAmount := outgoing.AmountIRR - newSettledAmount
+	newSettledAmount := outgoing.SettledAmountIRR.Add(settlementAmount)
+	newRemainingAmount := outgoing.AmountIRR.Sub(newSettledAmount)
 
+	threshold := models.NewDecimal(0.01)
 	settlementStatus := "PARTIAL"
-	if newRemainingAmount <= 0.001 { // Consider settled if remaining < 0.001
+	if newRemainingAmount.LessThanOrEqual(threshold) { // Standardized threshold: Consider settled if remaining < 0.01
 		settlementStatus = "COMPLETED"
-		newRemainingAmount = 0
+		newRemainingAmount = models.Zero()
 	}
 
 	outgoingUpdates := map[string]interface{}{
 		"settled_amount_irr": newSettledAmount,
 		"remaining_irr":      newRemainingAmount,
 		"status":             settlementStatus,
-		"total_profit_cad":   outgoing.TotalProfitCAD + profitCAD,
+		"total_profit_cad":   outgoing.TotalProfitCAD.Add(profitCAD),
 	}
 
 	if err := tx.Model(&models.OutgoingRemittance{}).Where("id = ?", outgoingRemittanceID).Updates(outgoingUpdates).Error; err != nil {
@@ -126,13 +128,13 @@ func (s *RemittanceSettlementService) CreateSettlement(
 	}
 
 	// Update incoming remittance
-	newAllocatedIRR := incoming.AllocatedIRR + settlementAmount
-	newIncomingRemaining := incoming.AmountIRR - newAllocatedIRR
+	newAllocatedIRR := incoming.AllocatedIRR.Add(settlementAmount)
+	newIncomingRemaining := incoming.AmountIRR.Sub(newAllocatedIRR)
 
 	incomingStatus := "PARTIAL"
-	if newIncomingRemaining <= 0.001 {
+	if newIncomingRemaining.LessThanOrEqual(threshold) { // Standardized threshold
 		incomingStatus = "COMPLETED"
-		newIncomingRemaining = 0
+		newIncomingRemaining = models.Zero()
 	}
 
 	incomingUpdates := map[string]interface{}{
