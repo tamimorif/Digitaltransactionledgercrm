@@ -54,6 +54,7 @@ yarn-error.log*
 **/playwright-report/
 **/blob-report/
 **/.playwright/
+**/e2e-results.json
 
 # --- IDEs and System Files ---
 .vscode/
