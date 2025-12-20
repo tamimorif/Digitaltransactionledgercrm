@@ -1,61 +1,22 @@
-# Editor/IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Operating system
-.DS_Store
-**/.DS_Store
-Thumbs.db
-
-# Dependencies
+# --- Dependencies ---
 node_modules/
 frontend/node_modules/
-/.pnp
+backend/vendor/
+.pnp
 .pnp.js
 .yarn/install-state.gz
 
-# Testing
-/coverage
-
-# Next.js
+# --- Next.js / Frontend ---
 .next/
 frontend/.next/
-/out/
-
-# Production builds
-/build
-
-# Misc
-*.pem
-
-# Debug and logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-*.log
-server.log
-
-# Local env files
-.env*.local
-.env
-
-# SQLite/local databases
-*.db
-*.db-journal
-dev.db
-dev.db-journal
-transactions.db
-
-# Vercel
-.vercel
-
-# TypeScript
+out/
+build/
+frontend/build/
 *.tsbuildinfo
 next-env.d.ts
 
-# Go compiled binaries
+# --- Go / Backend ---
+# Compiled binaries
 backend/server
 backend/server_new
 backend/main
@@ -64,3 +25,42 @@ backend/*.exe
 backend/activate_branches
 backend/debug_rates
 backend/hash_password
+
+# Test and Coverage artifacts
+*.test
+*.out
+backend/*.test
+backend/*.out
+coverage/
+
+# --- Databases (Local Dev) ---
+*.db
+*.db-journal
+transactions.db
+dev.db
+dev.db-journal
+
+# --- Environment and Logs ---
+.env
+.env*.local
+*.log
+server.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Testing (Playwright) ---
+**/test-results/
+**/playwright-report/
+**/blob-report/
+**/.playwright/
+
+# --- IDEs and System Files ---
+.vscode/
+.idea/
+.vercel
+*.pem
+.DS_Store
+**/.DS_Store
+Thumbs.db
+desktop.ini
