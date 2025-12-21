@@ -75,27 +75,28 @@ export function getLastRate(fromCurrency: string, toCurrency: string): string | 
     return history.length > 0 ? history[0].rate : null;
 }
 
-export interface Transaction {
+// Base type for duplicate detection - accepts any object with these required fields
+export interface DuplicateCheckableTransaction {
     createdAt: string;
-    amount: string;
+    amount: string | number;
     senderName: string;
     currency: string;
-    [key: string]: string | number | boolean | null; // Allow other properties
 }
 
-export function findDuplicateTransaction(
+export function findDuplicateTransaction<T extends DuplicateCheckableTransaction>(
     senderName: string,
     amount: string,
     currency: string,
-    recentTransactions: Transaction[],
+    recentTransactions: T[],
     timeframeMinutes: number = 10
-): Transaction | undefined {
+): T | undefined {
     const now = new Date();
     const threshold = new Date(now.getTime() - timeframeMinutes * 60000);
 
     return recentTransactions.find(tx => {
         const txDate = new Date(tx.createdAt);
-        const amountMatch = Math.abs(parseFloat(amount) - parseFloat(tx.amount)) < 0.01;
+        const txAmount = typeof tx.amount === 'string' ? parseFloat(tx.amount) : tx.amount;
+        const amountMatch = Math.abs(parseFloat(amount) - txAmount) < 0.01;
         const nameMatch = tx.senderName.toLowerCase() === senderName.toLowerCase();
         const currencyMatch = tx.currency === currency;
         const withinTimeframe = txDate >= threshold;

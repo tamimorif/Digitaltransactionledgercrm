@@ -58,6 +58,7 @@ func NewRouter(db *gorm.DB) http.Handler {
 	receiptHandler := NewReceiptHandler(db)
 	navasanHandler := NewNavasanHandler()
 	transferHandler := NewTransferHandler(transferService)
+	feeHandler := NewFeeHandler(db)
 
 	// =============================================================================
 	// API VERSIONING STRATEGY
@@ -81,8 +82,8 @@ func NewRouter(db *gorm.DB) http.Handler {
 		authV1 := v1.PathPrefix("/auth").Subrouter()
 		authLegacy := legacy.PathPrefix("/auth").Subrouter()
 
-		authV1.Use(middleware.IPRateLimitMiddleware(db, 10, 1*time.Minute))
-		authLegacy.Use(middleware.IPRateLimitMiddleware(db, 10, 1*time.Minute))
+		authV1.Use(middleware.IPRateLimitMiddleware(db, 1000, 1*time.Minute))
+		authLegacy.Use(middleware.IPRateLimitMiddleware(db, 1000, 1*time.Minute))
 
 		for _, authRouter := range []*mux.Router{authV1, authLegacy} {
 			authRouter.HandleFunc("/register", authHandler.RegisterHandler).Methods("POST")
@@ -300,6 +301,61 @@ func NewRouter(db *gorm.DB) http.Handler {
 
 			// WebSocket route (protected)
 			protected.HandleFunc("/ws", wsHandler.ServeWS).Methods("GET")
+
+			// Fee management routes (protected)
+			protected.HandleFunc("/fees/rules", feeHandler.GetAllFeeRulesHandler).Methods("GET")
+			protected.HandleFunc("/fees/rules", feeHandler.CreateFeeRuleHandler).Methods("POST")
+			protected.HandleFunc("/fees/rules/defaults", feeHandler.CreateDefaultRulesHandler).Methods("POST")
+			protected.HandleFunc("/fees/rules/{id}", feeHandler.GetFeeRuleByIDHandler).Methods("GET")
+			protected.HandleFunc("/fees/rules/{id}", feeHandler.UpdateFeeRuleHandler).Methods("PUT")
+			protected.HandleFunc("/fees/rules/{id}", feeHandler.DeleteFeeRuleHandler).Methods("DELETE")
+			protected.HandleFunc("/fees/calculate", feeHandler.CalculateFeeHandler).Methods("POST")
+			protected.HandleFunc("/fees/preview", feeHandler.PreviewFeeHandler).Methods("GET")
+
+			// Compliance management routes (protected)
+			complianceHandler := NewComplianceHandler(db)
+			protected.HandleFunc("/compliance/customer/{customerId}", complianceHandler.GetCustomerComplianceHandler).Methods("GET")
+			protected.HandleFunc("/compliance/check", complianceHandler.CheckTransactionComplianceHandler).Methods("POST")
+			protected.HandleFunc("/compliance/pending", complianceHandler.GetPendingReviewsHandler).Methods("GET")
+			protected.HandleFunc("/compliance/expiring", complianceHandler.GetExpiringComplianceHandler).Methods("GET")
+			protected.HandleFunc("/compliance/{id}/status", complianceHandler.UpdateComplianceStatusHandler).Methods("PUT")
+			protected.HandleFunc("/compliance/{id}/limits", complianceHandler.SetTransactionLimitsHandler).Methods("PUT")
+			protected.HandleFunc("/compliance/{id}/documents", complianceHandler.GetDocumentsHandler).Methods("GET")
+			protected.HandleFunc("/compliance/{id}/documents", complianceHandler.UploadDocumentHandler).Methods("POST")
+			protected.HandleFunc("/compliance/{id}/audit", complianceHandler.GetAuditLogHandler).Methods("GET")
+			protected.HandleFunc("/compliance/{id}/verify", complianceHandler.InitiateVerificationHandler).Methods("POST")
+			protected.HandleFunc("/compliance/{id}/verify/status", complianceHandler.GetVerificationStatusHandler).Methods("GET")
+			protected.HandleFunc("/compliance/documents/{docId}/review", complianceHandler.ReviewDocumentHandler).Methods("PUT")
+
+			// Ticket management routes (protected)
+			ticketHandler := NewTicketHandler(db)
+			protected.HandleFunc("/tickets", ticketHandler.ListTicketsHandler).Methods("GET")
+			protected.HandleFunc("/tickets", ticketHandler.CreateTicketHandler).Methods("POST")
+			protected.HandleFunc("/tickets/stats", ticketHandler.GetTicketStatsHandler).Methods("GET")
+			protected.HandleFunc("/tickets/my", ticketHandler.GetMyTicketsHandler).Methods("GET")
+			protected.HandleFunc("/tickets/search", ticketHandler.SearchTicketsHandler).Methods("GET")
+			protected.HandleFunc("/tickets/quick", ticketHandler.CreateQuickTicketHandler).Methods("POST")
+			protected.HandleFunc("/tickets/{id}", ticketHandler.GetTicketHandler).Methods("GET")
+			protected.HandleFunc("/tickets/{id}/status", ticketHandler.UpdateTicketStatusHandler).Methods("PUT")
+			protected.HandleFunc("/tickets/{id}/priority", ticketHandler.UpdateTicketPriorityHandler).Methods("PUT")
+			protected.HandleFunc("/tickets/{id}/assign", ticketHandler.AssignTicketHandler).Methods("PUT")
+			protected.HandleFunc("/tickets/{id}/messages", ticketHandler.GetMessagesHandler).Methods("GET")
+			protected.HandleFunc("/tickets/{id}/messages", ticketHandler.AddMessageHandler).Methods("POST")
+			protected.HandleFunc("/tickets/{id}/resolve", ticketHandler.ResolveTicketHandler).Methods("POST")
+			protected.HandleFunc("/tickets/{id}/activity", ticketHandler.GetTicketActivityHandler).Methods("GET")
+
+			// Receipt template routes (protected) - uses receiptHandler defined at top
+			protected.HandleFunc("/receipts/templates", receiptHandler.ListTemplatesHandler).Methods("GET")
+			protected.HandleFunc("/receipts/templates", receiptHandler.CreateTemplateHandler).Methods("POST")
+			protected.HandleFunc("/receipts/templates/defaults", receiptHandler.CreateDefaultTemplatesHandler).Methods("POST")
+			protected.HandleFunc("/receipts/templates/{id}", receiptHandler.GetTemplateHandler).Methods("GET")
+			protected.HandleFunc("/receipts/templates/{id}", receiptHandler.UpdateTemplateHandler).Methods("PUT")
+			protected.HandleFunc("/receipts/templates/{id}", receiptHandler.DeleteTemplateHandler).Methods("DELETE")
+			protected.HandleFunc("/receipts/templates/{id}/default", receiptHandler.SetDefaultHandler).Methods("PUT")
+			protected.HandleFunc("/receipts/templates/{id}/duplicate", receiptHandler.DuplicateTemplateHandler).Methods("POST")
+			protected.HandleFunc("/receipts/templates/{id}/preview", receiptHandler.PreviewTemplateHandler).Methods("GET")
+			protected.HandleFunc("/receipts/variables", receiptHandler.GetVariablesHandler).Methods("GET")
+			protected.HandleFunc("/receipts/render", receiptHandler.RenderReceiptHandler).Methods("POST")
 		}
 
 		// ============ SUPER ADMIN ROUTES ============

@@ -409,6 +409,7 @@ func (as *AuthService) GenerateRefreshToken(user *models.User) (string, error) {
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)), // 7 days
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 		Issuer:    "digital-transaction-ledger-refresh",
+		ID:        fmt.Sprintf("%d", rand.Int63()),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

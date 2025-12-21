@@ -140,7 +140,12 @@ func (h *TransferHandler) CancelTransferHandler(w http.ResponseWriter, r *http.R
 // @Success 200 {array} models.Transfer
 // @Router /transfers [get]
 func (h *TransferHandler) GetTransfersHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantIDVal := r.Context().Value("tenantID")
+	if tenantIDVal == nil {
+		http.Error(w, "Unauthorized: No tenant ID found", http.StatusUnauthorized)
+		return
+	}
+	tenantID := tenantIDVal.(uint)
 
 	var branchID *uint
 	if branchIDStr := r.URL.Query().Get("branchId"); branchIDStr != "" {

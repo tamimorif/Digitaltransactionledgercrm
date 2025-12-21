@@ -50,11 +50,11 @@ func TestAutoSettlementService(t *testing.T) {
 			SenderName:     "Sender 1",
 			SenderPhone:    "+1111111111",
 			RecipientName:  "Recipient 1",
-			AmountIRR:      50000000, // 50M
-			BuyRateCAD:     85000,
-			ReceivedCAD:    588.24,
-			RemainingIRR:   50000000,
-			TotalCostCAD:   588.24,
+			AmountIRR:      models.NewDecimal(50000000), // 50M
+			BuyRateCAD:     models.NewDecimal(85000),
+			ReceivedCAD:    models.NewDecimal(588.24),
+			RemainingIRR:   models.NewDecimal(50000000),
+			TotalCostCAD:   models.NewDecimal(588.24),
 			Status:         models.RemittanceStatusPending,
 			CreatedBy:      user.ID,
 		}
@@ -68,11 +68,11 @@ func TestAutoSettlementService(t *testing.T) {
 			SenderName:     "Sender 2",
 			SenderPhone:    "+2222222222",
 			RecipientName:  "Recipient 2",
-			AmountIRR:      30000000, // 30M
-			BuyRateCAD:     84000,
-			ReceivedCAD:    357.14,
-			RemainingIRR:   30000000,
-			TotalCostCAD:   357.14,
+			AmountIRR:      models.NewDecimal(30000000), // 30M
+			BuyRateCAD:     models.NewDecimal(84000),
+			ReceivedCAD:    models.NewDecimal(357.14),
+			RemainingIRR:   models.NewDecimal(30000000),
+			TotalCostCAD:   models.NewDecimal(357.14),
 			Status:         models.RemittanceStatusPending,
 			CreatedBy:      user.ID,
 		}
@@ -85,9 +85,9 @@ func TestAutoSettlementService(t *testing.T) {
 			SenderName:     "Iran Sender",
 			SenderPhone:    "+989121111111",
 			RecipientName:  "Canada Recipient",
-			AmountIRR:      70000000, // 70M - enough to cover first outgoing completely
-			SellRateCAD:    86000,
-			RemainingIRR:   70000000,
+			AmountIRR:      models.NewDecimal(70000000), // 70M - enough to cover first outgoing completely
+			SellRateCAD:    models.NewDecimal(86000),
+			RemainingIRR:   models.NewDecimal(70000000),
 			Status:         models.RemittanceStatusPending,
 			CreatedBy:      user.ID,
 		}
@@ -128,11 +128,11 @@ func TestAutoSettlementService(t *testing.T) {
 			SenderName:     "Auto Sender",
 			SenderPhone:    "+3333333333",
 			RecipientName:  "Auto Recipient",
-			AmountIRR:      100000000, // 100M
-			BuyRateCAD:     85000,
-			ReceivedCAD:    1176.47,
-			RemainingIRR:   100000000,
-			TotalCostCAD:   1176.47,
+			AmountIRR:      models.NewDecimal(100000000), // 100M
+			BuyRateCAD:     models.NewDecimal(85000),
+			ReceivedCAD:    models.NewDecimal(1176.47),
+			RemainingIRR:   models.NewDecimal(100000000),
+			TotalCostCAD:   models.NewDecimal(1176.47),
 			Status:         models.RemittanceStatusPending,
 			CreatedBy:      user.ID,
 		}
@@ -145,9 +145,9 @@ func TestAutoSettlementService(t *testing.T) {
 			SenderName:     "Auto Iran Sender",
 			SenderPhone:    "+989122222222",
 			RecipientName:  "Auto Canada Recipient",
-			AmountIRR:      100000000, // 100M
-			SellRateCAD:    86000,
-			RemainingIRR:   100000000,
+			AmountIRR:      models.NewDecimal(100000000), // 100M
+			SellRateCAD:    models.NewDecimal(86000),
+			RemainingIRR:   models.NewDecimal(100000000),
 			Status:         models.RemittanceStatusPending,
 			CreatedBy:      user.ID,
 		}
@@ -237,11 +237,11 @@ func TestProfitAnalysisService(t *testing.T) {
 		SenderName:     "Profit Sender",
 		SenderPhone:    "+4444444444",
 		RecipientName:  "Profit Recipient",
-		AmountIRR:      100000000,
-		BuyRateCAD:     80000,
-		ReceivedCAD:    1250.00,
-		RemainingIRR:   100000000,
-		TotalCostCAD:   1250.00,
+		AmountIRR:      models.NewDecimal(100000000),
+		BuyRateCAD:     models.NewDecimal(80000),
+		ReceivedCAD:    models.NewDecimal(1250.00),
+		RemainingIRR:   models.NewDecimal(100000000),
+		TotalCostCAD:   models.NewDecimal(1250.00),
 		Status:         models.RemittanceStatusPending,
 		CreatedBy:      user.ID,
 	}
@@ -253,9 +253,9 @@ func TestProfitAnalysisService(t *testing.T) {
 		SenderName:     "Profit Iran Sender",
 		SenderPhone:    "+989123333333",
 		RecipientName:  "Profit Canada Recipient",
-		AmountIRR:      100000000,
-		SellRateCAD:    81000,
-		RemainingIRR:   100000000,
+		AmountIRR:      models.NewDecimal(100000000),
+		SellRateCAD:    models.NewDecimal(81000),
+		RemainingIRR:   models.NewDecimal(100000000),
 		Status:         models.RemittanceStatusPending,
 		CreatedBy:      user.ID,
 	}
@@ -294,7 +294,7 @@ func TestProfitAnalysisService(t *testing.T) {
 	db.Create(txn)
 
 	// Settle
-	remittanceService.SettleRemittance(tenant.ID, outgoing.ID, incoming.ID, 100000000, user.ID)
+	remittanceService.SettleRemittance(tenant.ID, outgoing.ID, incoming.ID, models.NewDecimal(100000000), user.ID)
 
 	t.Run("GetProfitAnalysis", func(t *testing.T) {
 		startDate := time.Now().AddDate(0, -1, 0)
@@ -434,11 +434,11 @@ func TestSettlementEdgeCases(t *testing.T) {
 			SenderName:     "Exact Sender",
 			SenderPhone:    "+5555555555",
 			RecipientName:  "Exact Recipient",
-			AmountIRR:      100000000,
-			BuyRateCAD:     80000,
-			ReceivedCAD:    1250.00,
-			RemainingIRR:   100000000,
-			TotalCostCAD:   1250.00,
+			AmountIRR:      models.NewDecimal(100000000),
+			BuyRateCAD:     models.NewDecimal(80000),
+			ReceivedCAD:    models.NewDecimal(1250.00),
+			RemainingIRR:   models.NewDecimal(100000000),
+			TotalCostCAD:   models.NewDecimal(1250.00),
 			Status:         models.RemittanceStatusPending,
 			CreatedBy:      user.ID,
 		}
@@ -450,16 +450,16 @@ func TestSettlementEdgeCases(t *testing.T) {
 			SenderName:     "Exact Iran",
 			SenderPhone:    "+989124444444",
 			RecipientName:  "Exact Canada",
-			AmountIRR:      100000000, // Exact same amount
-			SellRateCAD:    81000,
-			RemainingIRR:   100000000,
+			AmountIRR:      models.NewDecimal(100000000), // Exact same amount
+			SellRateCAD:    models.NewDecimal(81000),
+			RemainingIRR:   models.NewDecimal(100000000),
 			Status:         models.RemittanceStatusPending,
 			CreatedBy:      user.ID,
 		}
 		service.CreateIncomingRemittance(incoming)
 
 		// Settle exact amount
-		settlement, err := service.SettleRemittance(tenant.ID, outgoing.ID, incoming.ID, 100000000, user.ID)
+		settlement, err := service.SettleRemittance(tenant.ID, outgoing.ID, incoming.ID, models.NewDecimal(100000000), user.ID)
 		if err != nil {
 			t.Fatalf("Settlement failed: %v", err)
 		}
@@ -490,11 +490,11 @@ func TestSettlementEdgeCases(t *testing.T) {
 			SenderName:     "Small Sender",
 			SenderPhone:    "+6666666666",
 			RecipientName:  "Small Recipient",
-			AmountIRR:      100000000,
-			BuyRateCAD:     80000,
-			ReceivedCAD:    1250.00,
-			RemainingIRR:   100000000,
-			TotalCostCAD:   1250.00,
+			AmountIRR:      models.NewDecimal(100000000),
+			BuyRateCAD:     models.NewDecimal(80000),
+			ReceivedCAD:    models.NewDecimal(1250.00),
+			RemainingIRR:   models.NewDecimal(100000000),
+			TotalCostCAD:   models.NewDecimal(1250.00),
 			Status:         models.RemittanceStatusPending,
 			CreatedBy:      user.ID,
 		}
@@ -506,16 +506,16 @@ func TestSettlementEdgeCases(t *testing.T) {
 			SenderName:     "Small Iran",
 			SenderPhone:    "+989125555555",
 			RecipientName:  "Small Canada",
-			AmountIRR:      100000000.005, // Slightly more due to floating point
-			SellRateCAD:    81000,
-			RemainingIRR:   100000000.005,
+			AmountIRR:      models.NewDecimal(100000000.005), // Slightly more due to floating point
+			SellRateCAD:    models.NewDecimal(81000),
+			RemainingIRR:   models.NewDecimal(100000000.005),
 			Status:         models.RemittanceStatusPending,
 			CreatedBy:      user.ID,
 		}
 		service.CreateIncomingRemittance(incoming)
 
 		// Settle the full outgoing amount
-		_, err := service.SettleRemittance(tenant.ID, outgoing.ID, incoming.ID, 100000000, user.ID)
+		_, err := service.SettleRemittance(tenant.ID, outgoing.ID, incoming.ID, models.NewDecimal(100000000), user.ID)
 		if err != nil {
 			t.Fatalf("Settlement failed: %v", err)
 		}
@@ -524,8 +524,8 @@ func TestSettlementEdgeCases(t *testing.T) {
 		db.First(&updatedOutgoing, outgoing.ID)
 
 		// Should be completed (remaining should be ~0)
-		if updatedOutgoing.RemainingIRR > 0.01 {
-			t.Errorf("Expected remaining ~0, got %f", updatedOutgoing.RemainingIRR)
+		if updatedOutgoing.RemainingIRR.Float64() > 0.01 {
+			t.Errorf("Expected remaining ~0, got %f", updatedOutgoing.RemainingIRR.Float64())
 		}
 	})
 }

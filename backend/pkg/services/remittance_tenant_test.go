@@ -111,10 +111,10 @@ func TestRemittanceWithTenantUser(t *testing.T) {
 		RecipientIBAN:    testStringPtr("IR820540102680020817909002"),
 		RecipientBank:    testStringPtr("بانک ملت"),
 		RecipientAddress: testStringPtr("تهران، خیابان ولیعصر، پلاک 123"),
-		AmountIRR:        500000000, // 500 Million Toman
-		BuyRateCAD:       84000,     // Buy at 84,000 per CAD
-		ReceivedCAD:      5952.38,   // 500M / 84,000
-		FeeCAD:           30,
+		AmountIRR:        models.NewDecimal(500000000), // 500 Million Toman
+		BuyRateCAD:       models.NewDecimal(84000),     // Buy at 84,000 per CAD
+		ReceivedCAD:      models.NewDecimal(5952.38),   // 500M / 84,000
+		FeeCAD:           models.NewDecimal(30),
 		Notes:            testStringPtr("Monthly family support - December 2024"),
 		CreatedBy:        owner.ID,
 	}
@@ -130,9 +130,9 @@ func TestRemittanceWithTenantUser(t *testing.T) {
 	fmt.Printf("   🏦 Bank: %s\n", *outgoing.RecipientBank)
 	fmt.Printf("   💰 Amount: 500,000,000 Toman\n")
 	fmt.Printf("   📊 Buy Rate: 84,000 Toman/CAD\n")
-	fmt.Printf("   💵 Equivalent: %.2f CAD\n", outgoing.EquivalentCAD)
-	fmt.Printf("   💸 Received from Customer: %.2f CAD\n", outgoing.ReceivedCAD)
-	fmt.Printf("   🏷️  Fee: %.2f CAD\n", outgoing.FeeCAD)
+	fmt.Printf("   💵 Equivalent: %.2f CAD\n", outgoing.EquivalentCAD.Float64())
+	fmt.Printf("   💸 Received from Customer: %.2f CAD\n", outgoing.ReceivedCAD.Float64())
+	fmt.Printf("   🏷️  Fee: %.2f CAD\n", outgoing.FeeCAD.Float64())
 	fmt.Printf("   📝 Status: %s\n", outgoing.Status)
 	fmt.Printf("   📍 Branch: %s\n", branch.Name)
 
@@ -140,8 +140,8 @@ func TestRemittanceWithTenantUser(t *testing.T) {
 	if outgoing.Status != models.RemittanceStatusPending {
 		t.Errorf("Expected status PENDING, got %s", outgoing.Status)
 	}
-	if outgoing.RemainingIRR != 500000000 {
-		t.Errorf("Expected remaining 500M, got %.0f", outgoing.RemainingIRR)
+	if outgoing.RemainingIRR.Float64() != 500000000.0 {
+		t.Errorf("Expected remaining 500M, got %.0f", outgoing.RemainingIRR.Float64())
 	}
 
 	// Settlement 1: 200M Toman
@@ -156,9 +156,9 @@ func TestRemittanceWithTenantUser(t *testing.T) {
 		RecipientName:  "Jennifer Lee",
 		RecipientPhone: testStringPtr("+16475559876"),
 		RecipientEmail: testStringPtr("jennifer@example.com"),
-		AmountIRR:      200000000, // 200 Million Toman
-		SellRateCAD:    85500,     // Sell at 85,500 per CAD
-		FeeCAD:         15,
+		AmountIRR:      models.NewDecimal(200000000), // 200 Million Toman
+		SellRateCAD:    models.NewDecimal(85500),     // Sell at 85,500 per CAD
+		FeeCAD:         models.NewDecimal(15),
 		Notes:          testStringPtr("Student tuition payment"),
 		CreatedBy:      owner.ID,
 	}
@@ -173,22 +173,22 @@ func TestRemittanceWithTenantUser(t *testing.T) {
 	fmt.Printf("   👥 Recipient: %s\n", incoming1.RecipientName)
 	fmt.Printf("   💰 Amount: 200,000,000 Toman\n")
 	fmt.Printf("   📊 Sell Rate: 85,500 Toman/CAD\n")
-	fmt.Printf("   💵 To Pay Customer: %.2f CAD\n", incoming1.EquivalentCAD)
+	fmt.Printf("   💵 To Pay Customer: %.2f CAD\n", incoming1.EquivalentCAD.Float64())
 
 	fmt.Println("\n🔗 Settling 200M Toman")
-	settlement1, err := service.SettleRemittance(tenant.ID, outgoing.ID, incoming1.ID, 200000000, owner.ID)
+	settlement1, err := service.SettleRemittance(tenant.ID, outgoing.ID, incoming1.ID, models.NewDecimal(200000000), owner.ID)
 	if err != nil {
 		t.Fatalf("❌ Failed to settle: %v", err)
 	}
 
 	fmt.Printf("   ✅ Settlement #1 Created\n")
 	fmt.Printf("   💰 Settled: 200,000,000 Toman\n")
-	fmt.Printf("   💵 Profit: %.2f CAD\n", settlement1.ProfitCAD)
+	fmt.Printf("   💵 Profit: %.2f CAD\n", settlement1.ProfitCAD.Float64())
 	fmt.Printf("   📊 Calculation:\n")
 	fmt.Printf("      Cost: 200M / 84,000 = %.2f CAD\n", 200000000.0/84000.0)
 	fmt.Printf("      Revenue: 200M / 85,500 = %.2f CAD\n", 200000000.0/85500.0)
 	fmt.Printf("      Profit: %.2f - %.2f = %.2f CAD\n",
-		200000000.0/84000.0, 200000000.0/85500.0, settlement1.ProfitCAD)
+		200000000.0/84000.0, 200000000.0/85500.0, settlement1.ProfitCAD.Float64())
 
 	// Settlement 2: 250M Toman
 	fmt.Println("\n📥 Creating Second Incoming (250M Toman)")
@@ -198,9 +198,9 @@ func TestRemittanceWithTenantUser(t *testing.T) {
 		SenderName:    "سارا احمدی",
 		SenderPhone:   "+989129876543",
 		RecipientName: "Robert Smith",
-		AmountIRR:     250000000,
-		SellRateCAD:   85500,
-		FeeCAD:        18,
+		AmountIRR:     models.NewDecimal(250000000),
+		SellRateCAD:   models.NewDecimal(85500),
+		FeeCAD:        models.NewDecimal(18),
 		CreatedBy:     owner.ID,
 	}
 
@@ -213,13 +213,13 @@ func TestRemittanceWithTenantUser(t *testing.T) {
 	fmt.Printf("   💰 Amount: 250,000,000 Toman\n")
 
 	fmt.Println("\n🔗 Settling 250M Toman")
-	settlement2, err := service.SettleRemittance(tenant.ID, outgoing.ID, incoming2.ID, 250000000, owner.ID)
+	settlement2, err := service.SettleRemittance(tenant.ID, outgoing.ID, incoming2.ID, models.NewDecimal(250000000), owner.ID)
 	if err != nil {
 		t.Fatalf("❌ Failed to settle: %v", err)
 	}
 
 	fmt.Printf("   ✅ Settlement #2 Created\n")
-	fmt.Printf("   💵 Profit: %.2f CAD\n", settlement2.ProfitCAD)
+	fmt.Printf("   💵 Profit: %.2f CAD\n", settlement2.ProfitCAD.Float64())
 
 	// Settlement 3: Final 50M Toman
 	fmt.Println("\n📥 Creating Third Incoming (100M Toman)")
@@ -229,9 +229,9 @@ func TestRemittanceWithTenantUser(t *testing.T) {
 		SenderName:    "حسن رضایی",
 		SenderPhone:   "+989357654321",
 		RecipientName: "Emily Chen",
-		AmountIRR:     100000000,
-		SellRateCAD:   85500,
-		FeeCAD:        10,
+		AmountIRR:     models.NewDecimal(100000000),
+		SellRateCAD:   models.NewDecimal(85500),
+		FeeCAD:        models.NewDecimal(10),
 		CreatedBy:     owner.ID,
 	}
 
@@ -244,13 +244,13 @@ func TestRemittanceWithTenantUser(t *testing.T) {
 	fmt.Printf("   💰 Amount: 100,000,000 Toman\n")
 
 	fmt.Println("\n🔗 Settling Final 50M Toman (Completes Outgoing)")
-	settlement3, err := service.SettleRemittance(tenant.ID, outgoing.ID, incoming3.ID, 50000000, owner.ID)
+	settlement3, err := service.SettleRemittance(tenant.ID, outgoing.ID, incoming3.ID, models.NewDecimal(50000000), owner.ID)
 	if err != nil {
 		t.Fatalf("❌ Failed to settle: %v", err)
 	}
 
 	fmt.Printf("   ✅ Final Settlement #3 Created\n")
-	fmt.Printf("   💵 Profit: %.2f CAD\n", settlement3.ProfitCAD)
+	fmt.Printf("   💵 Profit: %.2f CAD\n", settlement3.ProfitCAD.Float64())
 	fmt.Printf("   🎉 Outgoing COMPLETED\n")
 	fmt.Printf("   📊 Incoming #3 has 50M Toman remaining\n")
 
@@ -266,18 +266,18 @@ func TestRemittanceWithTenantUser(t *testing.T) {
 	fmt.Printf("\n✅ Outgoing Remittance: %s\n", outgoingDetails.RemittanceCode)
 	fmt.Printf("   Status: %s\n", outgoingDetails.Status)
 	fmt.Printf("   Initial Amount: 500,000,000 Toman\n")
-	fmt.Printf("   Settled Amount: %.0f Toman\n", outgoingDetails.SettledAmountIRR)
-	fmt.Printf("   Remaining: %.0f Toman\n", outgoingDetails.RemainingIRR)
+	fmt.Printf("   Settled Amount: %.0f Toman\n", outgoingDetails.SettledAmountIRR.Float64())
+	fmt.Printf("   Remaining: %.0f Toman\n", outgoingDetails.RemainingIRR.Float64())
 	fmt.Printf("   Number of Settlements: %d\n", len(outgoingDetails.Settlements))
-	fmt.Printf("   Total Profit: %.2f CAD\n", outgoingDetails.TotalProfitCAD)
+	fmt.Printf("   Total Profit: %.2f CAD\n", outgoingDetails.TotalProfitCAD.Float64())
 
 	// Verify status
 	if outgoingDetails.Status != models.RemittanceStatusCompleted {
 		t.Errorf("❌ Expected COMPLETED status, got %s", outgoingDetails.Status)
 	}
 
-	if outgoingDetails.RemainingIRR > 0.01 {
-		t.Errorf("❌ Expected 0 remaining, got %.2f", outgoingDetails.RemainingIRR)
+	if outgoingDetails.RemainingIRR.Float64() > 0.01 {
+		t.Errorf("❌ Expected 0 remaining, got %.2f", outgoingDetails.RemainingIRR.Float64())
 	}
 
 	if len(outgoingDetails.Settlements) != 3 {
@@ -290,13 +290,13 @@ func TestRemittanceWithTenantUser(t *testing.T) {
 	fmt.Printf("   Cost (bought): 500M / 84,000 = %.2f CAD\n", 500000000.0/84000.0)
 	fmt.Printf("   Revenue (sold): 500M / 85,500 = %.2f CAD\n", 500000000.0/85500.0)
 	fmt.Printf("   Expected Profit: %.2f CAD\n", expectedProfit)
-	fmt.Printf("   Actual Profit: %.2f CAD\n", outgoingDetails.TotalProfitCAD)
+	fmt.Printf("   Actual Profit: %.2f CAD\n", outgoingDetails.TotalProfitCAD.Float64())
 	fmt.Printf("   Difference: %.4f CAD (should be ~0)\n",
-		testAbs(outgoingDetails.TotalProfitCAD-expectedProfit))
+		testAbs(outgoingDetails.TotalProfitCAD.Float64()-expectedProfit))
 
-	if testAbs(outgoingDetails.TotalProfitCAD-expectedProfit) > 0.1 {
+	if testAbs(outgoingDetails.TotalProfitCAD.Float64()-expectedProfit) > 0.1 {
 		t.Errorf("❌ Profit calculation wrong. Expected %.2f, got %.2f",
-			expectedProfit, outgoingDetails.TotalProfitCAD)
+			expectedProfit, outgoingDetails.TotalProfitCAD.Float64())
 	}
 
 	// Test profit summary

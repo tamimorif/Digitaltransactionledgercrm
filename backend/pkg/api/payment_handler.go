@@ -38,13 +38,14 @@ func (h *PaymentHandler) CreatePaymentHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	var req struct {
-		Amount        float64 `json:"amount"`
-		Currency      string  `json:"currency"`
-		ExchangeRate  float64 `json:"exchangeRate"`
-		PaymentMethod string  `json:"paymentMethod"`
-		Notes         *string `json:"notes"`
-		ReceiptNumber *string `json:"receiptNumber"`
-		BranchID      *uint   `json:"branchId"`
+		Amount        float64                `json:"amount"`
+		Currency      string                 `json:"currency"`
+		ExchangeRate  float64                `json:"exchangeRate"`
+		PaymentMethod string                 `json:"paymentMethod"`
+		Notes         *string                `json:"notes"`
+		ReceiptNumber *string                `json:"receiptNumber"`
+		BranchID      *uint                  `json:"branchId"`
+		Details       map[string]interface{} `json:"details"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -79,6 +80,7 @@ func (h *PaymentHandler) CreatePaymentHandler(w http.ResponseWriter, r *http.Req
 		PaymentMethod: req.PaymentMethod,
 		Notes:         req.Notes,
 		ReceiptNumber: req.ReceiptNumber,
+		Details:       req.Details,
 	}
 
 	if err := h.paymentService.CreatePayment(payment, user.ID); err != nil {

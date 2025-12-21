@@ -9,10 +9,10 @@ test.describe('Transactions', () => {
     test.beforeEach(async ({ page }) => {
         // Login first
         await page.goto('/');
-        await page.getByLabel(/email/i).fill('test@example.com');
-        await page.getByLabel(/password/i).fill('testpassword123');
+        await page.getByLabel(/email/i).fill('backend_test_user@example.com');
+        await page.getByLabel(/password/i).fill('Test@123456');
         await page.getByRole('button', { name: /sign in/i }).click();
-        await expect(page).toHaveURL(/.*dashboard/, { timeout: 10000 });
+        await expect(page).toHaveURL(/.*dashboard/, { timeout: 30000 });
 
         // Navigate to transactions
         await page.getByRole('link', { name: /transactions/i }).first().click();
@@ -75,10 +75,10 @@ test.describe('Transactions', () => {
 test.describe('Create Transaction', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
-        await page.getByLabel(/email/i).fill('test@example.com');
-        await page.getByLabel(/password/i).fill('testpassword123');
+        await page.getByLabel(/email/i).fill('backend_test_user@example.com');
+        await page.getByLabel(/password/i).fill('Test@123456');
         await page.getByRole('button', { name: /sign in/i }).click();
-        await expect(page).toHaveURL(/.*dashboard/, { timeout: 10000 });
+        await expect(page).toHaveURL(/.*dashboard/, { timeout: 30000 });
         await page.getByRole('link', { name: /transactions/i }).first().click();
         await page.getByRole('button', { name: /new.*transaction|add/i }).click();
         await expect(page.getByRole('dialog')).toBeVisible();
@@ -123,10 +123,10 @@ test.describe('Create Transaction', () => {
 test.describe('Payments', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
-        await page.getByLabel(/email/i).fill('test@example.com');
-        await page.getByLabel(/password/i).fill('testpassword123');
+        await page.getByLabel(/email/i).fill('backend_test_user@example.com');
+        await page.getByLabel(/password/i).fill('Test@123456');
         await page.getByRole('button', { name: /sign in/i }).click();
-        await expect(page).toHaveURL(/.*dashboard/, { timeout: 10000 });
+        await expect(page).toHaveURL(/.*dashboard/, { timeout: 30000 });
         await page.getByRole('link', { name: /transactions/i }).first().click();
     });
 

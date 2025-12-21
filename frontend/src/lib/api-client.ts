@@ -171,6 +171,38 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
+    // Handle Network Error (Offline Mode)
+    const isNetworkError =
+      !error.response &&
+      (error.message === 'Network Error' ||
+        error.code === 'ERR_NETWORK' ||
+        (typeof window !== 'undefined' && !window.navigator.onLine));
+
+    if (isNetworkError) {
+      const allowedMethods = ['post', 'put', 'delete', 'patch'];
+      if (
+        originalRequest &&
+        allowedMethods.includes(originalRequest.method?.toLowerCase() || '')
+      ) {
+        // Queue the request
+        try {
+          const { QueueManager } = await import('./queue-manager');
+          await QueueManager.enqueueRequest(originalRequest);
+
+          // Return a mock success response to keep UI optimistic
+          return Promise.resolve({
+            data: { success: true, message: 'Offline: Request Queued' },
+            status: 202,
+            statusText: 'Accepted',
+            headers: {},
+            config: originalRequest,
+          });
+        } catch (queueError) {
+          console.error('Failed to queue offline request', queueError);
+        }
+      }
+    }
+
     // Handle 401 Unauthorized - Token expired
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       // Don't try to refresh on auth pages

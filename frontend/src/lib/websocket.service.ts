@@ -1,8 +1,8 @@
 import { tokenStorage } from './api-client';
 
 export interface WSMessage {
-    type: 'transaction' | 'pickup' | 'cash_balance' | 'remittance';
-    action: 'created' | 'updated' | 'deleted' | 'status_changed';
+    type: 'transaction' | 'pickup' | 'cash_balance' | 'remittance' | 'ticket' | 'ticket_message' | 'ticket_assignment';
+    action: 'created' | 'updated' | 'deleted' | 'status_changed' | 'assigned' | 'resolved' | 'message';
     data: Record<string, unknown>;
     tenantId: number;
     timestamp: string;

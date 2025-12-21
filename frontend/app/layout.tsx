@@ -5,6 +5,8 @@ import { ReactQueryProvider } from '@/src/components/providers/react-query-provi
 import { AuthProvider } from '@/src/components/providers/auth-provider';
 import { ThemeProvider } from '@/src/components/providers/theme-provider';
 import { TranslationProvider } from '@/src/contexts/TranslationContext';
+import { NetworkProvider } from '@/src/context/NetworkContext';
+import { OfflineIndicator } from '@/src/components/ui/OfflineIndicator';
 
 export const metadata: Metadata = {
   title: 'Digital Transaction Ledger CRM',
@@ -20,18 +22,21 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased">
         <ReactQueryProvider>
-          <AuthProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange
-            >
-              <TranslationProvider>
-                {children}
-              </TranslationProvider>
-            </ThemeProvider>
-          </AuthProvider>
+          <NetworkProvider>
+            <AuthProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                <TranslationProvider>
+                  {children}
+                </TranslationProvider>
+                <OfflineIndicator />
+              </ThemeProvider>
+            </AuthProvider>
+          </NetworkProvider>
         </ReactQueryProvider>
         <Toaster position="top-right" />
       </body>

@@ -75,11 +75,12 @@ func TestRemittanceLossScenario(t *testing.T) {
 		TenantID:      tenant.ID,
 		BranchID:      &branch.ID,
 		SenderName:    "John Smith",
+		SenderPhone:   "+14165551234",
 		RecipientName: "علی محمدی",
-		AmountIRR:     300000000, // 300 Million Toman
-		BuyRateCAD:    87000,     // ⬆️ HIGH BUY RATE (bought expensive)
-		ReceivedCAD:   3448.28,   // 300M / 87,000
-		FeeCAD:        20,
+		AmountIRR:     models.NewDecimal(300000000), // 300 Million Toman
+		BuyRateCAD:    models.NewDecimal(87000),     // HIGH BUY RATE (bought expensive)
+		ReceivedCAD:   models.NewDecimal(3448.28),   // 300M / 87,000
+		FeeCAD:        models.NewDecimal(20),
 		Notes:         testStringPtr("Bought at high rate - bad timing"),
 		CreatedBy:     owner.ID,
 	}
@@ -91,7 +92,7 @@ func TestRemittanceLossScenario(t *testing.T) {
 
 	fmt.Printf("   💰 Amount: 300,000,000 Toman\n")
 	fmt.Printf("   📊 Buy Rate: 87,000 Toman/CAD (expensive!)\n")
-	fmt.Printf("   💵 Cost: %.2f CAD\n", outgoing.EquivalentCAD)
+	fmt.Printf("   💵 Cost: %.2f CAD\n", outgoing.EquivalentCAD.Float64())
 	fmt.Printf("   ⚠️  Market situation: Toman is expensive right now\n")
 
 	// Create Incoming 1 - SELL at LOW RATE (cheap)
@@ -100,10 +101,11 @@ func TestRemittanceLossScenario(t *testing.T) {
 		TenantID:      tenant.ID,
 		BranchID:      &branch.ID,
 		SenderName:    "سارا کریمی",
+		SenderPhone:   "+989121234567",
 		RecipientName: "Mary Johnson",
-		AmountIRR:     150000000, // 150 Million Toman
-		SellRateCAD:   85000,     // ⬇️ LOW SELL RATE (sold cheap)
-		FeeCAD:        10,
+		AmountIRR:     models.NewDecimal(150000000), // 150 Million Toman
+		SellRateCAD:   models.NewDecimal(85000),     // LOW SELL RATE (sold cheap)
+		FeeCAD:        models.NewDecimal(10),
 		Notes:         testStringPtr("Market dropped - selling at lower rate"),
 		CreatedBy:     owner.ID,
 	}
@@ -115,11 +117,11 @@ func TestRemittanceLossScenario(t *testing.T) {
 
 	fmt.Printf("   💰 Amount: 150,000,000 Toman\n")
 	fmt.Printf("   📊 Sell Rate: 85,000 Toman/CAD (cheap!)\n")
-	fmt.Printf("   💵 To Pay: %.2f CAD\n", incoming1.EquivalentCAD)
+	fmt.Printf("   💵 To Pay: %.2f CAD\n", incoming1.EquivalentCAD.Float64())
 	fmt.Printf("   ⚠️  Market situation: Toman dropped in value\n")
 
 	fmt.Println("\n🔗 Settlement #1:")
-	settlement1, err := service.SettleRemittance(tenant.ID, outgoing.ID, incoming1.ID, 150000000, owner.ID)
+	settlement1, err := service.SettleRemittance(tenant.ID, outgoing.ID, incoming1.ID, models.NewDecimal(150000000), owner.ID)
 	if err != nil {
 		t.Fatalf("Failed to settle: %v", err)
 	}
@@ -133,15 +135,15 @@ func TestRemittanceLossScenario(t *testing.T) {
 	fmt.Printf("      What we RECEIVED (revenue): 150M / 85,000 = %.2f CAD\n", revenueCAD1)
 	fmt.Printf("      Difference: %.2f - %.2f = %.2f CAD\n", costCAD1, revenueCAD1, expectedLoss1)
 
-	if settlement1.ProfitCAD < 0 {
-		fmt.Printf("   ❌ LOSS: %.2f CAD (negative profit)\n", settlement1.ProfitCAD)
+	if settlement1.ProfitCAD.Float64() < 0 {
+		fmt.Printf("   ❌ LOSS: %.2f CAD (negative profit)\n", settlement1.ProfitCAD.Float64())
 	} else {
-		fmt.Printf("   ✅ Profit: %.2f CAD\n", settlement1.ProfitCAD)
+		fmt.Printf("   ✅ Profit: %.2f CAD\n", settlement1.ProfitCAD.Float64())
 	}
 
 	// Verify it's actually a loss
-	if settlement1.ProfitCAD >= 0 {
-		t.Errorf("Expected loss (negative), got profit: %.2f", settlement1.ProfitCAD)
+	if settlement1.ProfitCAD.Float64() >= 0 {
+		t.Errorf("Expected loss (negative), got profit: %.2f", settlement1.ProfitCAD.Float64())
 	}
 
 	// Create Incoming 2 - Also at low rate
@@ -150,10 +152,11 @@ func TestRemittanceLossScenario(t *testing.T) {
 		TenantID:      tenant.ID,
 		BranchID:      &branch.ID,
 		SenderName:    "محمد رضایی",
+		SenderPhone:   "+989359876543",
 		RecipientName: "David Lee",
-		AmountIRR:     150000000,
-		SellRateCAD:   85000, // Still low rate
-		FeeCAD:        10,
+		AmountIRR:     models.NewDecimal(150000000),
+		SellRateCAD:   models.NewDecimal(85000), // Still low rate
+		FeeCAD:        models.NewDecimal(10),
 		CreatedBy:     owner.ID,
 	}
 
@@ -166,7 +169,7 @@ func TestRemittanceLossScenario(t *testing.T) {
 	fmt.Printf("   📊 Sell Rate: 85,000 Toman/CAD\n")
 
 	fmt.Println("\n🔗 Settlement #2 (Final):")
-	settlement2, err := service.SettleRemittance(tenant.ID, outgoing.ID, incoming2.ID, 150000000, owner.ID)
+	settlement2, err := service.SettleRemittance(tenant.ID, outgoing.ID, incoming2.ID, models.NewDecimal(150000000), owner.ID)
 	if err != nil {
 		t.Fatalf("Failed to settle: %v", err)
 	}
@@ -180,8 +183,8 @@ func TestRemittanceLossScenario(t *testing.T) {
 	fmt.Printf("      Revenue: %.2f CAD\n", revenueCAD2)
 	fmt.Printf("      Loss: %.2f CAD\n", expectedLoss2)
 
-	if settlement2.ProfitCAD < 0 {
-		fmt.Printf("   ❌ LOSS: %.2f CAD\n", settlement2.ProfitCAD)
+	if settlement2.ProfitCAD.Float64() < 0 {
+		fmt.Printf("   ❌ LOSS: %.2f CAD\n", settlement2.ProfitCAD.Float64())
 	}
 
 	// Get final details
@@ -194,16 +197,16 @@ func TestRemittanceLossScenario(t *testing.T) {
 	fmt.Printf("   Status: %s\n", outgoingDetails.Status)
 	fmt.Printf("   Amount: 300,000,000 Toman\n")
 	fmt.Printf("   Settlements: %d\n", len(outgoingDetails.Settlements))
-	fmt.Printf("   Total Profit/Loss: %.2f CAD\n", outgoingDetails.TotalProfitCAD)
+	fmt.Printf("   Total Profit/Loss: %.2f CAD\n", outgoingDetails.TotalProfitCAD.Float64())
 
-	if outgoingDetails.TotalProfitCAD < 0 {
-		fmt.Printf("\n   ❌ NET LOSS: %.2f CAD (negative)\n", outgoingDetails.TotalProfitCAD)
+	if outgoingDetails.TotalProfitCAD.Float64() < 0 {
+		fmt.Printf("\n   ❌ NET LOSS: %.2f CAD (negative)\n", outgoingDetails.TotalProfitCAD.Float64())
 		fmt.Printf("   📉 This happens when:\n")
 		fmt.Printf("      - Bought Toman at high rate (87,000)\n")
 		fmt.Printf("      - Sold Toman at low rate (85,000)\n")
 		fmt.Printf("      - Rate difference worked against us\n")
 	} else {
-		t.Errorf("Expected total loss, got profit: %.2f", outgoingDetails.TotalProfitCAD)
+		t.Errorf("Expected total loss, got profit: %.2f", outgoingDetails.TotalProfitCAD.Float64())
 	}
 
 	// Calculate total expected loss
@@ -226,9 +229,9 @@ func TestRemittanceLossScenario(t *testing.T) {
 	fmt.Printf("Loss Percentage: %.2f%%\n", (testAbs(expectedTotalLoss)/totalCost)*100)
 
 	// Verify the loss calculation is correct
-	if testAbs(outgoingDetails.TotalProfitCAD-expectedTotalLoss) > 0.1 {
+	if testAbs(outgoingDetails.TotalProfitCAD.Float64()-expectedTotalLoss) > 0.1 {
 		t.Errorf("Loss calculation wrong. Expected %.2f, got %.2f",
-			expectedTotalLoss, outgoingDetails.TotalProfitCAD)
+			expectedTotalLoss, outgoingDetails.TotalProfitCAD.Float64())
 	}
 
 	// Test profit summary with losses

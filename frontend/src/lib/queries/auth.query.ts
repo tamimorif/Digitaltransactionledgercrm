@@ -78,7 +78,7 @@ export const useLogin = () => {
       tokenStorage.setUser(data.user);
 
       // Update cache
-      queryClient.setQueryData(['user'], data.user);
+      queryClient.setQueryData(['user', 'me'], data.user);
     },
   });
 };
@@ -93,7 +93,7 @@ export const useGetMe = (enabled = true) => {
   return useQuery({
     queryKey: ['user', 'me'],
     queryFn: authApi.getMe,
-    enabled: enabled && !!tokenStorage.getAccessToken(),
+    enabled: enabled,
     retry: false,
   });
 };

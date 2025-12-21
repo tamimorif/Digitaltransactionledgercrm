@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { AuthContextType, User, Tenant } from '@/src/models/auth.model';
 import { useLogin, useLogout, useGetMe } from '@/src/queries/auth.query';
+import { tokenStorage } from '@/src/lib/api-client';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -14,7 +15,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginMutation = useLogin();
   const logoutMutation = useLogout();
-  const { data: meData, isLoading: isMeLoading, refetch } = useGetMe();
+  const { data: meData, isLoading: isMeLoading, refetch } = useGetMe(!!token);
 
   // Initialize from localStorage
   useEffect(() => {
@@ -60,6 +61,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     const response = await loginMutation.mutateAsync({ email, password });
 
+    // Ensure storage is updated before state change to prevent race condition
+    tokenStorage.setAccessToken(response.token);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('user', JSON.stringify(response.user));
+    }
+
     setToken(response.token);
     setUser(response.user);
     setTenant(response.tenant ?? null);
@@ -80,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     tenant,
     isAuthenticated: !!token && !!user,
-    isLoading: isLoading || isMeLoading,
+    isLoading: isLoading || (!!token && isMeLoading),
     login,
     logout,
     refreshUser,

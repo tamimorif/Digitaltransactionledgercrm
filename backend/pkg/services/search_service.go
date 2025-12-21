@@ -110,7 +110,7 @@ func (s *SearchService) GlobalSearch(tenantID uint, query string, limit int) ([]
 			ID:          r.ID,
 			Title:       fmt.Sprintf("Remittance #%s", r.RemittanceCode),
 			Subtitle:    fmt.Sprintf("To: %s", r.RecipientName),
-			Description: fmt.Sprintf("%.2f IRR - %s", r.AmountIRR, r.Status),
+			Description: fmt.Sprintf("%.2f IRR - %s", r.AmountIRR.Float64(), r.Status),
 			Data: map[string]interface{}{
 				"amountIrr":      r.AmountIRR,
 				"equivalentCad":  r.EquivalentCAD,
@@ -135,7 +135,7 @@ func (s *SearchService) GlobalSearch(tenantID uint, query string, limit int) ([]
 			ID:          r.ID,
 			Title:       fmt.Sprintf("Incoming #%s", r.RemittanceCode),
 			Subtitle:    fmt.Sprintf("From: %s", r.SenderName),
-			Description: fmt.Sprintf("%.2f IRR for %s - %s", r.AmountIRR, r.RecipientName, r.Status),
+			Description: fmt.Sprintf("%.2f IRR for %s - %s", r.AmountIRR.Float64(), r.RecipientName, r.Status),
 			Data: map[string]interface{}{
 				"amountIrr":      r.AmountIRR,
 				"equivalentCad":  r.EquivalentCAD,

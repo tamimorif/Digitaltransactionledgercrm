@@ -37,9 +37,10 @@ func TestRemittanceValidation(t *testing.T) {
 	outgoing := &models.OutgoingRemittance{
 		TenantID:      tenant.ID,
 		SenderName:    "John",
+		SenderPhone:   "+14165551234",
 		RecipientName: "Ali",
-		AmountIRR:     100000000,
-		BuyRateCAD:    85000,
+		AmountIRR:     models.NewDecimal(100000000),
+		BuyRateCAD:    models.NewDecimal(85000),
 		CreatedBy:     user.ID,
 	}
 	service.CreateOutgoingRemittance(outgoing)
@@ -47,14 +48,15 @@ func TestRemittanceValidation(t *testing.T) {
 	incoming := &models.IncomingRemittance{
 		TenantID:      tenant.ID,
 		SenderName:    "Sara",
+		SenderPhone:   "+989121234567",
 		RecipientName: "Bob",
-		AmountIRR:     150000000,
-		SellRateCAD:   86500,
+		AmountIRR:     models.NewDecimal(150000000),
+		SellRateCAD:   models.NewDecimal(86500),
 		CreatedBy:     user.ID,
 	}
 	service.CreateIncomingRemittance(incoming)
 
-	_, err := service.SettleRemittance(tenant.ID, outgoing.ID, incoming.ID, 150000000, user.ID)
+	_, err := service.SettleRemittance(tenant.ID, outgoing.ID, incoming.ID, models.NewDecimal(150000000), user.ID)
 	if err == nil {
 		t.Error("Expected error when settling more than remaining debt")
 	}
@@ -65,14 +67,15 @@ func TestRemittanceValidation(t *testing.T) {
 	incoming2 := &models.IncomingRemittance{
 		TenantID:      tenant.ID,
 		SenderName:    "Reza",
+		SenderPhone:   "+989129876543",
 		RecipientName: "Jane",
-		AmountIRR:     50000000,
-		SellRateCAD:   86500,
+		AmountIRR:     models.NewDecimal(50000000),
+		SellRateCAD:   models.NewDecimal(86500),
 		CreatedBy:     user.ID,
 	}
 	service.CreateIncomingRemittance(incoming2)
 
-	_, err = service.SettleRemittance(tenant.ID, outgoing.ID, incoming2.ID, 80000000, user.ID)
+	_, err = service.SettleRemittance(tenant.ID, outgoing.ID, incoming2.ID, models.NewDecimal(80000000), user.ID)
 	if err == nil {
 		t.Error("Expected error when settling more than incoming remaining")
 	}
@@ -80,7 +83,7 @@ func TestRemittanceValidation(t *testing.T) {
 
 	// Test 3: Valid settlement
 	fmt.Println("\n Test 3: Valid settlement within limits")
-	_, err = service.SettleRemittance(tenant.ID, outgoing.ID, incoming2.ID, 50000000, user.ID)
+	_, err = service.SettleRemittance(tenant.ID, outgoing.ID, incoming2.ID, models.NewDecimal(50000000), user.ID)
 	if err != nil {
 		t.Errorf("Valid settlement failed: %v", err)
 	}
@@ -95,7 +98,7 @@ func TestRemittanceValidation(t *testing.T) {
 	fmt.Printf("   ✅ Status correctly changed to PARTIAL\n")
 
 	// Complete the settlement
-	_, err = service.SettleRemittance(tenant.ID, outgoing.ID, incoming.ID, 50000000, user.ID)
+	_, err = service.SettleRemittance(tenant.ID, outgoing.ID, incoming.ID, models.NewDecimal(50000000), user.ID)
 	if err != nil {
 		t.Errorf("Final settlement failed: %v", err)
 	}
@@ -119,9 +122,10 @@ func TestRemittanceValidation(t *testing.T) {
 	outgoing2 := &models.OutgoingRemittance{
 		TenantID:      tenant.ID,
 		SenderName:    "Test",
+		SenderPhone:   "+14165551111",
 		RecipientName: "Test",
-		AmountIRR:     100000000,
-		BuyRateCAD:    85000,
+		AmountIRR:     models.NewDecimal(100000000),
+		BuyRateCAD:    models.NewDecimal(85000),
 		CreatedBy:     user.ID,
 	}
 	service.CreateOutgoingRemittance(outgoing2)
@@ -142,9 +146,10 @@ func TestRemittanceValidation(t *testing.T) {
 	incoming3 := &models.IncomingRemittance{
 		TenantID:      tenant.ID,
 		SenderName:    "Mohammad",
+		SenderPhone:   "+989351234567",
 		RecipientName: "Sarah",
-		AmountIRR:     100000000,
-		SellRateCAD:   86500,
+		AmountIRR:     models.NewDecimal(100000000),
+		SellRateCAD:   models.NewDecimal(86500),
 		CreatedBy:     user.ID,
 	}
 	service.CreateIncomingRemittance(incoming3)
@@ -157,7 +162,7 @@ func TestRemittanceValidation(t *testing.T) {
 
 	// Test 8: Negative amounts
 	fmt.Println("\n Test 8: Negative amounts validation")
-	_, err = service.SettleRemittance(tenant.ID, outgoing.ID, incoming.ID, -10000, user.ID)
+	_, err = service.SettleRemittance(tenant.ID, outgoing.ID, incoming.ID, models.NewDecimal(-10000), user.ID)
 	if err == nil {
 		t.Error("Expected error for negative settlement amount")
 	}

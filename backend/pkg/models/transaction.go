@@ -45,7 +45,7 @@ type Transaction struct {
 	CreatedAt           time.Time  `gorm:"column:created_at;type:datetime;default:CURRENT_TIMESTAMP;autoCreateTime" json:"createdAt"`
 	UpdatedAt           time.Time  `gorm:"column:updated_at;type:datetime;autoUpdateTime" json:"updatedAt"`
 
-	Client   Client    `gorm:"foreignKey:ClientID;constraint:OnDelete:CASCADE" json:"client"`
+	Client   *Client   `gorm:"foreignKey:ClientID;constraint:OnDelete:CASCADE" json:"client"`
 	Tenant   Tenant    `gorm:"foreignKey:TenantID;constraint:OnDelete:RESTRICT" json:"tenant,omitempty"`
 	Branch   *Branch   `gorm:"foreignKey:BranchID;constraint:OnDelete:SET NULL" json:"branch,omitempty"`
 	Payments []Payment `gorm:"foreignKey:TransactionID;constraint:OnDelete:CASCADE" json:"payments,omitempty"` // NEW: List of partial payments

@@ -172,6 +172,37 @@ func (h *Hub) BroadcastRemittanceUpdate(tenantID uint, action string, data map[s
 	})
 }
 
+// BroadcastTicketUpdate broadcasts a ticket update
+func (h *Hub) BroadcastTicketUpdate(tenantID uint, action string, data map[string]interface{}) {
+	h.Broadcast(WSMessage{
+		Type:     "ticket",
+		Action:   action,
+		Data:     data,
+		TenantID: tenantID,
+	})
+}
+
+// BroadcastTicketMessage broadcasts a new ticket message
+func (h *Hub) BroadcastTicketMessage(tenantID uint, data map[string]interface{}) {
+	h.Broadcast(WSMessage{
+		Type:     "ticket_message",
+		Action:   "created",
+		Data:     data,
+		TenantID: tenantID,
+	})
+}
+
+// BroadcastTicketAssignment broadcasts a ticket assignment notification
+func (h *Hub) BroadcastTicketAssignment(tenantID uint, assignedToUserID uint, data map[string]interface{}) {
+	data["assignedToUserId"] = assignedToUserID
+	h.Broadcast(WSMessage{
+		Type:     "ticket_assignment",
+		Action:   "assigned",
+		Data:     data,
+		TenantID: tenantID,
+	})
+}
+
 // ReadPump pumps messages from the websocket connection to the hub
 func (c *Client) ReadPump() {
 	defer func() {

@@ -3,6 +3,7 @@ package database
 import (
 	"api/migrations"
 	"api/pkg/models"
+	"api/pkg/services"
 	"log"
 	"os"
 	"strings"
@@ -90,6 +91,25 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 		&models.ExchangeRate{},
 		// Reconciliation
 		&models.DailyReconciliation{},
+		// Fee rules (Dynamic Fee Structure)
+		&models.FeeRule{},
+		// WAC (Weighted Average Cost) tracking
+		&services.CurrencyHolding{},
+		&services.WACRecord{},
+		// Compliance (KYC/AML)
+		&models.CustomerCompliance{},
+		&models.ComplianceDocument{},
+		&models.ComplianceAuditLog{},
+		&models.TransactionComplianceCheck{},
+		// Ticketing System
+		&models.Ticket{},
+		&models.TicketMessage{},
+		&models.TicketAttachment{},
+		&models.TicketActivity{},
+		// Receipt Templates
+		&models.ReceiptTemplate{},
+		// Ledger
+		&models.LedgerEntry{},
 	)
 	if err != nil {
 		log.Printf("Warning: Failed to run auto-migrations: %v", err)

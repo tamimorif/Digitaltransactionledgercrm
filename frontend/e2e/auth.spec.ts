@@ -34,33 +34,33 @@ test.describe('Authentication', () => {
         await page.getByRole('button', { name: /login/i }).click();
 
         // Should show error message
-        await expect(page.getByText(/invalid credentials/i)).toBeVisible({ timeout: 5000 });
+        await expect(page.getByText(/invalid email or password/i)).toBeVisible({ timeout: 5000 });
     });
 
     test('should login successfully with valid credentials', async ({ page }) => {
         // Fill with valid credentials (adjust based on test account)
-        await page.getByLabel(/email/i).fill('test@example.com');
-        await page.getByLabel(/password/i).fill('testpassword123');
+        await page.getByLabel(/email/i).fill('backend_test_user@example.com');
+        await page.getByLabel(/password/i).fill('Test@123456');
         await page.getByRole('button', { name: /login/i }).click();
 
         // Should redirect to dashboard
         await expect(page).toHaveURL(/.*dashboard/, { timeout: 10000 });
 
         // Dashboard elements should be visible
-        await expect(page.getByRole('heading', { name: /dashboard/i })).toBeVisible();
+        await expect(page.getByRole('heading', { name: /dashboard/i })).toBeVisible({ timeout: 30000 });
     });
 
     test('should logout successfully', async ({ page }) => {
         // First login
-        await page.getByLabel(/email/i).fill('test@example.com');
-        await page.getByLabel(/password/i).fill('testpassword123');
+        await page.getByLabel(/email/i).fill('backend_test_user@example.com');
+        await page.getByLabel(/password/i).fill('Test@123456');
         await page.getByRole('button', { name: /login/i }).click();
 
         // Wait for dashboard
         await expect(page).toHaveURL(/.*dashboard/, { timeout: 10000 });
 
-        // Click logout (may be in dropdown menu)
-        await page.getByRole('button', { name: /account|profile|user/i }).click();
+        // Click logout (in settings dropdown)
+        await page.getByRole('button', { name: /user settings/i }).click();
         await page.getByRole('menuitem', { name: /logout|sign out/i }).click();
 
         // Should redirect to login

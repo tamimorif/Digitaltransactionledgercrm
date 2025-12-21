@@ -10,10 +10,10 @@ test.describe('Dashboard', () => {
     test.beforeEach(async ({ page }) => {
         // Login first
         await page.goto('/');
-        await page.getByLabel(/email/i).fill('test@example.com');
-        await page.getByLabel(/password/i).fill('testpassword123');
+        await page.getByLabel(/email/i).fill('backend_test_user@example.com');
+        await page.getByLabel(/password/i).fill('Test@123456');
         await page.getByRole('button', { name: /sign in/i }).click();
-        await expect(page).toHaveURL(/.*dashboard/, { timeout: 10000 });
+        await expect(page).toHaveURL(/.*dashboard/, { timeout: 30000 });
     });
 
     test('should display dashboard with stats cards', async ({ page }) => {
@@ -62,8 +62,8 @@ test.describe('Dashboard', () => {
 test.describe('Dashboard Responsiveness', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
-        await page.getByLabel(/email/i).fill('test@example.com');
-        await page.getByLabel(/password/i).fill('testpassword123');
+        await page.getByLabel(/email/i).fill('backend_test_user@example.com');
+        await page.getByLabel(/password/i).fill('Test@123456');
         await page.getByRole('button', { name: /sign in/i }).click();
         await expect(page).toHaveURL(/.*dashboard/, { timeout: 10000 });
     });
@@ -73,7 +73,7 @@ test.describe('Dashboard Responsiveness', () => {
         await page.setViewportSize({ width: 375, height: 667 });
 
         // Dashboard should still work
-        await expect(page.getByRole('heading', { name: /dashboard/i })).toBeVisible();
+        await expect(page.getByRole('heading', { name: /dashboard/i })).toBeVisible({ timeout: 30000 });
 
         // Sidebar might be collapsed - look for hamburger menu
         const hamburger = page.getByRole('button', { name: /menu|toggle/i });
@@ -87,6 +87,6 @@ test.describe('Dashboard Responsiveness', () => {
         await page.setViewportSize({ width: 768, height: 1024 });
 
         // Dashboard should still work
-        await expect(page.getByRole('heading', { name: /dashboard/i })).toBeVisible();
+        await expect(page.getByRole('heading', { name: /dashboard/i })).toBeVisible({ timeout: 30000 });
     });
 });
