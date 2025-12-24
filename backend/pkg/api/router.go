@@ -429,7 +429,11 @@ func NewRouter(db *gorm.DB) http.Handler {
 
 	// Setup CORS
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000"}, // Frontend URL
+		AllowedOrigins: []string{
+			"http://localhost:3000",    // Development
+			"https://velopay.ca",       // Production
+			"https://www.velopay.ca",   // Production (www)
+		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
