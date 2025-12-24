@@ -72,7 +72,6 @@ yarn-error.log*
 # --- IDEs and System Files ---
 .vscode/
 .idea/
-.vercel
 *.pem
 .DS_Store
 **/.DS_Store
@@ -89,7 +88,9 @@ desktop.ini
 .eslintcache
 .stylelintcache
 
-# --- Optional: Large generated files ---
-# Uncomment if you regenerate these
-# frontend/package-lock.json
-# frontend/yarn.lock
+# --- Deployment ---
+.vercel/
+.railway/
+
+# --- Misc ---
+codex-implementaion-suggestion.txt
