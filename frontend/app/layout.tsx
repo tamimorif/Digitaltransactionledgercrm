@@ -9,8 +9,12 @@ import { NetworkProvider } from '@/src/context/NetworkContext';
 import { OfflineIndicator } from '@/src/components/ui/OfflineIndicator';
 
 export const metadata: Metadata = {
-  title: 'Digital Transaction Ledger CRM',
+  title: 'Velopay - Digital Transaction Ledger',
   description: 'Currency Exchange & Remittance Management System',
+  icons: {
+    icon: '/favicon.png',
+    apple: '/logo.png',
+  },
 };
 
 export default function RootLayout({
