@@ -21,10 +21,8 @@ const nextConfig = {
   },
   // Output standalone for Docker/serverless deployment
   output: 'standalone',
-  // Disable eslint during production build (optional)
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // Turbopack config (required for Next.js 16+)
+  turbopack: {},
   // Disable TypeScript build errors (optional - remove in production)
   typescript: {
     ignoreBuildErrors: false,
