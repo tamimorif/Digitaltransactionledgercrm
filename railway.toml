@@ -1,7 +1,3 @@
-[build]
-
-buildCommand = "go build -o server ./backend/cmd/server"
-
 [deploy]
 startCommand = "./server"
 healthcheckPath = "/api/health"
