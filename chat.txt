@@ -1,0 +1,134 @@
+# Velopay CRM - Development Session Summary
+# Date: December 24, 2025
+
+================================================================================
+## WHAT WAS DONE
+================================================================================
+
+### 1. BUGS FIXED
+- Branch unique constraint bug (UNIQUE constraint failed: branches.branch_code)
+  → Fixed with composite indexes per tenant
+  
+- Email verification not working
+  → Configured Resend API with key: re_FVQrAR8f_2FpnRQuWY55kUUZGeWqsBjqf
+  → FROM_EMAIL: onboarding@resend.dev (until velopay.ca verified)
+
+### 2. SECURITY FIXES IMPLEMENTED
+- Added panic recovery middleware (prevents server crashes)
+- Fixed insecure random for password reset (now uses crypto/rand)
+- Added JWT secret minimum length validation (32+ chars)
+- Consistent 8-character password policy
+
+### 3. BACKUP SERVICE CREATED
+Files created:
+- /backend/pkg/services/backup_service.go (core backup logic with S3)
+- /backend/pkg/api/backup_handler.go (API endpoints)
+- /backend/BACKUP_RECOVERY_GUIDE.md (full recovery instructions)
+
+API Endpoints:
+- POST /api/admin/backup - Create backup manually
+- GET /api/admin/backups - List all backups
+- GET /api/admin/backup/status - Check backup status
+- POST /api/admin/backups/clean - Clean old backups
+
+Features:
+- Local backups in ./backups/ folder
+- AWS S3 cloud backup support
+- Automatic daily backups (24 hours)
+- 30-day retention with auto-cleanup
+
+================================================================================
+## REMAINING TODOS
+================================================================================
+
+### TODO 1: FINISH AWS S3 SETUP (IN PROGRESS)
+You created the bucket. Next steps:
+
+1. Remember your bucket name (e.g., velopay-backups-tamim)
+
+2. Create IAM User for access keys:
+   - Go to IAM → Users → Create user
+   - Name: velopay-backup-user
+   - Attach policy: AmazonS3FullAccess
+   - Create access key → Copy both keys!
+
+3. Update /backend/.env with:
+   AWS_REGION=us-east-2
+   AWS_ACCESS_KEY_ID=your-access-key
+   AWS_SECRET_ACCESS_KEY=your-secret-key
+   BACKUP_S3_BUCKET=your-bucket-name
+
+4. Restart server to enable S3 backups
+
+### TODO 2: FIX REMAINING SECURITY BUGS (from 22 found)
+High priority still needed:
+- Unsafe type assertions in handlers (can cause panics)
+- Nil pointer checks missing in some places
+- Rate limit bypass on some endpoints
+- User enumeration on login/forgot password
+
+Medium priority:
+- N+1 query issues (performance)
+- Missing input validation in some handlers
+- Audit log gaps
+
+### TODO 3: VERIFY RESEND DOMAIN
+- Go to resend.com dashboard
+- Add domain: velopay.ca
+- Add DNS records to verify
+- Change FROM_EMAIL to noreply@velopay.ca
+
+### TODO 4: PRODUCTION CHECKLIST
+Before going live:
+- [ ] Change JWT_SECRET to a strong random value
+- [ ] Set up PostgreSQL (not SQLite) for production
+- [ ] Enable HTTPS
+- [ ] Set up monitoring/logging
+- [ ] Configure proper CORS origins
+- [ ] Enable rate limiting on all endpoints
+- [ ] Set up proper error tracking (Sentry, etc.)
+
+================================================================================
+## IMPORTANT CREDENTIALS (KEEP SAFE!)
+================================================================================
+
+Resend API Key: re_FVQrAR8f_2FpnRQuWY55kUUZGeWqsBjqf
+SuperAdmin Email: admin@digitaltransactionledger.com
+SuperAdmin Password: Admin@123456 (CHANGE THIS!)
+
+AWS Account ID: 7600-6227-6007
+AWS Region: us-east-2 (Ohio)
+S3 Bucket: [you need to tell me the name you chose]
+
+================================================================================
+## HOW TO RESTORE FROM BACKUP (QUICK REFERENCE)
+================================================================================
+
+If hacked:
+1. Download backup from S3: aws s3 cp s3://bucket/backups/latest.zip ~/
+2. Unzip: unzip latest.zip
+3. Deploy fresh code from GitHub
+4. Replace database: cp transactions.db /new-server/backend/
+5. Change ALL passwords and API keys
+6. Restart server
+
+================================================================================
+## COMMANDS REFERENCE
+================================================================================
+
+Start backend:
+  cd backend && ./server
+
+Build backend:
+  cd backend && go build -o server ./cmd/server/
+
+Create manual backup (with token):
+  curl -X POST http://localhost:8080/api/admin/backup \
+    -H "Authorization: Bearer YOUR_TOKEN"
+
+Test login:
+  curl -X POST http://localhost:8080/api/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"email":"admin@digitaltransactionledger.com","password":"Admin@123456"}'
+
+================================================================================

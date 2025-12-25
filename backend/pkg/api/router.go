@@ -395,8 +395,17 @@ func NewRouter(db *gorm.DB) http.Handler {
 
 			// Dashboard (SuperAdmin)
 			admin.HandleFunc("/dashboard/stats", adminHandler.GetDashboardStatsHandler).Methods("GET")
+
+			// Backup management (SuperAdmin and TenantOwner)
+			admin.HandleFunc("/backup", CreateBackupHandler).Methods("POST")
+			admin.HandleFunc("/backups", ListBackupsHandler).Methods("GET")
+			admin.HandleFunc("/backups/clean", CleanBackupsHandler).Methods("POST")
+			admin.HandleFunc("/backup/status", GetBackupStatusHandler).Methods("GET")
 		}
 	}
+
+	// Initialize backup service
+	InitBackupService()
 
 	// Register routes on both v1 and legacy paths
 	registerRoutes(apiV1, apiLegacy)
@@ -430,15 +439,16 @@ func NewRouter(db *gorm.DB) http.Handler {
 	// Setup CORS
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{
-			"http://localhost:3000",    // Development
-			"https://velopay.ca",       // Production
-			"https://www.velopay.ca",   // Production (www)
+			"http://localhost:3000",  // Development
+			"https://velopay.ca",     // Production
+			"https://www.velopay.ca", // Production (www)
 		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
 	})
 
-	// Apply CORS middleware
-	return c.Handler(router)
+	// Apply CORS and Panic Recovery middleware
+	// Panic recovery is outermost so it catches panics from all handlers
+	return middleware.PanicRecoveryMiddleware(c.Handler(router))
 }

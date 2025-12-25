@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net/smtp"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/resend/resend-go/v2"
@@ -31,19 +32,36 @@ func NewEmailService() *EmailService {
 	provider := "dev"
 	if resendKey != "" {
 		provider = "resend"
+		log.Printf("📧 Email provider: Resend (API key configured)")
 	} else if smtpUsername != "" {
 		provider = "smtp"
+		log.Printf("📧 Email provider: SMTP (%s)", smtpUsername)
+	} else {
+		log.Printf("⚠️  Email provider: DEV MODE (no RESEND_API_KEY or SMTP configured)")
 	}
+
+	fromEmail := getEnv("FROM_EMAIL", "noreply@digitaltransactionledger.com")
+	log.Printf("📧 From email: %s", fromEmail)
 
 	return &EmailService{
 		SMTPHost:     getEnv("SMTP_HOST", "smtp.gmail.com"),
 		SMTPPort:     getEnv("SMTP_PORT", "587"),
 		SMTPUsername: smtpUsername,
 		SMTPPassword: getEnv("SMTP_PASSWORD", ""),
-		FromEmail:    getEnv("FROM_EMAIL", "noreply@digitaltransactionledger.com"),
+		FromEmail:    fromEmail,
 		ResendAPIKey: resendKey,
 		Provider:     provider,
 	}
+}
+
+// IsConfigured reports whether a real email provider is configured.
+func (es *EmailService) IsConfigured() bool {
+	return es.Provider != "dev"
+}
+
+// AllowDevEmail controls whether dev-mode email logging is allowed.
+func (es *EmailService) AllowDevEmail() bool {
+	return strings.EqualFold(getEnv("ALLOW_DEV_EMAIL", "false"), "true")
 }
 
 // GenerateVerificationCode generates a 6-digit verification code
@@ -66,6 +84,9 @@ func (es *EmailService) SendVerificationEmail(toEmail, code string) error {
 
 	// Development mode: Just log the code
 	if es.Provider == "dev" {
+		if !es.AllowDevEmail() {
+			return fmt.Errorf("email provider not configured; set RESEND_API_KEY or SMTP credentials")
+		}
 		log.Printf("📧 [DEV MODE] Verification code for %s: %s", toEmail, code)
 		log.Printf("⚠️  Email provider not configured. Set RESEND_API_KEY or SMTP credentials.")
 		return nil
@@ -119,6 +140,9 @@ func (es *EmailService) getVerificationEmailHTML(code string) string {
 func (es *EmailService) sendViaResend(to, subject, body string) error {
 	client := resend.NewClient(es.ResendAPIKey)
 
+	// Log the attempt
+	log.Printf("📧 Attempting to send email via Resend to: %s, from: %s", to, es.FromEmail)
+
 	params := &resend.SendEmailRequest{
 		From:    es.FromEmail,
 		To:      []string{to},
@@ -128,7 +152,8 @@ func (es *EmailService) sendViaResend(to, subject, body string) error {
 
 	sent, err := client.Emails.Send(params)
 	if err != nil {
-		log.Printf("Failed to send email via Resend to %s: %v", to, err)
+		log.Printf("❌ Failed to send email via Resend to %s: %v", to, err)
+		log.Printf("   From: %s, Subject: %s", es.FromEmail, subject)
 		return fmt.Errorf("failed to send email: %w", err)
 	}
 
@@ -172,6 +197,9 @@ func (es *EmailService) SendPasswordResetCode(toEmail, code string) error {
 
 	// Development mode: Just log the code
 	if es.Provider == "dev" {
+		if !es.AllowDevEmail() {
+			return fmt.Errorf("email provider not configured; set RESEND_API_KEY or SMTP credentials")
+		}
 		log.Printf("📧 [DEV MODE] Password reset code for %s: %s", toEmail, code)
 		log.Printf("⚠️  Email provider not configured. Set RESEND_API_KEY or SMTP credentials.")
 		return nil
@@ -235,6 +263,9 @@ func (es *EmailService) SendPasswordResetEmail(toEmail, resetToken string) error
 
 	// Development mode: Just log the token
 	if es.Provider == "dev" {
+		if !es.AllowDevEmail() {
+			return fmt.Errorf("email provider not configured; set RESEND_API_KEY or SMTP credentials")
+		}
 		log.Printf("📧 [DEV MODE] Password reset token for %s: %s", toEmail, resetToken)
 		log.Printf("Reset URL: %s", resetURL)
 		return nil

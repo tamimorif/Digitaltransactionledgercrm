@@ -2,10 +2,11 @@ package services
 
 import (
 	"api/pkg/models"
+	cryptorand "crypto/rand"
 	"errors"
 	"fmt"
 	"log"
-	"math/rand"
+	"math/big"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -25,6 +26,9 @@ func NewAuthService(db *gorm.DB) *AuthService {
 	jwtSecret := getEnv("JWT_SECRET", "")
 	if jwtSecret == "" {
 		panic("JWT_SECRET environment variable is required and must be set")
+	}
+	if len(jwtSecret) < 32 {
+		panic("JWT_SECRET must be at least 32 characters for security")
 	}
 	return &AuthService{
 		DB:           db,
@@ -63,6 +67,13 @@ type LoginRequest struct {
 
 // Register creates a new user and tenant, sends verification email
 func (as *AuthService) Register(req RegisterRequest) (*models.User, error) {
+	if as.EmailService == nil {
+		return nil, errors.New("email service unavailable")
+	}
+	if !as.EmailService.IsConfigured() && !as.EmailService.AllowDevEmail() {
+		return nil, errors.New("email provider not configured")
+	}
+
 	// Check if user already exists
 	var existingUser models.User
 	if err := as.DB.Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
@@ -214,6 +225,13 @@ func (as *AuthService) VerifyEmail(req VerifyEmailRequest) error {
 
 // ResendVerificationCode resends a verification code
 func (as *AuthService) ResendVerificationCode(email string) error {
+	if as.EmailService == nil {
+		return errors.New("email service unavailable")
+	}
+	if !as.EmailService.IsConfigured() && !as.EmailService.AllowDevEmail() {
+		return errors.New("email provider not configured")
+	}
+
 	var user models.User
 	if err := as.DB.Where("email = ?", email).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -404,12 +422,18 @@ func (as *AuthService) GenerateAccessToken(user *models.User) (string, error) {
 
 // GenerateRefreshToken generates a long-lived refresh token (7 days)
 func (as *AuthService) GenerateRefreshToken(user *models.User) (string, error) {
+	// Generate secure random ID for JWT
+	randomID, err := cryptorand.Int(cryptorand.Reader, big.NewInt(1<<62))
+	if err != nil {
+		return "", fmt.Errorf("failed to generate random ID: %w", err)
+	}
+
 	claims := jwt.RegisteredClaims{
 		Subject:   fmt.Sprintf("%d", user.ID),
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)), // 7 days
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 		Issuer:    "digital-transaction-ledger-refresh",
-		ID:        fmt.Sprintf("%d", rand.Int63()),
+		ID:        fmt.Sprintf("%d", randomID),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -570,6 +594,13 @@ func (as *AuthService) ChangePassword(userID uint, currentPassword, newPassword 
 
 // SendPasswordResetCode generates and sends a password reset code
 func (as *AuthService) SendPasswordResetCode(emailOrPhone string) error {
+	if as.EmailService == nil {
+		return errors.New("email service unavailable")
+	}
+	if !as.EmailService.IsConfigured() && !as.EmailService.AllowDevEmail() {
+		return errors.New("email provider not configured")
+	}
+
 	// Find user by email
 	var user models.User
 	err := as.DB.Where("email = ?", emailOrPhone).First(&user).Error
@@ -577,8 +608,13 @@ func (as *AuthService) SendPasswordResetCode(emailOrPhone string) error {
 		return errors.New("user not found")
 	}
 
-	// Generate a 6-digit code
-	code := fmt.Sprintf("%06d", rand.Intn(1000000))
+	// Generate a 6-digit code using crypto/rand for security
+	max := big.NewInt(1000000)
+	randNum, err := cryptorand.Int(cryptorand.Reader, max)
+	if err != nil {
+		return errors.New("failed to generate secure reset code")
+	}
+	code := fmt.Sprintf("%06d", randNum.Int64())
 
 	// Create reset code record
 	resetCode := models.PasswordResetCode{
@@ -592,13 +628,20 @@ func (as *AuthService) SendPasswordResetCode(emailOrPhone string) error {
 		return errors.New("failed to create reset code")
 	}
 
+	// Determine which email to send the code to
+	sendToEmail := user.Email
+	if user.RecoveryEmail != nil && *user.RecoveryEmail != "" {
+		sendToEmail = *user.RecoveryEmail
+		log.Printf("📧 Using recovery email for password reset: %s", sendToEmail)
+	}
+
 	// Send code via email
-	if err := as.EmailService.SendPasswordResetCode(user.Email, code); err != nil {
-		log.Printf("⚠️  Failed to send password reset email to %s: %v", user.Email, err)
+	if err := as.EmailService.SendPasswordResetCode(sendToEmail, code); err != nil {
+		log.Printf("⚠️  Failed to send password reset email to %s: %v", sendToEmail, err)
 		log.Printf("📧 [FALLBACK] Password reset code: %s (Expires in 15 minutes)", code)
 		// Don't fail the request even if email fails - code is logged
 	} else {
-		log.Printf("✅ Password reset code sent to %s", user.Email)
+		log.Printf("✅ Password reset code sent to %s", sendToEmail)
 	}
 
 	return nil

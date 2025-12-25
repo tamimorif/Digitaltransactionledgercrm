@@ -7,7 +7,7 @@ import (
 // Branch represents a physical branch/location of a tenant's business
 type Branch struct {
 	ID         uint   `gorm:"primaryKey;autoIncrement" json:"id"`
-	TenantID   uint   `gorm:"type:bigint;not null;index" json:"tenantId"`
+	TenantID   uint   `gorm:"type:bigint;not null;index;uniqueIndex:idx_tenant_branch_code;uniqueIndex:idx_tenant_username" json:"tenantId"`
 	Name       string `gorm:"type:varchar(255);not null" json:"name"`                                // e.g., "Toronto Downtown"
 	Location   string `gorm:"type:text" json:"location"`                                             // Address (optional)
 	BranchCode string `gorm:"type:varchar(50);uniqueIndex:idx_tenant_branch_code" json:"branchCode"` // Unique within tenant
@@ -15,8 +15,8 @@ type Branch struct {
 	Status     string `gorm:"type:varchar(50);not null;default:'active'" json:"status"`              // active or inactive
 
 	// Branch Login Credentials (optional - can be NULL)
-	Username     *string `gorm:"type:varchar(100);uniqueIndex" json:"username,omitempty"` // Branch login username (nullable)
-	PasswordHash *string `gorm:"type:varchar(255)" json:"-"`                              // Hashed password (hidden from JSON, nullable)
+	Username     *string `gorm:"type:varchar(100);uniqueIndex:idx_tenant_username" json:"username,omitempty"` // Branch login username (unique within tenant)
+	PasswordHash *string `gorm:"type:varchar(255)" json:"-"`                                                  // Hashed password (hidden from JSON, nullable)
 
 	CreatedAt time.Time `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"createdAt"`
 	UpdatedAt time.Time `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"updatedAt"`

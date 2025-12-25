@@ -19,6 +19,7 @@ type User struct {
 	TrialEndsAt        *time.Time `gorm:"type:timestamp" json:"trialEndsAt"`
 	LicenseActivatedAt *time.Time `gorm:"type:timestamp" json:"licenseActivatedAt"`                 // When license was first activated
 	Status             string     `gorm:"type:varchar(50);not null;default:'active'" json:"status"` // active, suspended, trial_expired, license_expired
+	RecoveryEmail      *string    `gorm:"type:varchar(255)" json:"recoveryEmail,omitempty"`         // Alternative email for password resets
 	CreatedAt          time.Time  `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"createdAt"`
 	UpdatedAt          time.Time  `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"updatedAt"`
 

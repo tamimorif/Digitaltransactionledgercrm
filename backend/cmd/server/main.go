@@ -52,6 +52,13 @@ func main() {
 	// Get the router as http.Handler
 	handler := api.NewRouter(db)
 
+	// Start scheduled backups (every 24 hours)
+	backupService := api.GetBackupService()
+	if backupService != nil && backupService.Enabled {
+		backupService.ScheduleBackups(24 * time.Hour)
+		log.Println("✅ Automatic daily backups enabled")
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

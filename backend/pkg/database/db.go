@@ -123,6 +123,13 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 		// Don't fail if seeding fails
 	}
 
+	// Fix branch unique indexes (must run before adding new indexes)
+	log.Println("Fixing branch unique indexes...")
+	if err := migrations.FixBranchUniqueIndexes(db); err != nil {
+		log.Printf("Warning: Failed to fix branch indexes: %v", err)
+		// Don't fail if migration fails
+	}
+
 	// Add performance indexes
 	log.Println("Adding performance indexes...")
 	if err := migrations.AddIndexes(db); err != nil {

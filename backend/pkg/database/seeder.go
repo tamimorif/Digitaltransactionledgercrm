@@ -3,6 +3,7 @@ package database
 import (
 	"api/pkg/models"
 	"log"
+	"os"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -11,16 +12,26 @@ import (
 
 // SeedDatabase seeds the database with initial data
 func SeedDatabase(db *gorm.DB) error {
+	// Get SuperAdmin password from environment variable
+	adminPassword := os.Getenv("SUPERADMIN_PASSWORD")
+	if adminPassword == "" {
+		adminPassword = "Admin@123456" // Fallback for development only
+		log.Println("⚠️  SUPERADMIN_PASSWORD not set in .env - using default (CHANGE THIS IN PRODUCTION!)")
+	}
+
+	// Get SuperAdmin recovery email from environment variable
+	recoveryEmail := os.Getenv("SUPERADMIN_RECOVERY_EMAIL")
+
 	// Check if SuperAdmin already exists
 	var superAdmin models.User
-	err := db.Where("email = ?", "admin@digitaltransactionledger.com").First(&superAdmin).Error
+	err := db.Where("email = ?", "superadmin@velopay.ca").First(&superAdmin).Error
 
 	if err == nil {
 		// SuperAdmin exists, verify/update password
 		log.Println("✅ SuperAdmin already exists. Verifying credentials...")
 
 		// Re-hash password to ensure it's correct
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("Admin@123456"), bcrypt.DefaultCost)
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
 		if err != nil {
 			return err
 		}
@@ -37,24 +48,30 @@ func SeedDatabase(db *gorm.DB) error {
 
 		log.Printf("✅ SuperAdmin credentials updated:")
 		log.Printf("   Email: %s", superAdmin.Email)
-		log.Printf("   Password: Admin@123456")
-		log.Printf("   ⚠️  PLEASE CHANGE THE PASSWORD AFTER FIRST LOGIN!")
+		log.Printf("   Password: [SET VIA SUPERADMIN_PASSWORD ENV VAR]")
 	} else {
 		// Create new SuperAdmin
 		log.Println("🌱 Seeding database with initial SuperAdmin...")
 
 		// Create SuperAdmin user
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte("Admin@123456"), bcrypt.DefaultCost)
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
 		if err != nil {
 			return err
 		}
 
+		// Set recovery email pointer if provided
+		var recoveryEmailPtr *string
+		if recoveryEmail != "" {
+			recoveryEmailPtr = &recoveryEmail
+		}
+
 		superAdmin = models.User{
-			Email:         "admin@digitaltransactionledger.com",
+			Email:         "superadmin@velopay.ca",
 			PasswordHash:  string(hashedPassword),
 			EmailVerified: true,
 			Role:          models.RoleSuperAdmin,
 			Status:        models.StatusActive,
+			RecoveryEmail: recoveryEmailPtr,
 		}
 
 		if err := db.Create(&superAdmin).Error; err != nil {
@@ -63,8 +80,7 @@ func SeedDatabase(db *gorm.DB) error {
 
 		log.Printf("✅ SuperAdmin created:")
 		log.Printf("   Email: %s", superAdmin.Email)
-		log.Printf("   Password: Admin@123456")
-		log.Printf("   ⚠️  PLEASE CHANGE THE PASSWORD AFTER FIRST LOGIN!")
+		log.Printf("   Password: [SET VIA SUPERADMIN_PASSWORD ENV VAR]")
 	}
 
 	// Seed default roles

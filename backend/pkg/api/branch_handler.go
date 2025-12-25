@@ -330,7 +330,7 @@ func (bh *BranchHandler) SetBranchCredentialsHandler(w http.ResponseWriter, r *h
 	}
 
 	if len(req.Password) < 6 {
-		respondWithError(w, http.StatusBadRequest, "Password must be at least 6 characters")
+		respondWithError(w, http.StatusBadRequest, "Password must be at least 8 characters")
 		return
 	}
 

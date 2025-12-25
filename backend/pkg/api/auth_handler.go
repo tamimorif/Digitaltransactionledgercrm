@@ -309,8 +309,8 @@ func (ah *AuthHandler) ChangePasswordHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if len(req.NewPassword) < 6 {
-		respondWithError(w, http.StatusBadRequest, "New password must be at least 6 characters")
+	if len(req.NewPassword) < 8 {
+		respondWithError(w, http.StatusBadRequest, "New password must be at least 8 characters")
 		return
 	}
 
@@ -389,8 +389,8 @@ func (ah *AuthHandler) ResetPasswordHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if len(req.NewPassword) < 6 {
-		respondWithError(w, http.StatusBadRequest, "New password must be at least 6 characters")
+	if len(req.NewPassword) < 8 {
+		respondWithError(w, http.StatusBadRequest, "New password must be at least 8 characters")
 		return
 	}
 
