@@ -1,6 +1,7 @@
 package api
 
 import (
+	"api/pkg/middleware"
 	"api/pkg/services"
 	"encoding/json"
 	"net/http"
@@ -32,8 +33,17 @@ func NewReceiptHandler(db *gorm.DB) *ReceiptHandler {
 // @Success 201 {object} models.ReceiptTemplate
 // @Router /receipts/templates [post]
 func (h *ReceiptHandler) CreateTemplateHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
-	userID := r.Context().Value("userID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 
 	var req services.CreateTemplateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -41,7 +51,7 @@ func (h *ReceiptHandler) CreateTemplateHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	template, err := h.receiptService.CreateTemplate(tenantID, userID, req)
+	template, err := h.receiptService.CreateTemplate(*tenantID, userID, req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -60,7 +70,11 @@ func (h *ReceiptHandler) CreateTemplateHandler(w http.ResponseWriter, r *http.Re
 // @Success 200 {object} models.ReceiptTemplate
 // @Router /receipts/templates/{id} [get]
 func (h *ReceiptHandler) GetTemplateHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	vars := mux.Vars(r)
 	templateID, err := strconv.ParseUint(vars["id"], 10, 32)
 	if err != nil {
@@ -68,7 +82,7 @@ func (h *ReceiptHandler) GetTemplateHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	template, err := h.receiptService.GetTemplate(tenantID, uint(templateID))
+	template, err := h.receiptService.GetTemplate(*tenantID, uint(templateID))
 	if err != nil {
 		http.Error(w, "Template not found", http.StatusNotFound)
 		return
@@ -85,10 +99,14 @@ func (h *ReceiptHandler) GetTemplateHandler(w http.ResponseWriter, r *http.Reque
 // @Success 200 {array} models.ReceiptTemplate
 // @Router /receipts/templates [get]
 func (h *ReceiptHandler) ListTemplatesHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	includeInactive := r.URL.Query().Get("includeInactive") == "true"
 
-	templates, err := h.receiptService.ListTemplates(tenantID, includeInactive)
+	templates, err := h.receiptService.ListTemplates(*tenantID, includeInactive)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -105,8 +123,17 @@ func (h *ReceiptHandler) ListTemplatesHandler(w http.ResponseWriter, r *http.Req
 // @Produce json
 // @Router /receipts/templates/{id} [put]
 func (h *ReceiptHandler) UpdateTemplateHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
-	userID := r.Context().Value("userID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 	vars := mux.Vars(r)
 	templateID, _ := strconv.ParseUint(vars["id"], 10, 32)
 
@@ -116,7 +143,7 @@ func (h *ReceiptHandler) UpdateTemplateHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	template, err := h.receiptService.UpdateTemplate(tenantID, uint(templateID), userID, req)
+	template, err := h.receiptService.UpdateTemplate(*tenantID, uint(templateID), userID, req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -131,11 +158,15 @@ func (h *ReceiptHandler) UpdateTemplateHandler(w http.ResponseWriter, r *http.Re
 // @Tags Receipts
 // @Router /receipts/templates/{id} [delete]
 func (h *ReceiptHandler) DeleteTemplateHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	vars := mux.Vars(r)
 	templateID, _ := strconv.ParseUint(vars["id"], 10, 32)
 
-	err := h.receiptService.DeleteTemplate(tenantID, uint(templateID))
+	err := h.receiptService.DeleteTemplate(*tenantID, uint(templateID))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -149,11 +180,15 @@ func (h *ReceiptHandler) DeleteTemplateHandler(w http.ResponseWriter, r *http.Re
 // @Tags Receipts
 // @Router /receipts/templates/{id}/default [put]
 func (h *ReceiptHandler) SetDefaultHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	vars := mux.Vars(r)
 	templateID, _ := strconv.ParseUint(vars["id"], 10, 32)
 
-	err := h.receiptService.SetDefaultTemplate(tenantID, uint(templateID))
+	err := h.receiptService.SetDefaultTemplate(*tenantID, uint(templateID))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -170,8 +205,17 @@ func (h *ReceiptHandler) SetDefaultHandler(w http.ResponseWriter, r *http.Reques
 // @Produce json
 // @Router /receipts/templates/{id}/duplicate [post]
 func (h *ReceiptHandler) DuplicateTemplateHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
-	userID := r.Context().Value("userID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 	vars := mux.Vars(r)
 	templateID, _ := strconv.ParseUint(vars["id"], 10, 32)
 
@@ -180,7 +224,7 @@ func (h *ReceiptHandler) DuplicateTemplateHandler(w http.ResponseWriter, r *http
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 
-	template, err := h.receiptService.DuplicateTemplate(tenantID, uint(templateID), userID, req.Name)
+	template, err := h.receiptService.DuplicateTemplate(*tenantID, uint(templateID), userID, req.Name)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -197,11 +241,15 @@ func (h *ReceiptHandler) DuplicateTemplateHandler(w http.ResponseWriter, r *http
 // @Produce html
 // @Router /receipts/templates/{id}/preview [get]
 func (h *ReceiptHandler) PreviewTemplateHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	vars := mux.Vars(r)
 	templateID, _ := strconv.ParseUint(vars["id"], 10, 32)
 
-	html, err := h.receiptService.PreviewReceipt(tenantID, uint(templateID))
+	html, err := h.receiptService.PreviewReceipt(*tenantID, uint(templateID))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -235,7 +283,11 @@ func (h *ReceiptHandler) GetVariablesHandler(w http.ResponseWriter, r *http.Requ
 // @Produce html
 // @Router /receipts/render [post]
 func (h *ReceiptHandler) RenderReceiptHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	var req struct {
 		TemplateID   *uint                  `json:"templateId"`
@@ -251,7 +303,7 @@ func (h *ReceiptHandler) RenderReceiptHandler(w http.ResponseWriter, r *http.Req
 	var err error
 
 	if req.TemplateID != nil {
-		template, err := h.receiptService.GetTemplate(tenantID, *req.TemplateID)
+		template, err := h.receiptService.GetTemplate(*tenantID, *req.TemplateID)
 		if err != nil {
 			http.Error(w, "Template not found", http.StatusNotFound)
 			return
@@ -262,7 +314,7 @@ func (h *ReceiptHandler) RenderReceiptHandler(w http.ResponseWriter, r *http.Req
 		if templateType == "" {
 			templateType = "transaction"
 		}
-		html, err = h.receiptService.RenderReceipt(tenantID, templateType, req.Data)
+		html, err = h.receiptService.RenderReceipt(*tenantID, templateType, req.Data)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -278,10 +330,19 @@ func (h *ReceiptHandler) RenderReceiptHandler(w http.ResponseWriter, r *http.Req
 // @Tags Receipts
 // @Router /receipts/templates/defaults [post]
 func (h *ReceiptHandler) CreateDefaultTemplatesHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
-	userID := r.Context().Value("userID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 
-	err := h.receiptService.CreateDefaultTemplates(tenantID, userID)
+	err := h.receiptService.CreateDefaultTemplates(*tenantID, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -297,7 +358,11 @@ func (h *ReceiptHandler) CreateDefaultTemplatesHandler(w http.ResponseWriter, r 
 // @Produce html
 // @Router /receipts/outgoing/{id} [get]
 func (h *ReceiptHandler) GetOutgoingRemittanceReceiptHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	vars := mux.Vars(r)
 	remittanceID, err := strconv.ParseUint(vars["id"], 10, 32)
 	if err != nil {
@@ -315,7 +380,7 @@ func (h *ReceiptHandler) GetOutgoingRemittanceReceiptHandler(w http.ResponseWrit
 		Currency     string  `json:"currency"`
 		Status       string  `json:"status"`
 	}
-	if err := h.db.Table("outgoing_remittances").Where("id = ? AND tenant_id = ?", remittanceID, tenantID).First(&remittance).Error; err != nil {
+	if err := h.db.Table("outgoing_remittances").Where("id = ? AND tenant_id = ?", remittanceID, *tenantID).First(&remittance).Error; err != nil {
 		http.Error(w, "Remittance not found", http.StatusNotFound)
 		return
 	}
@@ -331,7 +396,7 @@ func (h *ReceiptHandler) GetOutgoingRemittanceReceiptHandler(w http.ResponseWrit
 		"transaction.status": remittance.Status,
 	}
 
-	html, err := h.receiptService.RenderReceipt(tenantID, "remittance", data)
+	html, err := h.receiptService.RenderReceipt(*tenantID, "remittance", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -347,7 +412,11 @@ func (h *ReceiptHandler) GetOutgoingRemittanceReceiptHandler(w http.ResponseWrit
 // @Produce html
 // @Router /receipts/incoming/{id} [get]
 func (h *ReceiptHandler) GetIncomingRemittanceReceiptHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	vars := mux.Vars(r)
 	remittanceID, err := strconv.ParseUint(vars["id"], 10, 32)
 	if err != nil {
@@ -363,7 +432,7 @@ func (h *ReceiptHandler) GetIncomingRemittanceReceiptHandler(w http.ResponseWrit
 		Currency     string  `json:"currency"`
 		Status       string  `json:"status"`
 	}
-	if err := h.db.Table("incoming_remittances").Where("id = ? AND tenant_id = ?", remittanceID, tenantID).First(&remittance).Error; err != nil {
+	if err := h.db.Table("incoming_remittances").Where("id = ? AND tenant_id = ?", remittanceID, *tenantID).First(&remittance).Error; err != nil {
 		http.Error(w, "Remittance not found", http.StatusNotFound)
 		return
 	}
@@ -377,7 +446,7 @@ func (h *ReceiptHandler) GetIncomingRemittanceReceiptHandler(w http.ResponseWrit
 		"transaction.status": remittance.Status,
 	}
 
-	html, err := h.receiptService.RenderReceipt(tenantID, "remittance", data)
+	html, err := h.receiptService.RenderReceipt(*tenantID, "remittance", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -393,7 +462,11 @@ func (h *ReceiptHandler) GetIncomingRemittanceReceiptHandler(w http.ResponseWrit
 // @Produce html
 // @Router /receipts/transaction/{id} [get]
 func (h *ReceiptHandler) GetTransactionReceiptHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	vars := mux.Vars(r)
 	transactionID, err := strconv.ParseUint(vars["id"], 10, 32)
 	if err != nil {
@@ -411,7 +484,7 @@ func (h *ReceiptHandler) GetTransactionReceiptHandler(w http.ResponseWriter, r *
 		ExchangeRate    float64 `json:"exchangeRate"`
 		Status          string  `json:"status"`
 	}
-	if err := h.db.Table("transactions").Where("id = ? AND tenant_id = ?", transactionID, tenantID).First(&transaction).Error; err != nil {
+	if err := h.db.Table("transactions").Where("id = ? AND tenant_id = ?", transactionID, *tenantID).First(&transaction).Error; err != nil {
 		http.Error(w, "Transaction not found", http.StatusNotFound)
 		return
 	}
@@ -427,7 +500,7 @@ func (h *ReceiptHandler) GetTransactionReceiptHandler(w http.ResponseWriter, r *
 		"transaction.status": transaction.Status,
 	}
 
-	html, err := h.receiptService.RenderReceipt(tenantID, "transaction", data)
+	html, err := h.receiptService.RenderReceipt(*tenantID, "transaction", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

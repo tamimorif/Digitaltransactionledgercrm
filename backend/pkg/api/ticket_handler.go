@@ -1,6 +1,7 @@
 package api
 
 import (
+	"api/pkg/middleware"
 	"api/pkg/models"
 	"api/pkg/services"
 	"encoding/json"
@@ -33,8 +34,17 @@ func NewTicketHandler(db *gorm.DB) *TicketHandler {
 // @Success 201 {object} models.Ticket
 // @Router /tickets [post]
 func (h *TicketHandler) CreateTicketHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
-	userID := r.Context().Value("userID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 
 	var req services.CreateTicketRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -47,7 +57,7 @@ func (h *TicketHandler) CreateTicketHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	ticket, err := h.ticketService.CreateTicket(tenantID, userID, req)
+	ticket, err := h.ticketService.CreateTicket(*tenantID, userID, req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -66,7 +76,11 @@ func (h *TicketHandler) CreateTicketHandler(w http.ResponseWriter, r *http.Reque
 // @Success 200 {object} models.Ticket
 // @Router /tickets/{id} [get]
 func (h *TicketHandler) GetTicketHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	vars := mux.Vars(r)
 	ticketIDStr := vars["id"]
 	ticketID, err := strconv.ParseUint(ticketIDStr, 10, 32)
@@ -75,7 +89,7 @@ func (h *TicketHandler) GetTicketHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	ticket, err := h.ticketService.GetTicket(tenantID, uint(ticketID))
+	ticket, err := h.ticketService.GetTicket(*tenantID, uint(ticketID))
 	if err != nil {
 		http.Error(w, "Ticket not found", http.StatusNotFound)
 		return
@@ -92,7 +106,11 @@ func (h *TicketHandler) GetTicketHandler(w http.ResponseWriter, r *http.Request)
 // @Success 200 {object} TicketListResponse
 // @Router /tickets [get]
 func (h *TicketHandler) ListTicketsHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	// Parse query parameters
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
@@ -137,7 +155,7 @@ func (h *TicketHandler) ListTicketsHandler(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	tickets, total, err := h.ticketService.ListTickets(tenantID, filter, page, limit)
+	tickets, total, err := h.ticketService.ListTickets(*tenantID, filter, page, limit)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -169,8 +187,17 @@ type TicketListResponse struct {
 // @Produce json
 // @Router /tickets/{id}/status [put]
 func (h *TicketHandler) UpdateTicketStatusHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
-	userID := r.Context().Value("userID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 	vars := mux.Vars(r)
 	ticketID, _ := strconv.ParseUint(vars["id"], 10, 32)
 
@@ -182,7 +209,7 @@ func (h *TicketHandler) UpdateTicketStatusHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	err := h.ticketService.UpdateTicketStatus(tenantID, uint(ticketID), models.TicketStatus(req.Status), userID)
+	err := h.ticketService.UpdateTicketStatus(*tenantID, uint(ticketID), models.TicketStatus(req.Status), userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -199,8 +226,17 @@ func (h *TicketHandler) UpdateTicketStatusHandler(w http.ResponseWriter, r *http
 // @Produce json
 // @Router /tickets/{id}/assign [put]
 func (h *TicketHandler) AssignTicketHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
-	userID := r.Context().Value("userID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 	vars := mux.Vars(r)
 	ticketID, _ := strconv.ParseUint(vars["id"], 10, 32)
 
@@ -212,7 +248,7 @@ func (h *TicketHandler) AssignTicketHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	err := h.ticketService.AssignTicket(tenantID, uint(ticketID), req.AssignToUserID, userID)
+	err := h.ticketService.AssignTicket(*tenantID, uint(ticketID), req.AssignToUserID, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -229,8 +265,17 @@ func (h *TicketHandler) AssignTicketHandler(w http.ResponseWriter, r *http.Reque
 // @Produce json
 // @Router /tickets/{id}/messages [post]
 func (h *TicketHandler) AddMessageHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
-	userID := r.Context().Value("userID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 	vars := mux.Vars(r)
 	ticketID, _ := strconv.ParseUint(vars["id"], 10, 32)
 
@@ -248,7 +293,7 @@ func (h *TicketHandler) AddMessageHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	message, err := h.ticketService.AddMessage(tenantID, uint(ticketID), userID, req.Content, req.IsInternal)
+	message, err := h.ticketService.AddMessage(*tenantID, uint(ticketID), userID, req.Content, req.IsInternal)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -265,13 +310,17 @@ func (h *TicketHandler) AddMessageHandler(w http.ResponseWriter, r *http.Request
 // @Produce json
 // @Router /tickets/{id}/messages [get]
 func (h *TicketHandler) GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	vars := mux.Vars(r)
 	ticketID, _ := strconv.ParseUint(vars["id"], 10, 32)
 
 	includeInternal := r.URL.Query().Get("includeInternal") == "true"
 
-	messages, err := h.ticketService.GetMessages(tenantID, uint(ticketID), includeInternal)
+	messages, err := h.ticketService.GetMessages(*tenantID, uint(ticketID), includeInternal)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -288,8 +337,17 @@ func (h *TicketHandler) GetMessagesHandler(w http.ResponseWriter, r *http.Reques
 // @Produce json
 // @Router /tickets/{id}/resolve [post]
 func (h *TicketHandler) ResolveTicketHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
-	userID := r.Context().Value("userID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 	vars := mux.Vars(r)
 	ticketID, _ := strconv.ParseUint(vars["id"], 10, 32)
 
@@ -301,7 +359,7 @@ func (h *TicketHandler) ResolveTicketHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	err := h.ticketService.ResolveTicket(tenantID, uint(ticketID), req.Resolution, userID)
+	err := h.ticketService.ResolveTicket(*tenantID, uint(ticketID), req.Resolution, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -317,9 +375,13 @@ func (h *TicketHandler) ResolveTicketHandler(w http.ResponseWriter, r *http.Requ
 // @Produce json
 // @Router /tickets/stats [get]
 func (h *TicketHandler) GetTicketStatsHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
-	stats, err := h.ticketService.GetTicketStats(tenantID)
+	stats, err := h.ticketService.GetTicketStats(*tenantID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -335,12 +397,21 @@ func (h *TicketHandler) GetTicketStatsHandler(w http.ResponseWriter, r *http.Req
 // @Produce json
 // @Router /tickets/my [get]
 func (h *TicketHandler) GetMyTicketsHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
-	userID := r.Context().Value("userID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 
 	includeClosed := r.URL.Query().Get("includeClosed") == "true"
 
-	tickets, err := h.ticketService.GetMyTickets(tenantID, userID, includeClosed)
+	tickets, err := h.ticketService.GetMyTickets(*tenantID, userID, includeClosed)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -356,7 +427,11 @@ func (h *TicketHandler) GetMyTicketsHandler(w http.ResponseWriter, r *http.Reque
 // @Produce json
 // @Router /tickets/{id}/activity [get]
 func (h *TicketHandler) GetTicketActivityHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	vars := mux.Vars(r)
 	ticketID, _ := strconv.ParseUint(vars["id"], 10, 32)
 
@@ -365,7 +440,7 @@ func (h *TicketHandler) GetTicketActivityHandler(w http.ResponseWriter, r *http.
 		limit = 50
 	}
 
-	activities, err := h.ticketService.GetTicketActivity(tenantID, uint(ticketID), limit)
+	activities, err := h.ticketService.GetTicketActivity(*tenantID, uint(ticketID), limit)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -382,8 +457,17 @@ func (h *TicketHandler) GetTicketActivityHandler(w http.ResponseWriter, r *http.
 // @Produce json
 // @Router /tickets/{id}/priority [put]
 func (h *TicketHandler) UpdateTicketPriorityHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
-	userID := r.Context().Value("userID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 	vars := mux.Vars(r)
 	ticketID, _ := strconv.ParseUint(vars["id"], 10, 32)
 
@@ -395,7 +479,7 @@ func (h *TicketHandler) UpdateTicketPriorityHandler(w http.ResponseWriter, r *ht
 		return
 	}
 
-	err := h.ticketService.UpdateTicketPriority(tenantID, uint(ticketID), models.TicketPriority(req.Priority), userID)
+	err := h.ticketService.UpdateTicketPriority(*tenantID, uint(ticketID), models.TicketPriority(req.Priority), userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -411,7 +495,11 @@ func (h *TicketHandler) UpdateTicketPriorityHandler(w http.ResponseWriter, r *ht
 // @Produce json
 // @Router /tickets/search [get]
 func (h *TicketHandler) SearchTicketsHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	query := r.URL.Query().Get("q")
 	if query == "" {
@@ -424,7 +512,7 @@ func (h *TicketHandler) SearchTicketsHandler(w http.ResponseWriter, r *http.Requ
 		limit = 20
 	}
 
-	tickets, err := h.ticketService.SearchTickets(tenantID, query, limit)
+	tickets, err := h.ticketService.SearchTickets(*tenantID, query, limit)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -441,8 +529,17 @@ func (h *TicketHandler) SearchTicketsHandler(w http.ResponseWriter, r *http.Requ
 // @Produce json
 // @Router /tickets/quick [post]
 func (h *TicketHandler) CreateQuickTicketHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
-	userID := r.Context().Value("userID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 
 	var req struct {
 		EntityType string `json:"entityType"` // transaction, remittance, pickup
@@ -454,7 +551,7 @@ func (h *TicketHandler) CreateQuickTicketHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	ticket, err := h.ticketService.CreateQuickTicket(tenantID, userID, req.EntityType, req.EntityID, req.Issue)
+	ticket, err := h.ticketService.CreateQuickTicket(*tenantID, userID, req.EntityType, req.EntityID, req.Issue)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

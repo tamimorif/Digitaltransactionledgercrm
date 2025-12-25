@@ -1,6 +1,7 @@
 package api
 
 import (
+	"api/pkg/middleware"
 	"api/pkg/services"
 	"api/pkg/validation"
 	"encoding/json"
@@ -36,7 +37,11 @@ func NewAutoSettlementHandler(db *gorm.DB) *AutoSettlementHandler {
 // @Success 200 {array} services.SettlementSuggestion
 // @Router /remittances/incoming/{id}/suggestions [get]
 func (h *AutoSettlementHandler) GetSettlementSuggestionsHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	vars := mux.Vars(r)
 
 	incomingID, err := strconv.ParseUint(vars["id"], 10, 64)
@@ -56,7 +61,7 @@ func (h *AutoSettlementHandler) GetSettlementSuggestionsHandler(w http.ResponseW
 		limit = limitVal
 	}
 
-	suggestions, err := h.autoSettlementService.GetSettlementSuggestions(tenantID, uint(incomingID), strategy, limit)
+	suggestions, err := h.autoSettlementService.GetSettlementSuggestions(*tenantID, uint(incomingID), strategy, limit)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -77,8 +82,17 @@ func (h *AutoSettlementHandler) GetSettlementSuggestionsHandler(w http.ResponseW
 // @Success 200 {object} services.AutoSettlementResult
 // @Router /remittances/auto-settle [post]
 func (h *AutoSettlementHandler) AutoSettleHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
-	userID := r.Context().Value("userID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 
 	var req validation.AutoSettleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -99,7 +113,7 @@ func (h *AutoSettlementHandler) AutoSettleHandler(w http.ResponseWriter, r *http
 		strategy = services.StrategyFIFO
 	}
 
-	result, err := h.autoSettlementService.AutoSettle(tenantID, req.IncomingRemittanceID, userID, strategy)
+	result, err := h.autoSettlementService.AutoSettle(*tenantID, req.IncomingRemittanceID, userID, strategy)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -119,9 +133,13 @@ func (h *AutoSettlementHandler) AutoSettleHandler(w http.ResponseWriter, r *http
 // @Success 200 {object} map[string]interface{}
 // @Router /remittances/unsettled-summary [get]
 func (h *AutoSettlementHandler) GetUnsettledSummaryHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
-	summary, err := h.autoSettlementService.GetUnsettledSummary(tenantID)
+	summary, err := h.autoSettlementService.GetUnsettledSummary(*tenantID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

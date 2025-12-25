@@ -1,6 +1,7 @@
 package api
 
 import (
+	"api/pkg/middleware"
 	"api/pkg/models"
 	"api/pkg/services"
 	"encoding/json"
@@ -60,7 +61,11 @@ func NewComplianceHandler(db *gorm.DB) *ComplianceHandler {
 // @Success 200 {object} models.CustomerCompliance
 // @Router /compliance/customer/{customerId} [get]
 func (h *ComplianceHandler) GetCustomerComplianceHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	vars := mux.Vars(r)
 	customerIDStr := vars["customerId"]
 	customerID, err := strconv.ParseUint(customerIDStr, 10, 32)
@@ -69,7 +74,7 @@ func (h *ComplianceHandler) GetCustomerComplianceHandler(w http.ResponseWriter, 
 		return
 	}
 
-	compliance, err := h.complianceService.GetOrCreateCompliance(tenantID, uint(customerID))
+	compliance, err := h.complianceService.GetOrCreateCompliance(*tenantID, uint(customerID))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -87,7 +92,11 @@ func (h *ComplianceHandler) GetCustomerComplianceHandler(w http.ResponseWriter, 
 // @Success 200 {object} services.ComplianceCheckResult
 // @Router /compliance/check [post]
 func (h *ComplianceHandler) CheckTransactionComplianceHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	var req struct {
 		CustomerID uint    `json:"customerId"`
@@ -100,7 +109,7 @@ func (h *ComplianceHandler) CheckTransactionComplianceHandler(w http.ResponseWri
 		return
 	}
 
-	result, err := h.complianceService.CheckTransactionCompliance(tenantID, req.CustomerID, req.Amount, req.Currency)
+	result, err := h.complianceService.CheckTransactionCompliance(*tenantID, req.CustomerID, req.Amount, req.Currency)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -117,7 +126,12 @@ func (h *ComplianceHandler) CheckTransactionComplianceHandler(w http.ResponseWri
 // @Produce json
 // @Router /compliance/{id}/status [put]
 func (h *ComplianceHandler) UpdateComplianceStatusHandler(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(uint)
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 	vars := mux.Vars(r)
 	complianceIDStr := vars["id"]
 	complianceID, err := strconv.ParseUint(complianceIDStr, 10, 32)
@@ -153,7 +167,11 @@ func (h *ComplianceHandler) UpdateComplianceStatusHandler(w http.ResponseWriter,
 // @Produce json
 // @Router /compliance/{id}/documents [post]
 func (h *ComplianceHandler) UploadDocumentHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	vars := mux.Vars(r)
 	complianceIDStr := vars["id"]
 	complianceID, err := strconv.ParseUint(complianceIDStr, 10, 32)
@@ -196,7 +214,7 @@ func (h *ComplianceHandler) UploadDocumentHandler(w http.ResponseWriter, r *http
 
 	// Generate unique filename
 	ext := filepath.Ext(header.Filename)
-	filename := fmt.Sprintf("%d_%d_%s_%d%s", tenantID, complianceID, docType, time.Now().UnixNano(), ext)
+	filename := fmt.Sprintf("%d_%d_%s_%d%s", *tenantID, complianceID, docType, time.Now().UnixNano(), ext)
 	filePath := filepath.Join(h.uploadDir, filename)
 
 	// Create destination file
@@ -216,7 +234,7 @@ func (h *ComplianceHandler) UploadDocumentHandler(w http.ResponseWriter, r *http
 	// Record in database
 	doc, err := h.complianceService.UploadDocument(
 		uint(complianceID),
-		tenantID,
+		*tenantID,
 		docType,
 		header.Filename,
 		filePath,
@@ -240,7 +258,11 @@ func (h *ComplianceHandler) UploadDocumentHandler(w http.ResponseWriter, r *http
 // @Produce json
 // @Router /compliance/{id}/documents [get]
 func (h *ComplianceHandler) GetDocumentsHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	vars := mux.Vars(r)
 	complianceIDStr := vars["id"]
 	complianceID, err := strconv.ParseUint(complianceIDStr, 10, 32)
@@ -250,7 +272,7 @@ func (h *ComplianceHandler) GetDocumentsHandler(w http.ResponseWriter, r *http.R
 	}
 
 	var docs []models.ComplianceDocument
-	if err := h.db.Where("customer_compliance_id = ? AND tenant_id = ?", complianceID, tenantID).Find(&docs).Error; err != nil {
+	if err := h.db.Where("customer_compliance_id = ? AND tenant_id = ?", complianceID, *tenantID).Find(&docs).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -266,7 +288,12 @@ func (h *ComplianceHandler) GetDocumentsHandler(w http.ResponseWriter, r *http.R
 // @Produce json
 // @Router /compliance/documents/{docId}/review [put]
 func (h *ComplianceHandler) ReviewDocumentHandler(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(uint)
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 	vars := mux.Vars(r)
 	docIDStr := vars["docId"]
 	docID, err := strconv.ParseUint(docIDStr, 10, 32)
@@ -301,7 +328,12 @@ func (h *ComplianceHandler) ReviewDocumentHandler(w http.ResponseWriter, r *http
 // @Produce json
 // @Router /compliance/{id}/limits [put]
 func (h *ComplianceHandler) SetTransactionLimitsHandler(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(uint)
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 	vars := mux.Vars(r)
 	complianceIDStr := vars["id"]
 	complianceID, err := strconv.ParseUint(complianceIDStr, 10, 32)
@@ -342,7 +374,11 @@ func (h *ComplianceHandler) SetTransactionLimitsHandler(w http.ResponseWriter, r
 // @Produce json
 // @Router /compliance/pending [get]
 func (h *ComplianceHandler) GetPendingReviewsHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	limit := 50
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
@@ -351,7 +387,7 @@ func (h *ComplianceHandler) GetPendingReviewsHandler(w http.ResponseWriter, r *h
 		}
 	}
 
-	records, err := h.complianceService.GetPendingReviews(tenantID, limit)
+	records, err := h.complianceService.GetPendingReviews(*tenantID, limit)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -367,7 +403,11 @@ func (h *ComplianceHandler) GetPendingReviewsHandler(w http.ResponseWriter, r *h
 // @Produce json
 // @Router /compliance/expiring [get]
 func (h *ComplianceHandler) GetExpiringComplianceHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	days := 30
 	if daysStr := r.URL.Query().Get("days"); daysStr != "" {
@@ -376,7 +416,7 @@ func (h *ComplianceHandler) GetExpiringComplianceHandler(w http.ResponseWriter, 
 		}
 	}
 
-	records, err := h.complianceService.GetExpiringCompliance(tenantID, days)
+	records, err := h.complianceService.GetExpiringCompliance(*tenantID, days)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -424,7 +464,11 @@ func (h *ComplianceHandler) GetAuditLogHandler(w http.ResponseWriter, r *http.Re
 // @Produce json
 // @Router /compliance/{id}/verify [post]
 func (h *ComplianceHandler) InitiateVerificationHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	vars := mux.Vars(r)
 	complianceIDStr := vars["id"]
 	complianceID, err := strconv.ParseUint(complianceIDStr, 10, 32)
@@ -440,14 +484,14 @@ func (h *ComplianceHandler) InitiateVerificationHandler(w http.ResponseWriter, r
 		return
 	}
 
-	if compliance.TenantID != tenantID {
+	if compliance.TenantID != *tenantID {
 		http.Error(w, "Not authorized", http.StatusForbidden)
 		return
 	}
 
 	// Create applicant in external provider
 	request := &services.CreateApplicantRequest{
-		ExternalUserID: fmt.Sprintf("%d-%d", tenantID, compliance.CustomerID),
+		ExternalUserID: fmt.Sprintf("%d-%d", *tenantID, compliance.CustomerID),
 		Country:        compliance.Country,
 	}
 
@@ -481,7 +525,11 @@ func (h *ComplianceHandler) InitiateVerificationHandler(w http.ResponseWriter, r
 // @Produce json
 // @Router /compliance/{id}/verify/status [get]
 func (h *ComplianceHandler) GetVerificationStatusHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	vars := mux.Vars(r)
 	complianceIDStr := vars["id"]
 	complianceID, err := strconv.ParseUint(complianceIDStr, 10, 32)
@@ -496,7 +544,7 @@ func (h *ComplianceHandler) GetVerificationStatusHandler(w http.ResponseWriter, 
 		return
 	}
 
-	if compliance.TenantID != tenantID {
+	if compliance.TenantID != *tenantID {
 		http.Error(w, "Not authorized", http.StatusForbidden)
 		return
 	}

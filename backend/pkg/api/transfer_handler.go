@@ -1,6 +1,7 @@
 package api
 
 import (
+	"api/pkg/middleware"
 	"api/pkg/services"
 	"encoding/json"
 	"net/http"
@@ -37,8 +38,17 @@ type CreateTransferRequest struct {
 // @Success 200 {object} models.Transfer
 // @Router /transfers [post]
 func (h *TransferHandler) CreateTransferHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
-	userID := r.Context().Value("userID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 
 	var req CreateTransferRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -47,7 +57,7 @@ func (h *TransferHandler) CreateTransferHandler(w http.ResponseWriter, r *http.R
 	}
 
 	transfer, err := h.transferService.CreateTransfer(
-		tenantID,
+		*tenantID,
 		req.SourceBranchID,
 		req.DestinationBranchID,
 		req.Amount,
@@ -75,8 +85,17 @@ func (h *TransferHandler) CreateTransferHandler(w http.ResponseWriter, r *http.R
 // @Success 200 {object} models.Transfer
 // @Router /transfers/{id}/accept [post]
 func (h *TransferHandler) AcceptTransferHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
-	userID := r.Context().Value("userID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 
 	vars := mux.Vars(r)
 	idStr := vars["id"]
@@ -86,7 +105,7 @@ func (h *TransferHandler) AcceptTransferHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	transfer, err := h.transferService.AcceptTransfer(uint(id), tenantID, userID)
+	transfer, err := h.transferService.AcceptTransfer(uint(id), *tenantID, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -107,8 +126,17 @@ func (h *TransferHandler) AcceptTransferHandler(w http.ResponseWriter, r *http.R
 // @Success 200 {object} models.Transfer
 // @Router /transfers/{id}/cancel [post]
 func (h *TransferHandler) CancelTransferHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
-	userID := r.Context().Value("userID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	user, ok := middleware.GetUserFromContext(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := user.ID
 
 	vars := mux.Vars(r)
 	idStr := vars["id"]
@@ -118,7 +146,7 @@ func (h *TransferHandler) CancelTransferHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	transfer, err := h.transferService.CancelTransfer(uint(id), tenantID, userID)
+	transfer, err := h.transferService.CancelTransfer(uint(id), *tenantID, userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -140,12 +168,11 @@ func (h *TransferHandler) CancelTransferHandler(w http.ResponseWriter, r *http.R
 // @Success 200 {array} models.Transfer
 // @Router /transfers [get]
 func (h *TransferHandler) GetTransfersHandler(w http.ResponseWriter, r *http.Request) {
-	tenantIDVal := r.Context().Value("tenantID")
-	if tenantIDVal == nil {
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
 		http.Error(w, "Unauthorized: No tenant ID found", http.StatusUnauthorized)
 		return
 	}
-	tenantID := tenantIDVal.(uint)
 
 	var branchID *uint
 	if branchIDStr := r.URL.Query().Get("branchId"); branchIDStr != "" {
@@ -157,7 +184,7 @@ func (h *TransferHandler) GetTransfersHandler(w http.ResponseWriter, r *http.Req
 
 	status := r.URL.Query().Get("status")
 
-	transfers, err := h.transferService.GetTransfers(tenantID, branchID, status)
+	transfers, err := h.transferService.GetTransfers(*tenantID, branchID, status)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

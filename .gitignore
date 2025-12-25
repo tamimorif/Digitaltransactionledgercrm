@@ -53,6 +53,12 @@ transactions.db
 dev.db
 dev.db-journal
 
+# --- Runtime Storage ---
+backend/uploads/
+backend/backups/
+uploads/
+backups/
+
 # --- Environment and Logs ---
 .env
 .env*.local

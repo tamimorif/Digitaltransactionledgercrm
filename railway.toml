@@ -1,5 +1,9 @@
+[build]
+builder = "go"
+buildCommand = "cd backend && go mod download && go build -o server ./cmd/server"
+
 [deploy]
-startCommand = "./server"
+startCommand = "cd backend && ./server"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"

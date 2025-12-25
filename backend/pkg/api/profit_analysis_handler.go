@@ -1,6 +1,7 @@
 package api
 
 import (
+	"api/pkg/middleware"
 	"api/pkg/services"
 	"encoding/json"
 	"net/http"
@@ -34,7 +35,11 @@ func NewProfitAnalysisHandler(db *gorm.DB) *ProfitAnalysisHandler {
 // @Success 200 {object} services.ProfitAnalysisResult
 // @Router /analytics/profit [get]
 func (h *ProfitAnalysisHandler) GetProfitAnalysisHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	// Parse dates
 	startDate := time.Now().AddDate(0, -1, 0) // Default: last month
@@ -52,7 +57,7 @@ func (h *ProfitAnalysisHandler) GetProfitAnalysisHandler(w http.ResponseWriter, 
 		}
 	}
 
-	result, err := h.profitService.GetProfitAnalysis(tenantID, startDate, endDate)
+	result, err := h.profitService.GetProfitAnalysis(*tenantID, startDate, endDate)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -73,7 +78,11 @@ func (h *ProfitAnalysisHandler) GetProfitAnalysisHandler(w http.ResponseWriter, 
 // @Success 200 {array} services.ProfitByPeriod
 // @Router /analytics/profit/daily [get]
 func (h *ProfitAnalysisHandler) GetDailyProfitHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	days := 30
 	if daysStr := r.URL.Query().Get("days"); daysStr != "" {
@@ -82,7 +91,7 @@ func (h *ProfitAnalysisHandler) GetDailyProfitHandler(w http.ResponseWriter, r *
 		}
 	}
 
-	result, err := h.profitService.GetDailyProfit(tenantID, days)
+	result, err := h.profitService.GetDailyProfit(*tenantID, days)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -103,7 +112,11 @@ func (h *ProfitAnalysisHandler) GetDailyProfitHandler(w http.ResponseWriter, r *
 // @Success 200 {array} services.ProfitByPeriod
 // @Router /analytics/profit/monthly [get]
 func (h *ProfitAnalysisHandler) GetMonthlyProfitHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	months := 12
 	if monthsStr := r.URL.Query().Get("months"); monthsStr != "" {
@@ -112,7 +125,7 @@ func (h *ProfitAnalysisHandler) GetMonthlyProfitHandler(w http.ResponseWriter, r
 		}
 	}
 
-	result, err := h.profitService.GetMonthlyProfit(tenantID, months)
+	result, err := h.profitService.GetMonthlyProfit(*tenantID, months)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -124,7 +137,11 @@ func (h *ProfitAnalysisHandler) GetMonthlyProfitHandler(w http.ResponseWriter, r
 
 // GetProfitByBranchHandler returns profit analysis by branch
 func (h *ProfitAnalysisHandler) GetProfitByBranchHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	startDate, endDate := parseDateRange(r)
 
 	// We need total profit for percentage calculation, so we get the full analysis or just sum it up
@@ -134,13 +151,13 @@ func (h *ProfitAnalysisHandler) GetProfitByBranchHandler(w http.ResponseWriter, 
 	// Note: The service method requires totalProfit to calculate percentages.
 	// We can pass 0 for now if we don't want to calculate it separately, or calculate it first.
 	// Let's calculate total profit first.
-	summary, err := h.profitService.GetProfitAnalysis(tenantID, startDate, endDate)
+	summary, err := h.profitService.GetProfitAnalysis(*tenantID, startDate, endDate)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	result := h.profitService.GetProfitByBranch(tenantID, startDate, endDate, summary.TotalProfitCAD)
+	result := h.profitService.GetProfitByBranch(*tenantID, startDate, endDate, summary.TotalProfitCAD)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
@@ -148,11 +165,15 @@ func (h *ProfitAnalysisHandler) GetProfitByBranchHandler(w http.ResponseWriter, 
 
 // GetProfitTrendHandler returns profit trend
 func (h *ProfitAnalysisHandler) GetProfitTrendHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	startDate, endDate := parseDateRange(r)
 	// groupBy := r.URL.Query().Get("groupBy") // Currently service only supports daily via GetProfitByPeriod
 
-	result := h.profitService.GetProfitByPeriod(tenantID, startDate, endDate)
+	result := h.profitService.GetProfitByPeriod(*tenantID, startDate, endDate)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
@@ -160,7 +181,11 @@ func (h *ProfitAnalysisHandler) GetProfitTrendHandler(w http.ResponseWriter, r *
 
 // GetTopCustomersHandler returns top profitable customers
 func (h *ProfitAnalysisHandler) GetTopCustomersHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	startDate, endDate := parseDateRange(r)
 
 	limit := 10
@@ -170,7 +195,7 @@ func (h *ProfitAnalysisHandler) GetTopCustomersHandler(w http.ResponseWriter, r 
 		}
 	}
 
-	result, err := h.profitService.GetTopCustomers(tenantID, limit, startDate, endDate)
+	result, err := h.profitService.GetTopCustomers(*tenantID, limit, startDate, endDate)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"api/pkg/middleware"
 	"api/pkg/services"
 	"encoding/json"
 	"net/http"
@@ -32,7 +33,11 @@ func NewDashboardHandler(db *gorm.DB) *DashboardHandler {
 // @Success 200 {object} services.DashboardData
 // @Router /dashboard [get]
 func (h *DashboardHandler) GetDashboardHandler(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.Context().Value("tenantID").(uint)
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	var branchID *uint
 	if branchIDStr := r.URL.Query().Get("branchId"); branchIDStr != "" {
@@ -43,7 +48,7 @@ func (h *DashboardHandler) GetDashboardHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	data, err := h.dashboardService.GetDashboardData(tenantID, branchID)
+	data, err := h.dashboardService.GetDashboardData(*tenantID, branchID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
