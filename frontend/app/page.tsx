@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/src/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Building2, Shield, Users, Zap, Check } from 'lucide-react';
@@ -57,7 +58,14 @@ export default function Home() {
       <header className="border-b bg-white/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Building2 className="h-8 w-8 text-primary" />
+            <div className="relative h-10 w-10">
+              <Image
+                src="/logo.png"
+                alt="Logo"
+                fill
+                className="object-contain"
+              />
+            </div>
             <span className="font-bold text-xl">Accounting System</span>
           </div>
           <div className="flex gap-4">
