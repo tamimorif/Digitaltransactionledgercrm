@@ -6,6 +6,8 @@ import apiClient from '@/src/lib/api-client';
 import { Loader2, ArrowUpRight, ArrowDownLeft, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/src/components/ui/badge';
+import { PrintReceiptButton } from '../receipts/ReceiptButtons';
+
 
 export function RecentActivityFeed() {
     const { data: transactions, isLoading } = useQuery({
@@ -43,8 +45,8 @@ export function RecentActivityFeed() {
                             <div key={tx.id} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
                                 <div className="flex items-center gap-3">
                                     <div className={`p-2 rounded-full ${tx.type === 'CASH_EXCHANGE' ? 'bg-blue-100 text-blue-600' :
-                                            tx.type === 'BANK_TRANSFER' ? 'bg-purple-100 text-purple-600' :
-                                                'bg-gray-100 text-gray-600'
+                                        tx.type === 'BANK_TRANSFER' ? 'bg-purple-100 text-purple-600' :
+                                            'bg-gray-100 text-gray-600'
                                         }`}>
                                         {tx.type === 'BANK_TRANSFER' ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownLeft className="h-4 w-4" />}
                                     </div>
@@ -62,11 +64,19 @@ export function RecentActivityFeed() {
                                         {tx.sendAmount.toLocaleString()} {tx.sendCurrency}
                                     </p>
                                     <div className="flex items-center justify-end gap-1 mt-1">
+                                        <PrintReceiptButton
+                                            remittanceId={tx.id}
+                                            type="outgoing"
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-6 w-6 text-gray-400 hover:text-gray-600"
+                                        />
                                         <span className="text-xs text-muted-foreground">→</span>
                                         <p className="text-xs font-medium text-muted-foreground">
                                             {tx.receiveAmount.toLocaleString()} {tx.receiveCurrency}
                                         </p>
                                     </div>
+
                                 </div>
                             </div>
                         ))}

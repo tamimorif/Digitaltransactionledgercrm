@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"log"
 	"time"
 
 	"api/pkg/models"
@@ -19,7 +20,7 @@ func NewAdminService(db *gorm.DB) *AdminService {
 }
 
 // GenerateLicense creates a new license key
-func (s *AdminService) GenerateLicense(licenseType string, userLimit int, durationType string, durationValue *int, createdBy uint, notes string) (*models.License, error) {
+func (s *AdminService) GenerateLicense(licenseType string, userLimit int, durationType string, durationValue *int, maxBranches *int, createdBy uint, notes string) (*models.License, error) {
 	// Generate a unique license key
 	key := uuid.New().String()
 
@@ -43,26 +44,34 @@ func (s *AdminService) GenerateLicense(licenseType string, userLimit int, durati
 		expiresAt = &exp
 	}
 
+	// Determine max branches
+	determinedMaxBranches := 1
+	if maxBranches != nil {
+		determinedMaxBranches = *maxBranches
+	} else {
+		// Adjust MaxBranches based on type if needed, for now simple logic
+		if licenseType == models.LicenseTypeEnterprise {
+			determinedMaxBranches = -1 // Unlimited
+		} else if licenseType == models.LicenseTypeBusiness {
+			determinedMaxBranches = 10
+		} else if licenseType == models.LicenseTypeProfessional {
+			determinedMaxBranches = 3
+		}
+	}
+
+	log.Printf("🔍 AdminService Determined MaxBranches: %d (Input: %v, Type: %s)", determinedMaxBranches, maxBranches, licenseType)
+
 	license := &models.License{
 		LicenseKey:    key,
 		LicenseType:   licenseType,
 		UserLimit:     userLimit,
-		MaxBranches:   models.GetDefaultUserLimit(licenseType), // Using user limit logic for branches for now, or 1
+		MaxBranches:   determinedMaxBranches,
 		DurationType:  durationType,
 		DurationValue: durationValue,
 		ExpiresAt:     expiresAt,
 		Status:        models.LicenseStatusUnused,
 		CreatedBy:     createdBy,
 		Notes:         notes,
-	}
-
-	// Adjust MaxBranches based on type if needed, for now simple logic
-	if licenseType == models.LicenseTypeEnterprise {
-		license.MaxBranches = -1 // Unlimited
-	} else if licenseType == models.LicenseTypeBusiness {
-		license.MaxBranches = 10
-	} else {
-		license.MaxBranches = 3
 	}
 
 	if err := s.db.Create(license).Error; err != nil {

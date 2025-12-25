@@ -35,12 +35,39 @@ export function parseFormattedNumber(value: string): number {
 }
 
 /**
+ * Get number of decimals based on currency
+ * @param currency - Currency code (e.g., 'USD', 'IRR')
+ * @returns Number of decimal places (0 for IRR, 2 for others)
+ */
+export function getCurrencyDecimals(currency: string): number {
+    const upper = currency.toUpperCase();
+    if (upper === 'IRR' || upper === 'TOMAN' || upper === 'JPY') return 0;
+    if (upper === 'BTC' || upper === 'ETH') return 8; // Crypto usually 8
+    if (upper === 'USDT' || upper === 'USDC') return 6; // Stablecoins often 6 or 2
+    return 2;
+}
+
+/**
+ * Format a number according to currency rules
+ * @param value - The value to format
+ * @param currency - Currency code
+ * @returns Formatted string
+ */
+export function formatCurrency(value: number | string, currency: string = ''): string {
+    const decimals = getCurrencyDecimals(currency);
+    return formatNumberWithCommas(value, decimals);
+}
+
+/**
  * Format input value as user types (for real-time formatting)
  * @param value - Current input value
- * @param allowDecimals - Whether to allow decimal places
+ * @param allowDecimals - Whether to allow decimal places (or pass number for max decimals)
  * @returns Formatted value
  */
-export function formatAsUserTypes(value: string, allowDecimals: boolean = true): string {
+export function formatAsUserTypes(value: string, allowDecimals: boolean | number = true): string {
+    const maxDecimals = typeof allowDecimals === 'number' ? allowDecimals : (allowDecimals ? 2 : 0);
+    const shouldAllow = maxDecimals > 0;
+
     // Remove all non-numeric characters except decimal point and minus
     let cleaned = value.replace(/[^\d.-]/g, '');
 
@@ -62,10 +89,13 @@ export function formatAsUserTypes(value: string, allowDecimals: boolean = true):
     // Reconstruct the number
     let result = integerPart;
 
-    if (allowDecimals && parts.length > 1) {
-        // Limit decimal places to 2
-        const decimalPart = parts[1].substring(0, 2);
+    if (shouldAllow && parts.length > 1) {
+        // Limit decimal places
+        const decimalPart = parts[1].substring(0, maxDecimals);
         result = `${integerPart}.${decimalPart}`;
+    } else if (shouldAllow && value.endsWith('.')) {
+        // Allow typing the decimal point
+        result = `${integerPart}.`;
     }
 
     // Add back negative sign
@@ -75,3 +105,4 @@ export function formatAsUserTypes(value: string, allowDecimals: boolean = true):
 
     return result;
 }
+

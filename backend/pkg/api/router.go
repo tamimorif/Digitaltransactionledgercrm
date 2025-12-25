@@ -105,6 +105,9 @@ func NewRouter(db *gorm.DB) http.Handler {
 			api.HandleFunc("/rates/navasan/refresh", navasanHandler.RefreshNavasanRates).Methods("POST")
 			api.HandleFunc("/rates/navasan/{currency}", navasanHandler.GetNavasanRate).Methods("GET")
 			api.HandleFunc("/rates/usd-irr", navasanHandler.GetUSDToIRR).Methods("GET")
+
+			// Scraped/External Rates (public)
+			api.HandleFunc("/rates/fetch-external", handler.FetchExternalRatesHandler).Methods("GET")
 		}
 
 		// ============ PROTECTED ROUTES (Authentication Required) ============
@@ -220,8 +223,8 @@ func NewRouter(db *gorm.DB) http.Handler {
 			protected.HandleFunc("/pickups/{id}/pickup", pickupHandler.MarkAsPickedUpHandler).Methods("POST")
 			protected.HandleFunc("/pickups/{id}/cancel", pickupHandler.CancelPickupTransactionHandler).Methods("POST")
 
-			// External Rates route (protected)
-			protected.HandleFunc("/rates/fetch-external", handler.FetchExternalRatesHandler).Methods("GET")
+			// External Rates route (protected) - REMOVED, MOVING TO PUBLIC
+			// protected.HandleFunc("/rates/fetch-external", handler.FetchExternalRatesHandler).Methods("GET")
 
 			// Analytics routes (protected)
 			protected.HandleFunc("/analytics/daily", handler.GetDailyAnalyticsHandler).Methods("GET")

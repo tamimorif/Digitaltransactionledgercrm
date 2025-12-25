@@ -7,8 +7,11 @@ import {
     useSetCustomRate,
     useGetScrapedRates,
     useRefreshScrapedRates,
+    useGetNavasanRates,
     type ExchangeRate,
     type ScrapedRate,
+    type NavasanRate,
+    type NavasanResponse,
 } from '@/src/lib/queries/exchange-rate.query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Button } from '@/src/components/ui/button';
@@ -87,9 +90,10 @@ export default function RatesPage() {
     const { data: scrapedRatesData, isLoading: isLoadingScraped, error: scrapedError } = useGetScrapedRates();
     const refreshRates = useRefreshRates();
     const refreshScrapedRates = useRefreshScrapedRates();
+    const navasanRatesQuery = useGetNavasanRates(); // Added street rates hook
     const setCustomRateMutation = useSetCustomRate();
 
-    // Get scraped rates as a map for easy lookup
+    // Prepare OpenER Map for easy lookup
     const scrapedRatesMap: Record<string, ScrapedRate> = {};
     scrapedRatesData?.rates?.forEach((rate) => {
         scrapedRatesMap[rate.currency] = rate;
@@ -98,7 +102,7 @@ export default function RatesPage() {
     const handleRefreshRates = () => {
         refreshScrapedRates.mutate(undefined, {
             onSuccess: () => {
-                toast.success('Live rates refreshed from sarafibahmani.ca');
+                toast.success('Live rates refreshed from ExchangeRate-API');
             },
             onError: () => {
                 toast.error('Failed to refresh live rates');
@@ -139,6 +143,39 @@ export default function RatesPage() {
         );
     };
 
+    // Prepare Navasan Map
+    const navasanRatesMap: Record<string, NavasanRate> = {};
+    if (navasanRatesQuery.data?.success && navasanRatesQuery.data?.data) {
+        navasanRatesQuery.data.data.forEach((r: NavasanRate) => {
+            navasanRatesMap[r.currency] = r;
+        });
+    }
+
+    // Prepare OpenER Map
+    const openERScrapedRatesMap: Record<string, ScrapedRate> = {};
+    if (scrapedRatesData?.success && scrapedRatesData?.rates) {
+        scrapedRatesData.rates.forEach((r: ScrapedRate) => {
+            openERScrapedRatesMap[r.currency] = r;
+        });
+    }
+
+    // Logic for IRR Card (Street Rate)
+    const cadStreetRate = navasanRatesMap['CAD'];
+    const displayCadRate = cadStreetRate ? parseInt(cadStreetRate.value.replace(/,/g, '')) : (openERScrapedRatesMap['CAD']?.buy_rate || 0);
+    const displayCadSource = cadStreetRate ? 'Navasan (Street)' : 'ExchangeRate-API';
+
+    // Check spread logic (Navasan might return same for buy/sell or specific spread?)
+    // Navasan returns ONE value (street price). We assume Buy=Sell for now or add a spread.
+    // User interface expects Buy/Sell.
+    const displayCadBuy = displayCadRate;
+    const displayCadSell = displayCadRate;
+
+    const usdStreetRate = navasanRatesMap['USD'];
+    const displayUsdRate = usdStreetRate ? parseInt(usdStreetRate.value.replace(/,/g, '')) : (openERScrapedRatesMap['USD']?.buy_rate || 0);
+    const displayUsdSource = usdStreetRate ? 'Navasan (Street)' : 'ExchangeRate-API';
+    const displayUsdBuy = displayUsdRate;
+    const displayUsdSell = displayUsdRate;
+
     // Filter rates to only show relevant currencies
     const filteredRates = rates?.filter(
         (rate) =>
@@ -146,7 +183,7 @@ export default function RatesPage() {
             RELEVANT_CURRENCIES.includes(rate.targetCurrency)
     );
 
-    // Get CAD rate from scraped data (live from sarafibahmani.ca)
+    // Get CAD rate from external API
     const cadScraped = scrapedRatesMap['CAD'];
     const usdScraped = scrapedRatesMap['USD'];
     const eurScraped = scrapedRatesMap['EUR'];
@@ -180,9 +217,10 @@ export default function RatesPage() {
                     <h1 className="text-3xl font-bold">Exchange Rates</h1>
                     <p className="text-muted-foreground mt-1">
                         Live rates from{' '}
-                        <a href="https://sarafibahmani.ca" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                            sarafibahmani.ca
-                        </a>
+                        <span className="font-medium text-primary">ExchangeRate-API</span> (Official) &{' '}
+                        <a href="https://navasan.tech" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                            Navasan
+                        </a> (Street)
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -316,7 +354,7 @@ export default function RatesPage() {
                                 <div className="flex items-center gap-2">
                                     <Globe className="h-4 w-4 text-green-600" />
                                     <span className="text-sm font-medium text-green-700 dark:text-green-400">
-                                        Live rates from sarafibahmani.ca
+                                        Live rates from ExchangeRate-API
                                     </span>
                                 </div>
                                 {cadScraped?.scraped_at && (
@@ -361,7 +399,7 @@ export default function RatesPage() {
                                 )}
                             </CardTitle>
                             <CardDescription>
-                                {cadScraped ? 'Live rate from sarafibahmani.ca - دلار کانادا (نقدی)' : 'Primary exchange rate for remittances'}
+                                {cadScraped ? 'Live rate from ExchangeRate-API - دلار کانادا (نقدی)' : 'Primary exchange rate for remittances'}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -519,7 +557,7 @@ export default function RatesPage() {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <TrendingUp className="h-5 w-5" />
-                                Live Rates from sarafibahmani.ca
+                                Live Rates from ExchangeRate-API
                             </CardTitle>
                             <CardDescription>Current buy & sell rates in Toman</CardDescription>
                         </CardHeader>

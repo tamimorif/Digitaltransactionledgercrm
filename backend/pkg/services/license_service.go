@@ -30,6 +30,7 @@ type GenerateLicenseRequest struct {
 	UserLimit     *int   `json:"userLimit"`     // Optional, uses default if not provided
 	DurationType  string `json:"durationType"`  // lifetime, monthly, yearly, custom_days
 	DurationValue *int   `json:"durationValue"` // Number of days for custom duration
+	MaxBranches   *int   `json:"maxBranches"`   // Optional, override default limit
 	Notes         string `json:"notes"`         // Custom notes for custom licenses
 }
 
@@ -99,11 +100,24 @@ func (ls *LicenseService) GenerateLicense(req GenerateLicenseRequest, createdBy 
 		expiresAt = &expiration
 	}
 
+	// Set max branches
+	maxBranches := 1 // Default
+	if req.MaxBranches != nil {
+		maxBranches = *req.MaxBranches
+	}
+
+	// Log request
+	log.Printf("📥 GenerateLicense Request: %+v", req)
+	if req.MaxBranches != nil {
+		log.Printf("   -> Requested MaxBranches: %d", *req.MaxBranches)
+	}
+
 	// Create license
 	license := &models.License{
 		LicenseKey:    licenseKey,
 		LicenseType:   req.LicenseType,
 		UserLimit:     userLimit,
+		MaxBranches:   maxBranches,
 		DurationType:  durationType,
 		DurationValue: req.DurationValue,
 		ExpiresAt:     expiresAt,
@@ -116,7 +130,7 @@ func (ls *LicenseService) GenerateLicense(req GenerateLicenseRequest, createdBy 
 		return nil, fmt.Errorf("failed to create license: %w", err)
 	}
 
-	log.Printf("✅ License generated: %s (Type: %s, UserLimit: %d)", license.LicenseKey, license.LicenseType, license.UserLimit)
+	log.Printf("✅ License generated: %s (Type: %s, UserLimit: %d, MaxBranches: %d)", license.LicenseKey, license.LicenseType, license.UserLimit, license.MaxBranches)
 	return license, nil
 }
 

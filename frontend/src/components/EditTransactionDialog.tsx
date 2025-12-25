@@ -12,6 +12,8 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import { Input } from './ui/input';
+import { FormattedInput } from './ui/formatted-input';
+
 import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
@@ -69,9 +71,10 @@ interface EditTransactionDialogProps {
   onTransactionUpdated: (transaction: Transaction) => void;
 }
 
+import { CURRENCIES } from '@/src/lib/constants';
+
 type TransactionType = 'CASH_EXCHANGE' | 'BANK_TRANSFER';
 
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'IRR', 'AED', 'TRY'];
 
 export function EditTransactionDialog({
   open,
@@ -513,17 +516,18 @@ export function EditTransactionDialog({
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="sendAmount">Send Amount *</Label>
-                      <Input
+                      <Label htmlFor="sendAmount">Send Amount *</Label>
+                      <FormattedInput
                         id="sendAmount"
-                        type="number"
-                        step="0.01"
                         value={formData.sendAmount}
-                        onChange={(e) =>
-                          setFormData({ ...formData, sendAmount: e.target.value })
+                        onChange={(_, val) =>
+                          setFormData({ ...formData, sendAmount: val.toString() })
                         }
-                        placeholder="1000"
+                        currency={formData.sendCurrency}
+                        placeholder="1,000.00"
                         required
                       />
+
                     </div>
                   </div>
                 </CardContent>
@@ -533,27 +537,29 @@ export function EditTransactionDialog({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="rateApplied">Exchange Rate *</Label>
-                  <Input
+                  <Label htmlFor="rateApplied">Exchange Rate *</Label>
+                  <FormattedInput
                     id="rateApplied"
-                    type="number"
-                    step="0.000001"
+                    allowDecimals={6}
                     value={formData.rateApplied}
-                    onChange={(e) => setFormData({ ...formData, rateApplied: e.target.value })}
+                    onChange={(_, val) => setFormData({ ...formData, rateApplied: val.toString() })}
                     placeholder="65000"
                     required
                   />
+
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="feeCharged">Fee Charged *</Label>
-                  <Input
+                  <Label htmlFor="feeCharged">Fee Charged *</Label>
+                  <FormattedInput
                     id="feeCharged"
-                    type="number"
-                    step="0.01"
+                    currency={formData.sendCurrency}
                     value={formData.feeCharged}
-                    onChange={(e) => setFormData({ ...formData, feeCharged: e.target.value })}
-                    placeholder="10"
+                    onChange={(_, val) => setFormData({ ...formData, feeCharged: val.toString() })}
+                    placeholder="10.00"
                     required
                   />
+
                 </div>
               </div>
 
@@ -594,17 +600,18 @@ export function EditTransactionDialog({
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="receiveAmount">Receive Amount *</Label>
-                      <Input
+                      <Label htmlFor="receiveAmount">Receive Amount *</Label>
+                      <FormattedInput
                         id="receiveAmount"
-                        type="number"
-                        step="0.01"
                         value={formData.receiveAmount}
-                        onChange={(e) =>
-                          setFormData({ ...formData, receiveAmount: e.target.value })
+                        onChange={(_, val) =>
+                          setFormData({ ...formData, receiveAmount: val.toString() })
                         }
-                        placeholder="64350000"
+                        currency={formData.receiveCurrency}
+                        placeholder="64,350,000"
                         required
                       />
+
                     </div>
                   </div>
                 </CardContent>

@@ -12,6 +12,17 @@ export interface ExchangeRate {
     updatedAt: string;
 }
 
+export interface ExternalRatesResponse {
+    CAD_BUY: number;
+    CAD_SELL: number;
+    EUR_BUY: number;
+    EUR_SELL: number;
+    GBP_BUY: number;
+    GBP_SELL: number;
+    USD_BUY: number;
+    USD_SELL: number;
+}
+
 export interface ScrapedRate {
     currency: string;
     currency_fa: string;
@@ -44,19 +55,78 @@ export const useGetRates = () => {
 };
 
 /**
- * Hook to get scraped rates from sarafibahmani.ca (public endpoint, no auth)
+ * Hook to get scraped rates from ExchangeRate-API
  */
 export const useGetScrapedRates = () => {
     return useQuery({
         queryKey: ['scrapedRates'],
         queryFn: async () => {
             // Use fetch directly since this is a public endpoint
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/rates/scraped`);
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/rates/fetch-external`);
             if (!response.ok) {
-                throw new Error('Failed to fetch scraped rates');
+                throw new Error('Failed to fetch external rates');
             }
-            const data: ScrapedRatesResponse = await response.json();
-            return data;
+            const data: ExternalRatesResponse = await response.json();
+            // Map the flat response to the expected structure if necessary, or just return it.
+            // The previous 'ScrapedRatesResponse' had { success, source, rates[] }.
+            // The new response is { CAD_BUY, ... }.
+            // We need to adapt it to match the component's expectation if the component expects a list.
+
+            // Wait, the component expects ScrapedRatesResponse = { rates: ScrapedRate[] }?
+            // I need to check how the component consumes it.
+            // If I change the return type here, I break the component!
+
+            // I will adapt the response here to match the old ScrapedRatesResponse structure.
+
+            const rates: ScrapedRate[] = [
+                {
+                    currency: 'CAD',
+                    currency_fa: 'دلار کانادا',
+                    buy_rate: data.CAD_BUY.toString(),
+                    sell_rate: data.CAD_SELL.toString(),
+                    buy_rate_formatted: Math.round(data.CAD_BUY).toLocaleString(),
+                    sell_rate_formatted: Math.round(data.CAD_SELL).toLocaleString(),
+                    is_available: true,
+                    scraped_at: new Date().toISOString()
+                },
+                {
+                    currency: 'USD',
+                    currency_fa: 'دلار آمریکا',
+                    buy_rate: data.USD_BUY.toString(),
+                    sell_rate: data.USD_SELL.toString(),
+                    buy_rate_formatted: Math.round(data.USD_BUY).toLocaleString(),
+                    sell_rate_formatted: Math.round(data.USD_SELL).toLocaleString(),
+                    is_available: true,
+                    scraped_at: new Date().toISOString()
+                },
+                {
+                    currency: 'EUR',
+                    currency_fa: 'یورو',
+                    buy_rate: data.EUR_BUY.toString(),
+                    sell_rate: data.EUR_SELL.toString(),
+                    buy_rate_formatted: Math.round(data.EUR_BUY).toLocaleString(),
+                    sell_rate_formatted: Math.round(data.EUR_SELL).toLocaleString(),
+                    is_available: true,
+                    scraped_at: new Date().toISOString()
+                },
+                {
+                    currency: 'GBP',
+                    currency_fa: 'پوند انگلیس',
+                    buy_rate: data.GBP_BUY.toString(),
+                    sell_rate: data.GBP_SELL.toString(),
+                    buy_rate_formatted: Math.round(data.GBP_BUY).toLocaleString(),
+                    sell_rate_formatted: Math.round(data.GBP_SELL).toLocaleString(),
+                    is_available: true,
+                    scraped_at: new Date().toISOString()
+                }
+            ];
+
+            return {
+                success: true,
+                source: 'ExchangeRate-API',
+                rates: rates,
+                refreshed: true
+            };
         },
         refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
         staleTime: 4 * 60 * 1000, // Consider stale after 4 minutes
@@ -151,5 +221,42 @@ export const useGetRateHistory = (baseCurrency: string, targetCurrency: string, 
             return response.data;
         },
         enabled: !!baseCurrency && !!targetCurrency,
+    });
+};
+
+export interface NavasanRate {
+    currency: string;
+    currency_fa: string;
+    value: string;
+    change: string;
+    change_percent: string;
+    updated_at: string;
+    fetched_at: string;
+    source: string;
+}
+
+export interface NavasanResponse {
+    success: boolean;
+    data: NavasanRate[];
+    source: string;
+    message?: string;
+}
+
+/**
+ * Hook to get Navasan (Street) rates
+ */
+export const useGetNavasanRates = () => {
+    return useQuery({
+        queryKey: ['navasanRates'],
+        queryFn: async () => {
+            // Use public API
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/rates/navasan`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch Navasan rates');
+            }
+            const data: NavasanResponse = await response.json();
+            return data;
+        },
+        refetchInterval: 5 * 60 * 1000,
     });
 };

@@ -183,8 +183,9 @@ export const useGetTopCustomers = (limit: number = 10, filters?: ProfitFilters) 
  */
 export const useDownloadOutgoingReceipt = () => {
     return useMutation({
-        mutationFn: (remittanceId: number) => downloadOutgoingReceipt(remittanceId),
+        mutationFn: (remittanceId: string | number) => downloadOutgoingReceipt(remittanceId),
         onSuccess: (blob, remittanceId) => {
+
             const filename = `outgoing_receipt_${remittanceId}_${new Date().toISOString().split('T')[0]}.pdf`;
             downloadBlobAsFile(blob, filename);
         },
@@ -196,8 +197,9 @@ export const useDownloadOutgoingReceipt = () => {
  */
 export const useDownloadIncomingReceipt = () => {
     return useMutation({
-        mutationFn: (remittanceId: number) => downloadIncomingReceipt(remittanceId),
+        mutationFn: (remittanceId: string | number) => downloadIncomingReceipt(remittanceId),
         onSuccess: (blob, remittanceId) => {
+
             const filename = `incoming_receipt_${remittanceId}_${new Date().toISOString().split('T')[0]}.pdf`;
             downloadBlobAsFile(blob, filename);
         },

@@ -48,9 +48,10 @@ type JWTClaims struct {
 
 // RegisterRequest represents a registration request
 type RegisterRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=8"`
-	Name     string `json:"name" binding:"required"`
+	Email      string `json:"email" binding:"required,email"`
+	Password   string `json:"password" binding:"required,min=8"`
+	Name       string `json:"name" binding:"required"`
+	LicenseKey string `json:"licenseKey"`
 }
 
 // VerifyEmailRequest represents an email verification request
@@ -133,6 +134,8 @@ func (as *AuthService) Register(req RegisterRequest) (*models.User, error) {
 		return nil, fmt.Errorf("failed to create tenant: %w", err)
 	}
 
+	// License activation moved after commit to avoid nested transaction issues
+
 	// Update user's tenant ID
 	user.TenantID = &tenant.ID
 	if err := tx.Save(user).Error; err != nil {
@@ -170,6 +173,17 @@ func (as *AuthService) Register(req RegisterRequest) (*models.User, error) {
 	// Commit transaction
 	if err := tx.Commit().Error; err != nil {
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Activate license if provided (after commit)
+	if req.LicenseKey != "" {
+		ls := NewLicenseService(as.DB) // Use main DB connection
+		if err := ls.ActivateLicense(req.LicenseKey, tenant.ID); err != nil {
+			// Log error but don't fail registration since user is already created
+			log.Printf("⚠️  Failed to activate license %s for tenant %d: %v", req.LicenseKey, tenant.ID, err)
+		} else {
+			log.Printf("✅ License activated during registration: %s", req.LicenseKey)
+		}
 	}
 
 	// Send verification email (don't fail registration if email fails)

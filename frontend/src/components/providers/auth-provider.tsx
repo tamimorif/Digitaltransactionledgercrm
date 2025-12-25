@@ -63,6 +63,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Ensure storage is updated before state change to prevent race condition
     tokenStorage.setAccessToken(response.token);
+    // Store refresh token for token refresh functionality
+    if (response.refreshToken) {
+      tokenStorage.setRefreshToken(response.refreshToken);
+    }
     if (typeof window !== 'undefined') {
       localStorage.setItem('user', JSON.stringify(response.user));
     }
@@ -87,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     tenant,
     isAuthenticated: !!token && !!user,
-    isLoading: isLoading || (!!token && isMeLoading),
+    isLoading: isLoading || loginMutation.isPending || (!!token && isMeLoading),
     login,
     logout,
     refreshUser,

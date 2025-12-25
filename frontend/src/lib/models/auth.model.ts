@@ -63,6 +63,7 @@ export interface VerifyEmailResponse {
 export interface LoginResponse {
   message: string;
   token: string;
+  refreshToken?: string;
   user: User;
   tenant?: Tenant;
 }

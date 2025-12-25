@@ -4,9 +4,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"regexp"
-	"strconv"
-	"strings"
 )
 
 type ExternalRatesResponse struct {
@@ -20,17 +17,22 @@ type ExternalRatesResponse struct {
 	USD_SELL float64 `json:"USD_SELL"`
 }
 
-// FetchExternalRatesHandler fetches rates from sarafibahmani.ca
+type OpenERResponse struct {
+	Result string             `json:"result"`
+	Rates  map[string]float64 `json:"rates"`
+}
+
+// FetchExternalRatesHandler fetches rates from open.er-api.com instead of scraping
 // @Summary Fetch external exchange rates
-// @Description Scrapes current exchange rates from sarafibahmani.ca
+// @Description Fetches current exchange rates from Open Exchange Rates
 // @Tags Rates
 // @Produce json
 // @Success 200 {object} ExternalRatesResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /api/rates/fetch-external [get]
 func (h *Handler) FetchExternalRatesHandler(w http.ResponseWriter, r *http.Request) {
-	// Fetch the website content
-	resp, err := http.Get("https://sarafibahmani.ca/")
+	// Fetch from Open Exchange Rates (Free, unlimited)
+	resp, err := http.Get("https://open.er-api.com/v6/latest/USD")
 	if err != nil {
 		http.Error(w, "Failed to fetch external rates: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -43,86 +45,64 @@ func (h *Handler) FetchExternalRatesHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	htmlContent := string(bodyBytes)
-	rates := parseRatesFromHTML(htmlContent)
+	var erResp OpenERResponse
+	if err := json.Unmarshal(bodyBytes, &erResp); err != nil {
+		http.Error(w, "Failed to parse external rates: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if erResp.Result != "success" {
+		http.Error(w, "External API returned error", http.StatusInternalServerError)
+		return
+	}
+
+	rates := erResp.Rates
+	// Calculate rates relative to conventions or just return available rates
+	// Sarafibahmani provided CAD/IRR etc.
+	// OpenER provides USD base.
+	// We want Price of 1 Unit of Currency in IRR.
+	// IRR = 42000 (USD->IRR).
+	// CAD = 1.36 (USD->CAD).
+	// 1 CAD = (1/1.36) USD = (1/1.36) * 42000 IRR = 42000/1.36.
+
+	getRate := func(target string) float64 {
+		return rates[target]
+	}
+
+	// usdRate := 1.0 // Base
+	// cadRate := getRate("CAD")
+	// eurRate := getRate("EUR")
+	// gbpRate := getRate("GBP")
+	irrRate := getRate("IRR") // Official rate.
+
+	// Calculate cross rates against IRR
+	calculateCrossRate := func(currencyCode string) float64 {
+		rate := getRate(currencyCode)
+		if rate <= 0 {
+			return 0
+		}
+		// Base is USD.
+		// X Rate = (USD->IRR) / (USD->X)
+		return irrRate / rate
+	}
+
+	cadInIrr := calculateCrossRate("CAD")
+	eurInIrr := calculateCrossRate("EUR")
+	gbpInIrr := calculateCrossRate("GBP")
+	usdInIrr := irrRate // Since base is USD, 1 USD = irrRate
+
+	// We set Buy = Sell for official rates (mid-market)
+	response := ExternalRatesResponse{
+		CAD_BUY:  cadInIrr,
+		CAD_SELL: cadInIrr,
+		EUR_BUY:  eurInIrr,
+		EUR_SELL: eurInIrr,
+		GBP_BUY:  gbpInIrr,
+		GBP_SELL: gbpInIrr,
+		USD_BUY:  usdInIrr,
+		USD_SELL: usdInIrr,
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(rates)
-}
-
-func parseRatesFromHTML(html string) ExternalRatesResponse {
-	// Helper function to extract rates based on image alt marker
-	extractRates := func(marker string) (string, string) {
-		// Find the marker
-		markerIdx := strings.Index(html, marker)
-		if markerIdx == -1 {
-			return "0", "0"
-		}
-
-		// Look ahead from the marker for Sell and Buy
-		// We limit the search window to avoid jumping to the next currency
-		// 2000 chars should be enough to cover the HTML block
-		endIdx := markerIdx + 2000
-		if endIdx > len(html) {
-			endIdx = len(html)
-		}
-		searchWindow := html[markerIdx:endIdx]
-
-		// Regex to find Sell and Buy
-		// Matches: Sell : 81,300  or Sell : 1.41
-		// We use [^:]* to match any character (like whitespace or &nbsp;) between Sell/Buy and :
-		// We capture numbers with commas/decimals, or text like CALL/STOP
-		sellRe := regexp.MustCompile(`Sell[^:]*:\s*([0-9,\.]+|CALL|STOP)`)
-		buyRe := regexp.MustCompile(`Buy[^:]*:\s*([0-9,\.]+|CALL|STOP)`)
-
-		sellMatch := sellRe.FindStringSubmatch(searchWindow)
-		buyMatch := buyRe.FindStringSubmatch(searchWindow)
-
-		sell := "0"
-		if len(sellMatch) > 1 {
-			sell = sellMatch[1]
-		}
-
-		buy := "0"
-		if len(buyMatch) > 1 {
-			buy = buyMatch[1]
-		}
-
-		return sell, buy
-	}
-
-	// Helper to parse rate string to float
-	parseRate := func(rateStr string) float64 {
-		// Remove commas
-		cleanStr := strings.ReplaceAll(rateStr, ",", "")
-		// Handle non-numeric values
-		if cleanStr == "CALL" || cleanStr == "STOP" {
-			return 0
-		}
-		val, err := strconv.ParseFloat(cleanStr, 64)
-		if err != nil {
-			return 0
-		}
-		return val
-	}
-
-	// Extract rates for each currency
-	cadSellStr, cadBuyStr := extractRates("alt=\"CAD- CIRCLE\"")
-	usdSellStr, usdBuyStr := extractRates("alt=\"USD- CIRCLE\"")
-	eurSellStr, eurBuyStr := extractRates("alt=\"EUR- CIRCLE\"")
-	gbpSellStr, gbpBuyStr := extractRates("alt=\"GBP- CIRCLE\"")
-	// USDT is not yet supported by frontend structure, skipping for now or could add if frontend updated
-
-	response := ExternalRatesResponse{
-		CAD_BUY:  parseRate(cadBuyStr),
-		CAD_SELL: parseRate(cadSellStr),
-		USD_BUY:  parseRate(usdBuyStr),
-		USD_SELL: parseRate(usdSellStr),
-		EUR_BUY:  parseRate(eurBuyStr),
-		EUR_SELL: parseRate(eurSellStr),
-		GBP_BUY:  parseRate(gbpBuyStr),
-		GBP_SELL: parseRate(gbpSellStr),
-	}
-
-	return response
+	json.NewEncoder(w).Encode(response)
 }

@@ -21,7 +21,7 @@ export const STORAGE_KEYS = {
 // Currencies
 // =============================================================================
 
-export const CURRENCIES = ['CAD', 'IRR', 'USD', 'EUR', 'GBP'] as const;
+export const CURRENCIES = ['CAD', 'IRR', 'TOMAN', 'USD', 'EUR', 'GBP', 'AED', 'TRY', 'USDT', 'BTC', 'ETH'] as const;
 export type Currency = (typeof CURRENCIES)[number];
 
 export const CURRENCY_SYMBOLS: Record<Currency, string> = {
@@ -30,6 +30,12 @@ export const CURRENCY_SYMBOLS: Record<Currency, string> = {
     EUR: '€',
     GBP: '£',
     IRR: '﷼',
+    TOMAN: 'T',
+    AED: 'dh',
+    TRY: '₺',
+    USDT: '₮',
+    BTC: '₿',
+    ETH: 'Ξ',
 };
 
 export const CURRENCY_NAMES: Record<Currency, string> = {
@@ -37,7 +43,13 @@ export const CURRENCY_NAMES: Record<Currency, string> = {
     USD: 'US Dollar',
     EUR: 'Euro',
     GBP: 'British Pound',
-    IRR: 'Iranian Rial (Toman)',
+    IRR: 'Iranian Rial',
+    TOMAN: 'Iranian Toman',
+    AED: 'UAE Dirham',
+    TRY: 'Turkish Lira',
+    USDT: 'Tether (USDT)',
+    BTC: 'Bitcoin',
+    ETH: 'Ethereum',
 };
 
 // =============================================================================

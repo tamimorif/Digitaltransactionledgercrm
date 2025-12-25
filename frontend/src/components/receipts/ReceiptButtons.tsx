@@ -6,8 +6,9 @@ import { useDownloadOutgoingReceipt, useDownloadIncomingReceipt } from '@/src/li
 import { FileDown, Loader2, Printer } from 'lucide-react';
 
 interface ReceiptButtonProps {
-    remittanceId: number;
+    remittanceId: number | string;
     type: 'outgoing' | 'incoming';
+
     variant?: 'default' | 'outline' | 'ghost' | 'link';
     size?: 'default' | 'sm' | 'lg' | 'icon';
     showText?: boolean;
@@ -52,11 +53,13 @@ export function ReceiptDownloadButton({
 }
 
 interface PrintReceiptButtonProps {
-    remittanceId: number;
+    remittanceId: number | string;
     type: 'outgoing' | 'incoming';
+
     variant?: 'default' | 'outline' | 'ghost' | 'link';
     size?: 'default' | 'sm' | 'lg' | 'icon';
     showText?: boolean;
+    className?: string;
 }
 
 export function PrintReceiptButton({
@@ -65,7 +68,9 @@ export function PrintReceiptButton({
     variant = 'ghost',
     size = 'icon',
     showText = false,
+    className,
 }: PrintReceiptButtonProps) {
+
     const outgoingMutation = useDownloadOutgoingReceipt();
     const incomingMutation = useDownloadIncomingReceipt();
 
@@ -105,7 +110,9 @@ export function PrintReceiptButton({
             onClick={handlePrint}
             disabled={mutation.isPending}
             title="Print Receipt"
+            className={className}
         >
+
             {mutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -117,8 +124,9 @@ export function PrintReceiptButton({
 }
 
 interface ReceiptActionsProps {
-    remittanceId: number;
+    remittanceId: number | string;
     type: 'outgoing' | 'incoming';
+
 }
 
 export function ReceiptActions({ remittanceId, type }: ReceiptActionsProps) {

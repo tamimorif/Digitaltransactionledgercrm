@@ -120,7 +120,9 @@ export function useCreateTransaction() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-transactions'] });
       queryClient.invalidateQueries({ queryKey: ['transactions', variables.clientId] });
+
       queryClient.invalidateQueries({ queryKey: ['client', variables.clientId] });
     },
   });
@@ -136,7 +138,9 @@ export function useUpdateTransaction(transactionId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-transactions'] });
     },
+
   });
 }
 
@@ -150,7 +154,9 @@ export function useCancelTransaction() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-transactions'] });
     },
+
   });
 }
 
@@ -163,7 +169,9 @@ export function useDeleteTransaction() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-transactions'] });
     },
+
   });
 }
 

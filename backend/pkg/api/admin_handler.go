@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -25,6 +26,7 @@ type GenerateLicenseRequest struct {
 	UserLimit     int    `json:"userLimit"`
 	DurationType  string `json:"durationType"`
 	DurationValue *int   `json:"durationValue"`
+	MaxBranches   *int   `json:"maxBranches"`
 	Notes         string `json:"notes"`
 }
 
@@ -45,6 +47,8 @@ func (h *AdminHandler) GenerateLicenseHandler(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+	// Log request
+	log.Printf("📥 GenerateLicenseHandler Request: %+v (MaxBranches: %v)", req, req.MaxBranches)
 
 	// Get user from context (set by AuthMiddleware as "user")
 	user, ok := r.Context().Value("user").(*models.User)
@@ -53,7 +57,7 @@ func (h *AdminHandler) GenerateLicenseHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	license, err := h.adminService.GenerateLicense(req.LicenseType, req.UserLimit, req.DurationType, req.DurationValue, user.ID, req.Notes)
+	license, err := h.adminService.GenerateLicense(req.LicenseType, req.UserLimit, req.DurationType, req.DurationValue, req.MaxBranches, user.ID, req.Notes)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

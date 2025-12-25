@@ -63,12 +63,14 @@ func (bs *BranchService) CreateBranch(tenantID uint, req CreateBranchRequest, cr
 		if err := bs.DB.First(&license, *tenant.CurrentLicenseID).Error; err == nil {
 			if license.Status == models.LicenseStatusActive {
 				maxBranches = license.MaxBranches
+				log.Printf("🔍 DEBUG: Found Active License. ID=%d, MaxBranches=%d", license.ID, maxBranches)
 			}
 		}
 	}
 
 	// Check limit (-1 means unlimited)
 	if maxBranches != -1 && int(branchCount) >= maxBranches {
+		log.Printf("❌ Branch Limit Reached: Count=%d, Max=%d, TenantID=%d", branchCount, maxBranches, tenantID)
 		return nil, fmt.Errorf("branch limit reached: your license allows %d branch(es)", maxBranches)
 	}
 

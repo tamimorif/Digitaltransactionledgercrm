@@ -23,6 +23,8 @@ import {
     FormMessage,
 } from '../ui/form';
 import { Input } from '../ui/input';
+import { FormattedInput } from '../ui/formatted-input';
+
 import {
     Select,
     SelectContent,
@@ -61,7 +63,8 @@ interface AddPaymentDialogProps {
     prefillAmount?: number | null;
 }
 
-const COMMON_CURRENCIES = ['CAD', 'USD', 'EUR', 'GBP', 'IRR', 'AED'];
+import { CURRENCIES } from '@/src/lib/constants';
+
 
 export function AddPaymentDialog({
     open,
@@ -193,8 +196,9 @@ export function AddPaymentDialog({
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {COMMON_CURRENCIES.map((curr) => (
+                                                    {CURRENCIES.map((curr) => (
                                                         <SelectItem key={curr} value={curr}>
+
                                                             {curr}
                                                         </SelectItem>
                                                     ))}
@@ -212,13 +216,14 @@ export function AddPaymentDialog({
                                         <FormItem>
                                             <FormLabel>Exchange Rate</FormLabel>
                                             <FormControl>
-                                                <Input
-                                                    type="number"
-                                                    step="0.000001"
+                                                <FormattedInput
+                                                    allowDecimals={6}
                                                     placeholder="1.0"
-                                                    {...field}
+                                                    value={field.value}
+                                                    onChange={(_, num) => field.onChange(num.toString())}
                                                 />
                                             </FormControl>
+
                                             <FormDescription className="text-xs">
                                                 1 {watchCurrency} = {watchRate} {baseCurrency}
                                             </FormDescription>
@@ -236,15 +241,16 @@ export function AddPaymentDialog({
                                         <FormLabel>Amount</FormLabel>
                                         <div className="flex gap-2">
                                             <FormControl>
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
+                                                <FormattedInput
+                                                    currency={watchCurrency}
                                                     placeholder="0.00"
                                                     className="text-lg font-medium"
-                                                    {...field}
+                                                    value={field.value}
+                                                    onChange={(_, num) => field.onChange(num.toString())}
                                                 />
                                             </FormControl>
                                         </div>
+
 
                                         <FormDescription>
                                             Equivalent: <span className="font-semibold text-foreground">{calculatedBase.toLocaleString()} {baseCurrency}</span>

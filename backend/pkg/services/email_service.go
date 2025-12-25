@@ -106,29 +106,43 @@ func (es *EmailService) getVerificationEmailHTML(code string) string {
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verification</title>
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #4F46E5; color: white; padding: 20px; text-align: center; }
-        .content { background-color: #f9f9f9; padding: 30px; border-radius: 5px; margin-top: 20px; }
-        .code { font-size: 32px; font-weight: bold; color: #4F46E5; text-align: center; letter-spacing: 5px; margin: 20px 0; }
-        .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f5; }
+        .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .header { background-color: #ffffff; padding: 30px 20px; text-align: center; border-bottom: 1px solid #e5e7eb; }
+        .logo { max-height: 50px; width: auto; font-size: 24px; font-weight: 800; color: #4F46E5; text-decoration: none; }
+        .content { padding: 40px 30px; text-align: center; }
+        .title { font-size: 24px; font-weight: bold; color: #111827; margin-bottom: 16px; }
+        .text { color: #4b5563; font-size: 16px; margin-bottom: 24px; }
+        .code-container { margin: 32px 0; }
+        .code { font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 700; color: #4F46E5; letter-spacing: 8px; background: #EEF2FF; padding: 16px 32px; border-radius: 8px; display: inline-block; border: 1px dashed #4F46E5; }
+        .footer { background-color: #f9fafb; padding: 24px; text-align: center; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+        .expiry { color: #ef4444; font-size: 14px; margin-top: 16px; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Email Verification</h1>
+            <!-- Replace with actual logo URL when available -->
+            <div class="logo">Velopay</div>
         </div>
         <div class="content">
-            <p>Thank you for registering with Digital Transaction Ledger!</p>
-            <p>Your verification code is:</p>
-            <div class="code">%s</div>
-            <p>This code will expire in <strong>10 minutes</strong>.</p>
-            <p>If you didn't request this code, please ignore this email.</p>
+            <h1 class="title">Verify your email</h1>
+            <p class="text">Thank you for joining Velopay. Please use the verification code below to complete your registration:</p>
+            
+            <div class="code-container">
+                <div class="code">%s</div>
+            </div>
+            
+            <p class="expiry">This code will expire in 10 minutes.</p>
+            <p class="text" style="font-size: 14px; margin-top: 32px;">If you didn't create an account, you can safely ignore this email.</p>
         </div>
         <div class="footer">
-            <p>© %d Digital Transaction Ledger. All rights reserved.</p>
+            <p>&copy; %d Velopay / Digital Transaction Ledger. All rights reserved.</p>
+            <p>Secure. Fast. Reliable.</p>
         </div>
     </div>
 </body>
@@ -153,7 +167,6 @@ func (es *EmailService) sendViaResend(to, subject, body string) error {
 	sent, err := client.Emails.Send(params)
 	if err != nil {
 		log.Printf("❌ Failed to send email via Resend to %s: %v", to, err)
-		log.Printf("   From: %s, Subject: %s", es.FromEmail, subject)
 		return fmt.Errorf("failed to send email: %w", err)
 	}
 
@@ -192,7 +205,7 @@ func (es *EmailService) sendViasmtp(to, subject, body string) error {
 
 // SendPasswordResetCode sends a password reset code to the user's email
 func (es *EmailService) SendPasswordResetCode(toEmail, code string) error {
-	subject := "Password Reset Code - Digital Transaction Ledger"
+	subject := "Reset your password - Velopay"
 	body := es.getPasswordResetEmailHTML(code)
 
 	// Development mode: Just log the code
@@ -219,36 +232,50 @@ func (es *EmailService) getPasswordResetEmailHTML(code string) string {
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Password</title>
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #4F46E5; color: white; padding: 20px; text-align: center; }
-        .content { background-color: #f9f9f9; padding: 30px; border-radius: 5px; margin-top: 20px; }
-        .code { font-size: 32px; font-weight: bold; color: #4F46E5; text-align: center; letter-spacing: 5px; margin: 20px 0; }
-        .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
-        .warning { background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 12px; margin: 20px 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f5; }
+        .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .header { background-color: #ffffff; padding: 30px 20px; text-align: center; border-bottom: 1px solid #e5e7eb; }
+        .logo { max-height: 50px; width: auto; font-size: 24px; font-weight: 800; color: #4F46E5; text-decoration: none; }
+        .content { padding: 40px 30px; text-align: center; }
+        .title { font-size: 24px; font-weight: bold; color: #111827; margin-bottom: 16px; }
+        .text { color: #4b5563; font-size: 16px; margin-bottom: 24px; }
+        .code-container { margin: 32px 0; }
+        .code { font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 700; color: #4F46E5; letter-spacing: 8px; background: #EEF2FF; padding: 16px 32px; border-radius: 8px; display: inline-block; border: 1px dashed #4F46E5; }
+        .warning { background-color: #fffbeb; border-radius: 6px; padding: 16px; margin: 24px 0; border: 1px solid #fcd34d; text-align: left; }
+        .warning-title { color: #b45309; font-weight: bold; font-size: 14px; margin-bottom: 8px; display: block; }
+        .footer { background-color: #f9fafb; padding: 24px; text-align: center; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔐 Password Reset</h1>
+            <!-- Replace with actual logo URL when available -->
+            <div class="logo">Velopay</div>
         </div>
         <div class="content">
-            <p>You requested to reset your password.</p>
-            <p>Use the verification code below to reset your password:</p>
-            <div class="code">%s</div>
+            <h1 class="title">Reset your password</h1>
+            <p class="text">We received a request to reset your password. Enter the following code to proceed:</p>
+            
+            <div class="code-container">
+                <div class="code">%s</div>
+            </div>
+            
             <div class="warning">
-                <strong>⚠️ Important:</strong>
-                <ul style="margin: 10px 0; padding-left: 20px;">
-                    <li>This code will expire in <strong>15 minutes</strong></li>
-                    <li>Do not share this code with anyone</li>
-                    <li>If you didn't request this, please ignore this email</li>
+                <span class="warning-title">⚠️ Security Notice:</span>
+                <ul style="margin: 0; padding-left: 20px; color: #92400e; font-size: 14px;">
+                    <li>This code expires in 15 minutes.</li>
+                    <li>Never share this code with anyone.</li>
                 </ul>
             </div>
+            
+            <p class="text" style="font-size: 14px; margin-top: 32px;">If you didn't request a password reset, please ignore this message.</p>
         </div>
         <div class="footer">
-            <p>© %d Digital Transaction Ledger. All rights reserved.</p>
+            <p>&copy; %d Velopay / Digital Transaction Ledger. All rights reserved.</p>
         </div>
     </div>
 </body>

@@ -19,19 +19,18 @@ func NewExchangeRateService(db *gorm.DB) *ExchangeRateService {
 	return &ExchangeRateService{DB: db}
 }
 
-// FrankfurterAPIResponse represents the response from frankfurter.app
-type FrankfurterAPIResponse struct {
-	Amount float64            `json:"amount"`
-	Base   string             `json:"base"`
-	Date   string             `json:"date"`
-	Rates  map[string]float64 `json:"rates"`
+// ExchangeRateAPIResponse represents the response from open.er-api.com
+type ExchangeRateAPIResponse struct {
+	Result   string             `json:"result"`
+	BaseCode string             `json:"base_code"`
+	Rates    map[string]float64 `json:"rates"`
 }
 
-// FetchRatesFromAPI fetches latest rates from frankfurter.app (free ECB-backed API, no auth required)
+// FetchRatesFromAPI fetches latest rates from open.er-api.com (Supports IRR)
 // Invalidates cache for all fetched rates
 func (s *ExchangeRateService) FetchRatesFromAPI(tenantID uint, baseCurrency string) error {
-	// Using the free frankfurter.app API (maintained by European Central Bank, no authentication required)
-	url := fmt.Sprintf("https://api.frankfurter.app/latest?from=%s", baseCurrency)
+	// Using open.er-api.com which supports more currencies including IRR
+	url := fmt.Sprintf("https://open.er-api.com/v6/latest/%s", baseCurrency)
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -44,9 +43,13 @@ func (s *ExchangeRateService) FetchRatesFromAPI(tenantID uint, baseCurrency stri
 		return fmt.Errorf("failed to read response: %w", err)
 	}
 
-	var apiResp FrankfurterAPIResponse
+	var apiResp ExchangeRateAPIResponse
 	if err := json.Unmarshal(body, &apiResp); err != nil {
 		return fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	if apiResp.Result != "success" {
+		return fmt.Errorf("api returned error status: %s", apiResp.Result)
 	}
 
 	// Get cache service for invalidation
@@ -64,7 +67,7 @@ func (s *ExchangeRateService) FetchRatesFromAPI(tenantID uint, baseCurrency stri
 
 		if err := s.DB.Create(&exchangeRate).Error; err != nil {
 			fmt.Printf("Error saving rate for %s/%s: %v\n", baseCurrency, targetCurrency, err)
-			return fmt.Errorf("failed to save rate: %w", err)
+			continue // Continue saving others even if one fails
 		}
 
 		// Invalidate cache for this rate

@@ -166,7 +166,8 @@ export const getTopCustomers = async (
 /**
  * Generate and download outgoing remittance receipt
  */
-export const downloadOutgoingReceipt = async (remittanceId: number): Promise<Blob> => {
+export const downloadOutgoingReceipt = async (remittanceId: string | number): Promise<Blob> => {
+
     const response = await apiClient.get(`/receipts/outgoing/${remittanceId}`, {
         responseType: 'blob',
     });
@@ -176,7 +177,8 @@ export const downloadOutgoingReceipt = async (remittanceId: number): Promise<Blo
 /**
  * Generate and download incoming remittance receipt
  */
-export const downloadIncomingReceipt = async (remittanceId: number): Promise<Blob> => {
+export const downloadIncomingReceipt = async (remittanceId: string | number): Promise<Blob> => {
+
     const response = await apiClient.get(`/receipts/incoming/${remittanceId}`, {
         responseType: 'blob',
     });
