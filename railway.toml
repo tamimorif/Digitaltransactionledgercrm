@@ -1,5 +1,4 @@
 [build]
-builder = "go"
 buildCommand = "cd backend && go mod download && go build -o server ./cmd/server"
 
 [deploy]

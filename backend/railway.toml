@@ -1,6 +1,5 @@
 [build]
-builder = "go"
-buildCommand = "go build -o server ./cmd/server"
+buildCommand = "go mod download && go build -o server ./cmd/server"
 
 [deploy]
 startCommand = "./server"
