@@ -1,5 +1,5 @@
 [build]
-builder = "go"
+
 buildCommand = "go build -o server ./backend/cmd/server"
 
 [deploy]
