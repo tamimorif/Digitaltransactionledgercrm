@@ -14,6 +14,7 @@ type Handler struct {
 	auditService        *services.AuditService
 	exchangeRateService *services.ExchangeRateService
 	transactionService  *services.TransactionService
+	navasanService      *services.NavasanService
 }
 
 // NewHandler creates a new handler instance with database connection
@@ -24,6 +25,7 @@ func NewHandler(db *gorm.DB) *Handler {
 		auditService:        services.NewAuditService(db),
 		exchangeRateService: exchangeRateService,
 		transactionService:  services.NewTransactionService(db, exchangeRateService),
+		navasanService:      services.NewNavasanService(),
 	}
 }
 

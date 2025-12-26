@@ -21,6 +21,20 @@ export interface ExternalRatesResponse {
     GBP_SELL: number;
     USD_BUY: number;
     USD_SELL: number;
+    AED_BUY: number;
+    AED_SELL: number;
+    TRY_BUY: number;
+    TRY_SELL: number;
+    USDT_BUY: number;
+    USDT_SELL: number;
+    BTC_BUY: number;
+    BTC_SELL: number;
+    ETH_BUY: number;
+    ETH_SELL: number;
+    XRP_BUY: number;
+    XRP_SELL: number;
+    TRX_BUY: number;
+    TRX_SELL: number;
 }
 
 export interface ScrapedRate {
@@ -55,7 +69,7 @@ export const useGetRates = () => {
 };
 
 /**
- * Hook to get scraped rates from ExchangeRate-API
+ * Hook to get scraped rates from ExchangeRate-API (Now Navasan)
  */
 export const useGetScrapedRates = () => {
     return useQuery({
@@ -67,63 +81,36 @@ export const useGetScrapedRates = () => {
                 throw new Error('Failed to fetch external rates');
             }
             const data: ExternalRatesResponse = await response.json();
-            // Map the flat response to the expected structure if necessary, or just return it.
-            // The previous 'ScrapedRatesResponse' had { success, source, rates[] }.
-            // The new response is { CAD_BUY, ... }.
-            // We need to adapt it to match the component's expectation if the component expects a list.
 
-            // Wait, the component expects ScrapedRatesResponse = { rates: ScrapedRate[] }?
-            // I need to check how the component consumes it.
-            // If I change the return type here, I break the component!
-
-            // I will adapt the response here to match the old ScrapedRatesResponse structure.
+            // Helper to create rate object
+            const createRate = (code: string, name: string, buy: number, sell: number): ScrapedRate => ({
+                currency: code,
+                currency_fa: name,
+                buy_rate: buy.toString(),
+                sell_rate: sell.toString(),
+                buy_rate_formatted: Math.round(buy).toLocaleString(),
+                sell_rate_formatted: Math.round(sell).toLocaleString(),
+                is_available: buy > 0,
+                scraped_at: new Date().toISOString()
+            });
 
             const rates: ScrapedRate[] = [
-                {
-                    currency: 'CAD',
-                    currency_fa: 'دلار کانادا',
-                    buy_rate: data.CAD_BUY.toString(),
-                    sell_rate: data.CAD_SELL.toString(),
-                    buy_rate_formatted: Math.round(data.CAD_BUY).toLocaleString(),
-                    sell_rate_formatted: Math.round(data.CAD_SELL).toLocaleString(),
-                    is_available: true,
-                    scraped_at: new Date().toISOString()
-                },
-                {
-                    currency: 'USD',
-                    currency_fa: 'دلار آمریکا',
-                    buy_rate: data.USD_BUY.toString(),
-                    sell_rate: data.USD_SELL.toString(),
-                    buy_rate_formatted: Math.round(data.USD_BUY).toLocaleString(),
-                    sell_rate_formatted: Math.round(data.USD_SELL).toLocaleString(),
-                    is_available: true,
-                    scraped_at: new Date().toISOString()
-                },
-                {
-                    currency: 'EUR',
-                    currency_fa: 'یورو',
-                    buy_rate: data.EUR_BUY.toString(),
-                    sell_rate: data.EUR_SELL.toString(),
-                    buy_rate_formatted: Math.round(data.EUR_BUY).toLocaleString(),
-                    sell_rate_formatted: Math.round(data.EUR_SELL).toLocaleString(),
-                    is_available: true,
-                    scraped_at: new Date().toISOString()
-                },
-                {
-                    currency: 'GBP',
-                    currency_fa: 'پوند انگلیس',
-                    buy_rate: data.GBP_BUY.toString(),
-                    sell_rate: data.GBP_SELL.toString(),
-                    buy_rate_formatted: Math.round(data.GBP_BUY).toLocaleString(),
-                    sell_rate_formatted: Math.round(data.GBP_SELL).toLocaleString(),
-                    is_available: true,
-                    scraped_at: new Date().toISOString()
-                }
-            ];
+                createRate('USD', 'دلار آمریکا', data.USD_BUY, data.USD_SELL),
+                createRate('CAD', 'دلار کانادا', data.CAD_BUY, data.CAD_SELL),
+                createRate('EUR', 'یورو', data.EUR_BUY, data.EUR_SELL),
+                createRate('GBP', 'پوند انگلیس', data.GBP_BUY, data.GBP_SELL),
+                createRate('AED', 'درهم امارات', data.AED_BUY, data.AED_SELL),
+                createRate('TRY', 'لیر ترکیه', data.TRY_BUY, data.TRY_SELL),
+                createRate('USDT', 'تتر', data.USDT_BUY, data.USDT_SELL),
+                createRate('BTC', 'بیت کوین', data.BTC_BUY, data.BTC_SELL),
+                createRate('ETH', 'اتریوم', data.ETH_BUY, data.ETH_SELL),
+                createRate('XRP', 'ریپل', data.XRP_BUY, data.XRP_SELL),
+                createRate('TRX', 'ترون', data.TRX_BUY, data.TRX_SELL),
+            ].filter(r => r.is_available); // Filter out zero rates
 
             return {
                 success: true,
-                source: 'ExchangeRate-API',
+                source: 'Navasan API',
                 rates: rates,
                 refreshed: true
             };
@@ -141,13 +128,14 @@ export const useRefreshScrapedRates = () => {
 
     return useMutation({
         mutationFn: async () => {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/rates/scraped/refresh`, {
+            // Updated to use the correct Navasan refresh endpoint
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/rates/navasan/refresh`, {
                 method: 'POST',
             });
             if (!response.ok) {
                 throw new Error('Failed to refresh scraped rates');
             }
-            const data: ScrapedRatesResponse = await response.json();
+            const data = await response.json();
             return data;
         },
         onSuccess: () => {

@@ -79,6 +79,10 @@ func GenerateVerificationCode() (string, error) {
 
 // SendVerificationEmail sends a verification code to the user's email
 func (es *EmailService) SendVerificationEmail(toEmail, code string) error {
+	// ALWAYS log the code in the server logs for debugging/testing purposes
+	// This ensures you can login even if email delivery fails
+	log.Printf("🔐 [DEBUG] Verification code for %s: %s", toEmail, code)
+
 	subject := "Email Verification Code - Digital Transaction Ledger"
 	body := es.getVerificationEmailHTML(code)
 
@@ -87,14 +91,19 @@ func (es *EmailService) SendVerificationEmail(toEmail, code string) error {
 		if !es.AllowDevEmail() {
 			return fmt.Errorf("email provider not configured; set RESEND_API_KEY or SMTP credentials")
 		}
-		log.Printf("📧 [DEV MODE] Verification code for %s: %s", toEmail, code)
-		log.Printf("⚠️  Email provider not configured. Set RESEND_API_KEY or SMTP credentials.")
+		log.Printf("📧 [DEV MODE] Email simulation - Code logged above")
 		return nil
 	}
 
 	// Send via configured provider
 	if es.Provider == "resend" {
-		return es.sendViaResend(toEmail, subject, body)
+		log.Printf("📧 Attempting to send via Resend to %s...", toEmail)
+		err := es.sendViaResend(toEmail, subject, body)
+		if err != nil {
+			log.Printf("❌ RESEND ERROR: %v", err)
+			return err
+		}
+		return nil
 	}
 
 	return es.sendViasmtp(toEmail, subject, body)
@@ -166,7 +175,12 @@ func (es *EmailService) sendViaResend(to, subject, body string) error {
 
 	sent, err := client.Emails.Send(params)
 	if err != nil {
-		log.Printf("❌ Failed to send email via Resend to %s: %v", to, err)
+		// Log detailed error to help debug domain verification issues
+		log.Printf("❌ Failed to send email via Resend to %s. Error: %v", to, err)
+		if strings.Contains(err.Error(), "403") {
+			log.Printf("💡 TIP: Verify that your FROM_EMAIL (%s) matches a verified domain in Resend.", es.FromEmail)
+			log.Printf("💡 TIP: Or use 'onboarding@resend.dev' to test (only sends to your account email).")
+		}
 		return fmt.Errorf("failed to send email: %w", err)
 	}
 

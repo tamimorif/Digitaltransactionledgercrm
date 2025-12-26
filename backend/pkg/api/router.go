@@ -105,6 +105,7 @@ func NewRouter(db *gorm.DB) http.Handler {
 			api.HandleFunc("/rates/navasan/refresh", navasanHandler.RefreshNavasanRates).Methods("POST")
 			api.HandleFunc("/rates/navasan/{currency}", navasanHandler.GetNavasanRate).Methods("GET")
 			api.HandleFunc("/rates/usd-irr", navasanHandler.GetUSDToIRR).Methods("GET")
+			api.HandleFunc("/rates/cad-irr", navasanHandler.GetCADToIRR).Methods("GET")
 
 			// Scraped/External Rates (public)
 			api.HandleFunc("/rates/fetch-external", handler.FetchExternalRatesHandler).Methods("GET")

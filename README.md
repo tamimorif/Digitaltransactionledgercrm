@@ -1,4 +1,4 @@
-# Velopay - Digital Transaction Ledger
+# VeloPay - Digital Transaction Ledger
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -6,9 +6,9 @@
 ![Next.js](https://img.shields.io/badge/frontend-Next.js_16-black.svg?logo=next.js&logoColor=white)
 ![React](https://img.shields.io/badge/library-React_19-61DAFB.svg?logo=react&logoColor=black)
 
-🌐 **Live at: [velopay.ca](https://velopay.ca)**
+🌐 **Live at: [velopay.ca](https://velopay.ca)** | Powered by **Yas Exchange**
 
-A high-performance, enterprise-grade CRM and ledger system designed for managing complex digital transactions, remittances, and multi-currency financial operations. Built with a robust **Go** backend and a modern, responsive **Next.js** frontend.
+A powerful digital transaction ledger designed for money exchange businesses. Replace spreadsheets with real-time transaction tracking, automated profit calculations, and comprehensive reporting. Built with a robust **Go** backend and a modern **Next.js** frontend.
 
 ## 🚀 Key Features
 

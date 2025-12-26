@@ -62,12 +62,31 @@ func (s *LedgerService) GetClientBalanceForCurrency(tx *gorm.DB, clientID string
 }
 
 // AddEntry adds a single ledger entry (e.g. Deposit or Withdrawal)
+// Note: This uses its own database connection. For atomic operations within
+// an existing transaction, use AddEntryWithTx instead.
 func (s *LedgerService) AddEntry(entry models.LedgerEntry) (*models.LedgerEntry, error) {
+	return s.AddEntryWithTx(s.db, entry)
+}
+
+// AddEntryWithTx adds a single ledger entry within an existing transaction context.
+// This ensures atomicity when creating ledger entries as part of a larger operation
+// (e.g., when recording a payment).
+//
+// Sign Convention:
+//   - Positive Amount (+): Credit - increases client's balance (client is owed money)
+//   - Negative Amount (-): Debit - decreases client's balance (client owes money)
+//
+// Example:
+//   - Payment received: +100 (we owe client $100 credit)
+//   - Payment reversed: -100 (removes the credit)
+//   - FX Sell (client gives USD): -100 USD
+//   - FX Buy (client receives CAD): +130 CAD
+func (s *LedgerService) AddEntryWithTx(tx *gorm.DB, entry models.LedgerEntry) (*models.LedgerEntry, error) {
 	if entry.Amount == 0 {
 		return nil, errors.New("amount cannot be zero")
 	}
 
-	if err := s.db.Create(&entry).Error; err != nil {
+	if err := tx.Create(&entry).Error; err != nil {
 		return nil, err
 	}
 

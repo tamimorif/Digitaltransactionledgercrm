@@ -154,6 +154,44 @@ func (h *NavasanHandler) GetUSDToIRR(w http.ResponseWriter, r *http.Request) {
 		"currency_fa":    rate.CurrencyFA,
 		"rate_toman":     rate.Value.StringFixed(0),
 		"rate_rial":      rate.Value.Mul(decimal.NewFromInt(10)).StringFixed(0),
+		"buyRate":        rate.Value.Mul(decimal.NewFromInt(10)).StringFixed(0),
+		"sellRate":       rate.Value.Mul(decimal.NewFromInt(10)).StringFixed(0),
+		"change":         rate.Change.StringFixed(0),
+		"change_percent": rate.ChangePercent,
+		"updated_at":     rate.UpdatedAt,
+		"fetched_at":     rate.FetchedAt.Format("2006-01-02T15:04:05Z07:00"),
+		"source":         "navasan.tech",
+	})
+}
+
+// GetCADToIRR returns the CAD to IRR conversion rate
+// @Summary Get CAD to IRR rate
+// @Description Get live CAD to Iranian Toman rate from Navasan (Tehran market)
+// @Tags Navasan
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /rates/cad-irr [get]
+func (h *NavasanHandler) GetCADToIRR(w http.ResponseWriter, r *http.Request) {
+	// Use GetRate for CAD
+	rate, err := h.navasanService.GetRate("CAD")
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"error":   "Failed to fetch CAD rate",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":        true,
+		"currency":       "CAD",
+		"currency_fa":    rate.CurrencyFA,
+		"rate_toman":     rate.Value.StringFixed(0),
+		"rate_rial":      rate.Value.Mul(decimal.NewFromInt(10)).StringFixed(0),
+		"buyRate":        rate.Value.Mul(decimal.NewFromInt(10)).StringFixed(0),
+		"sellRate":       rate.Value.Mul(decimal.NewFromInt(10)).StringFixed(0),
 		"change":         rate.Change.StringFixed(0),
 		"change_percent": rate.ChangePercent,
 		"updated_at":     rate.UpdatedAt,

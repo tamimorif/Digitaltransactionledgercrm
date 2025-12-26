@@ -3,11 +3,13 @@ package services
 import (
 	"api/pkg/models"
 	"api/pkg/strategies"
+	"api/pkg/utils"
 	"errors"
 	"fmt"
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type PaymentService struct {
@@ -33,9 +35,10 @@ func (s *PaymentService) CreatePayment(payment *models.Payment, userID uint) err
 
 // CreatePaymentWithTx internal logic for creating payment within a transaction
 func (s *PaymentService) CreatePaymentWithTx(tx *gorm.DB, payment *models.Payment, userID uint) error {
-	// 1. Load the transaction
+	// 1. Load the transaction with FOR UPDATE lock to prevent race conditions
 	var transaction models.Transaction
-	if err := tx.Where("id = ? AND tenant_id = ?", payment.TransactionID, payment.TenantID).
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("id = ? AND tenant_id = ?", payment.TransactionID, payment.TenantID).
 		First(&transaction).Error; err != nil {
 		return fmt.Errorf("transaction not found: %w", err)
 	}
@@ -87,8 +90,9 @@ func (s *PaymentService) CreatePaymentWithTx(tx *gorm.DB, payment *models.Paymen
 	transaction.TotalPaid = newTotalPaid
 	transaction.RemainingBalance = transaction.TotalReceived - newTotalPaid
 
-	// 9. Update payment status
-	if transaction.RemainingBalance <= 0.01 { // Allow small floating point differences
+	// 9. Update payment status (using currency-aware tolerance for IRR, JPY, etc.)
+	tolerance := utils.GetPaymentTolerance(transaction.ReceivedCurrency)
+	if transaction.RemainingBalance <= tolerance {
 		transaction.PaymentStatus = models.PaymentStatusFullyPaid
 	} else if transaction.TotalPaid > 0 {
 		transaction.PaymentStatus = models.PaymentStatusPartial
@@ -100,8 +104,7 @@ func (s *PaymentService) CreatePaymentWithTx(tx *gorm.DB, payment *models.Paymen
 	}
 
 	// 11. Create Ledger Entry (Credit Client)
-	// We are receiving money from the client, so we CREDIT their account (reduce their debt)
-	// Or if we view it as "Client Deposit", it's a credit.
+	// Positive amount = credit (client's balance increases)
 	ledgerEntry := models.LedgerEntry{
 		TenantID:      payment.TenantID,
 		ClientID:      transaction.ClientID,
@@ -109,17 +112,13 @@ func (s *PaymentService) CreatePaymentWithTx(tx *gorm.DB, payment *models.Paymen
 		TransactionID: &transaction.ID,
 		Type:          models.LedgerTypeDeposit,
 		Currency:      payment.Currency,
-		Amount:        payment.Amount, // Positive amount for Deposit/Payment
+		Amount:        payment.Amount, // Positive = credit to client
 		Description:   fmt.Sprintf("Payment for Transaction #%s", transaction.ID),
 		ExchangeRate:  &payment.ExchangeRate,
 		CreatedBy:     userID,
 		CreatedAt:     time.Now(),
 	}
-	// Use the service but with the current transaction context if possible,
-	// but LedgerService uses s.db. Since we are in a transaction, we should ideally use tx.
-	// However, LedgerService doesn't support passing tx.
-	// For now, let's just create it directly using tx to ensure atomicity.
-	if err := tx.Create(&ledgerEntry).Error; err != nil {
+	if _, err := s.ledgerService.AddEntryWithTx(tx, ledgerEntry); err != nil {
 		return fmt.Errorf("failed to create ledger entry: %w", err)
 	}
 
@@ -216,9 +215,10 @@ func (s *PaymentService) UpdatePayment(paymentID uint, tenantID uint, updates ma
 			payment.EditReason = &reason
 		}
 
-		// 6. Load transaction to update totals
+		// 6. Load transaction with FOR UPDATE lock to prevent race conditions
 		var transaction models.Transaction
-		if err := tx.Where("id = ? AND tenant_id = ?", payment.TransactionID, payment.TenantID).
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND tenant_id = ?", payment.TransactionID, payment.TenantID).
 			First(&transaction).Error; err != nil {
 			return fmt.Errorf("transaction not found: %w", err)
 		}
@@ -234,8 +234,9 @@ func (s *PaymentService) UpdatePayment(paymentID uint, tenantID uint, updates ma
 				transaction.RemainingBalance, transaction.ReceivedCurrency)
 		}
 
-		// 9. Update payment status
-		if transaction.RemainingBalance <= 0.01 {
+		// 9. Update payment status (using currency-aware tolerance)
+		tolerance := utils.GetPaymentTolerance(transaction.ReceivedCurrency)
+		if transaction.RemainingBalance <= tolerance {
 			transaction.PaymentStatus = models.PaymentStatusFullyPaid
 		} else if transaction.TotalPaid > 0 {
 			transaction.PaymentStatus = models.PaymentStatusPartial
@@ -360,9 +361,10 @@ func (s *PaymentService) DeletePayment(paymentID uint, tenantID uint, userID uin
 			return fmt.Errorf("payment not found: %w", err)
 		}
 
-		// 2. Load transaction
+		// 2. Load transaction with FOR UPDATE lock to prevent race conditions
 		var transaction models.Transaction
-		if err := tx.Where("id = ? AND tenant_id = ?", payment.TransactionID, tenantID).
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND tenant_id = ?", payment.TransactionID, tenantID).
 			First(&transaction).Error; err != nil {
 			return fmt.Errorf("transaction not found: %w", err)
 		}
@@ -371,10 +373,11 @@ func (s *PaymentService) DeletePayment(paymentID uint, tenantID uint, userID uin
 		transaction.TotalPaid -= payment.AmountInBase
 		transaction.RemainingBalance = transaction.TotalReceived - transaction.TotalPaid
 
-		// 4. Update payment status
+		// 4. Update payment status (using currency-aware tolerance)
+		tolerance := utils.GetPaymentTolerance(transaction.ReceivedCurrency)
 		if transaction.TotalPaid <= 0 {
 			transaction.PaymentStatus = models.PaymentStatusOpen
-		} else if transaction.RemainingBalance > 0.01 {
+		} else if transaction.RemainingBalance > tolerance {
 			transaction.PaymentStatus = models.PaymentStatusPartial
 		}
 
@@ -431,9 +434,10 @@ func (s *PaymentService) CancelPayment(paymentID uint, tenantID uint, userID uin
 			return errors.New("payment is already cancelled")
 		}
 
-		// 2. Load transaction
+		// 2. Load transaction with FOR UPDATE lock to prevent race conditions
 		var transaction models.Transaction
-		if err := tx.Where("id = ? AND tenant_id = ?", payment.TransactionID, tenantID).
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND tenant_id = ?", payment.TransactionID, tenantID).
 			First(&transaction).Error; err != nil {
 			return fmt.Errorf("transaction not found: %w", err)
 		}
@@ -449,10 +453,11 @@ func (s *PaymentService) CancelPayment(paymentID uint, tenantID uint, userID uin
 		transaction.TotalPaid -= payment.AmountInBase
 		transaction.RemainingBalance = transaction.TotalReceived - transaction.TotalPaid
 
-		// 5. Update payment status
+		// 5. Update payment status (using currency-aware tolerance)
+		tolerance := utils.GetPaymentTolerance(transaction.ReceivedCurrency)
 		if transaction.TotalPaid <= 0 {
 			transaction.PaymentStatus = models.PaymentStatusOpen
-		} else if transaction.RemainingBalance > 0.01 {
+		} else if transaction.RemainingBalance > tolerance {
 			transaction.PaymentStatus = models.PaymentStatusPartial
 		}
 
@@ -504,13 +509,15 @@ func (s *PaymentService) CompleteTransaction(transactionID string, tenantID uint
 			return fmt.Errorf("transaction not found: %w", err)
 		}
 
-		// Allow completion if remaining is small (less than 1% or 0.01)
-		toleranceAmount := transaction.TotalReceived * 0.01
-		if toleranceAmount < 0.01 {
-			toleranceAmount = 0.01
+		// Allow completion if remaining is small (using currency-aware tolerance)
+		tolerance := utils.GetPaymentTolerance(transaction.ReceivedCurrency)
+		// Also allow 1% tolerance for larger transactions
+		percentTolerance := transaction.TotalReceived * 0.01
+		if percentTolerance > tolerance {
+			tolerance = percentTolerance
 		}
 
-		if transaction.RemainingBalance > toleranceAmount {
+		if transaction.RemainingBalance > tolerance {
 			return fmt.Errorf("cannot complete transaction with remaining balance: %.2f %s",
 				transaction.RemainingBalance, transaction.ReceivedCurrency)
 		}

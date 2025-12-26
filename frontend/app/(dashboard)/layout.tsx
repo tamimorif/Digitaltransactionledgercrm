@@ -91,12 +91,12 @@ export default function DashboardLayout({
                       <Button variant="ghost" size="sm"><LayoutDashboard className="h-4 w-4 mr-2" />{t('nav.dashboard')}</Button>
                     </Link>
 
-                    {/* Transactions Dropdown */}
+                    {/* Remittances Dropdown */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm">
                           <Send className="h-4 w-4 mr-2" />
-                          {t('nav.transactions')}
+                          Remittances
                           <ChevronDown className="h-4 w-4 ml-1" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -104,30 +104,30 @@ export default function DashboardLayout({
                         <DropdownMenuItem asChild>
                           <Link href="/send-pickup" className="cursor-pointer">
                             <Send className="h-4 w-4 mr-2" />
-                            Send / Receive Money
+                            Initiate Transfer
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                           <Link href="/pickup-search" className="cursor-pointer">
                             <Search className="h-4 w-4 mr-2" />
-                            Search Pickups
+                            Disbursement Lookup
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                           <Link href="/pending-pickups" className="cursor-pointer">
                             <Clock className="h-4 w-4 mr-2" />
-                            Pending Pickups
+                            Pending Payouts
                           </Link>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
 
-                    {/* Financial Dropdown */}
+                    {/* Treasury Dropdown */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm">
                           <TrendingUp className="h-4 w-4 mr-2" />
-                          Financial
+                          Treasury
                           <ChevronDown className="h-4 w-4 ml-1" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -135,13 +135,13 @@ export default function DashboardLayout({
                         <DropdownMenuItem asChild>
                           <Link href="/rates" className="cursor-pointer">
                             <TrendingUp className="h-4 w-4 mr-2" />
-                            Exchange Rates
+                            FX Rates
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                           <Link href="/reconciliation" className="cursor-pointer">
                             <Calculator className="h-4 w-4 mr-2" />
-                            Reconciliation
+                            Position Reconciliation
                           </Link>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
