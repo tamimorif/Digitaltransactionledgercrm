@@ -1,9 +1,0 @@
-[build]
-buildCommand = "go mod download && go build -o server ./cmd/server"
-
-[deploy]
-startCommand = "./server"
-healthcheckPath = "/api/health"
-healthcheckTimeout = 100
-restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 5
