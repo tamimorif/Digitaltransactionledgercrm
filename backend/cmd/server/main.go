@@ -32,6 +32,7 @@ import (
 // @name Authorization
 
 func main() {
+	log.Println("--- DEBUG: Starting Server ---")
 	// Load environment variables from .env file if it exists
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using system environment variables")
