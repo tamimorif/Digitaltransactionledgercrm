@@ -5,7 +5,6 @@ import (
 	"api/pkg/models"
 	"api/pkg/services"
 	"log"
-	"os"
 	"strings"
 
 	"gorm.io/driver/postgres"
@@ -21,13 +20,14 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 	var db *gorm.DB
 	var err error
 
-	// Check for DATABASE_URL environment variable (production)
-	databaseURL := os.Getenv("DATABASE_URL")
-
-	if databaseURL != "" {
+	// Check if the provided path is actually a Postgres URL (passed from main.go)
+	// This fixes the crash on Railway where DATABASE_URL is read in main() but might be missing here for some reason,
+	// or simply ensures we trust the argument passed to us.
+	if strings.HasPrefix(dbPath, "postgres://") || strings.HasPrefix(dbPath, "postgresql://") {
 		// Production: Use PostgreSQL
 		log.Printf("Connecting to PostgreSQL database...")
 
+		databaseURL := dbPath
 		// Handle Render.com's DATABASE_URL format (postgres:// -> postgresql://)
 		if strings.HasPrefix(databaseURL, "postgres://") {
 			databaseURL = strings.Replace(databaseURL, "postgres://", "postgresql://", 1)
