@@ -31,6 +31,10 @@ import (
 // @in header
 // @name Authorization
 
+func init() {
+	log.Println("--- DEBUG: Pre-Main Init ---")
+}
+
 func main() {
 	log.Println("--- DEBUG: Starting Server ---")
 	// Load environment variables from .env file if it exists
