@@ -76,37 +76,66 @@ export const useGetScrapedRates = () => {
         queryKey: ['scrapedRates'],
         queryFn: async () => {
             // Use fetch directly since this is a public endpoint
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/rates/fetch-external`);
+            // Changed from /api/rates/fetch-external to /api/rates/navasan
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+            const response = await fetch(`${baseUrl}/rates/navasan`);
             if (!response.ok) {
                 throw new Error('Failed to fetch external rates');
             }
-            const data: ExternalRatesResponse = await response.json();
+            // Parse using the new NavasanResponse interface
+            const responseData: NavasanResponse = await response.json();
 
-            // Helper to create rate object
-            const createRate = (code: string, name: string, buy: number, sell: number): ScrapedRate => ({
-                currency: code,
-                currency_fa: name,
-                buy_rate: buy.toString(),
-                sell_rate: sell.toString(),
-                buy_rate_formatted: Math.round(buy).toLocaleString(),
-                sell_rate_formatted: Math.round(sell).toLocaleString(),
-                is_available: buy > 0,
-                scraped_at: new Date().toISOString()
-            });
+            if (!responseData.success || !responseData.data) {
+                throw new Error(responseData.message || 'Failed to load rates');
+            }
+
+            const data = responseData.data;
+
+            // Helper to find a rate from the list
+            const findRate = (code: string): NavasanRate | undefined => {
+                return data.find(r => r.currency === code);
+            };
+
+            // Helper to create rate object from NavasanRate
+            // Note: Navasan returns a single 'value' containing the current price. 
+            // We'll use this for both buy and sell for now, or apply a spread if needed in the future.
+            const createRate = (code: string, fallbackName: string): ScrapedRate | undefined => {
+                const apiRate = findRate(code);
+                if (!apiRate) return undefined;
+
+                // Parse the value string (e.g., "134450") to number
+                const value = parseFloat(apiRate.value);
+                if (isNaN(value) || value <= 0) return undefined;
+
+                // Create spread (optional: defaults to 0 spread, same buy/sell)
+                const buy = value;
+                const sell = value;
+
+                return {
+                    currency: code,
+                    currency_fa: apiRate.currency_fa || fallbackName,
+                    buy_rate: buy.toString(),
+                    sell_rate: sell.toString(),
+                    buy_rate_formatted: apiRate.value_formatted, // Use pre-formatted value from API
+                    sell_rate_formatted: apiRate.value_formatted,
+                    is_available: true,
+                    scraped_at: apiRate.fetched_at || new Date().toISOString()
+                };
+            };
 
             const rates: ScrapedRate[] = [
-                createRate('USD', 'دلار آمریکا', data.USD_BUY, data.USD_SELL),
-                createRate('CAD', 'دلار کانادا', data.CAD_BUY, data.CAD_SELL),
-                createRate('EUR', 'یورو', data.EUR_BUY, data.EUR_SELL),
-                createRate('GBP', 'پوند انگلیس', data.GBP_BUY, data.GBP_SELL),
-                createRate('AED', 'درهم امارات', data.AED_BUY, data.AED_SELL),
-                createRate('TRY', 'لیر ترکیه', data.TRY_BUY, data.TRY_SELL),
-                createRate('USDT', 'تتر', data.USDT_BUY, data.USDT_SELL),
-                createRate('BTC', 'بیت کوین', data.BTC_BUY, data.BTC_SELL),
-                createRate('ETH', 'اتریوم', data.ETH_BUY, data.ETH_SELL),
-                createRate('XRP', 'ریپل', data.XRP_BUY, data.XRP_SELL),
-                createRate('TRX', 'ترون', data.TRX_BUY, data.TRX_SELL),
-            ].filter(r => r.is_available); // Filter out zero rates
+                createRate('USD', 'دلار آمریکا'),
+                createRate('CAD', 'دلار کانادا'),
+                createRate('EUR', 'یورو'),
+                createRate('GBP', 'پوند انگلیس'),
+                createRate('AED', 'درهم امارات'),
+                createRate('TRY', 'لیر ترکیه'),
+                createRate('USDT', 'تتر'),
+                createRate('BTC', 'بیت کوین'),
+                createRate('ETH', 'اتریوم'),
+                createRate('XRP', 'ریپل'),
+                createRate('TRX', 'ترون'),
+            ].filter((r): r is ScrapedRate => r !== undefined);
 
             return {
                 success: true,
@@ -129,7 +158,8 @@ export const useRefreshScrapedRates = () => {
     return useMutation({
         mutationFn: async () => {
             // Updated to use the correct Navasan refresh endpoint
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/rates/navasan/refresh`, {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+            const response = await fetch(`${baseUrl}/rates/navasan/refresh`, {
                 method: 'POST',
             });
             if (!response.ok) {
@@ -151,7 +181,8 @@ export const useGetCADToIRRRate = () => {
     return useQuery({
         queryKey: ['cadToIrrRate'],
         queryFn: async () => {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/rates/cad-irr`);
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+            const response = await fetch(`${baseUrl}/rates/cad-irr`);
             if (!response.ok) {
                 throw new Error('Failed to fetch CAD-IRR rate');
             }
@@ -216,6 +247,7 @@ export interface NavasanRate {
     currency: string;
     currency_fa: string;
     value: string;
+    value_formatted: string;
     change: string;
     change_percent: string;
     updated_at: string;
@@ -238,7 +270,8 @@ export const useGetNavasanRates = () => {
         queryKey: ['navasanRates'],
         queryFn: async () => {
             // Use public API
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/rates/navasan`);
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+            const response = await fetch(`${baseUrl}/rates/navasan`);
             if (!response.ok) {
                 throw new Error('Failed to fetch Navasan rates');
             }
