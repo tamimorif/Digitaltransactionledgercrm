@@ -75,7 +75,7 @@ export function RegisterForm() {
       router.push('/verify-email');
     } catch (error: any) {
       toast.error('Registration Error', {
-        description: error?.response?.data?.error || 'Please try again',
+        description: error?.response?.data?.error || error?.message || 'Please try again',
       });
     } finally {
       setIsLoading(false);
