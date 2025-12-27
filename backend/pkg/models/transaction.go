@@ -33,17 +33,17 @@ type Transaction struct {
 	PaymentStatus       string     `gorm:"column:payment_status;type:varchar(50);default:'SINGLE'" json:"paymentStatus"`       // SINGLE, OPEN, PARTIAL, COMPLETED
 	AllowPartialPayment bool       `gorm:"column:allow_partial_payment;type:boolean;default:false" json:"allowPartialPayment"` // Enable multi-payment mode
 	IsEdited            bool       `gorm:"column:is_edited;type:boolean;default:false" json:"isEdited"`
-	LastEditedAt        *time.Time `gorm:"column:last_edited_at;type:datetime" json:"lastEditedAt"`
+	LastEditedAt        *time.Time `gorm:"column:last_edited_at;type:timestamp" json:"lastEditedAt"`
 	EditedByBranchID    *uint      `gorm:"column:edited_by_branch_id;type:bigint" json:"editedByBranchId"`  // *** ADDED FOR AUDIT ***
 	EditHistory         *string    `gorm:"column:edit_history;type:text" json:"editHistory"`                // JSON string
 	Status              string     `gorm:"column:status;type:text;default:'COMPLETED';index" json:"status"` // COMPLETED or CANCELLED
 	CancellationReason  *string    `gorm:"column:cancellation_reason;type:text" json:"cancellationReason,omitempty"`
-	CancelledAt         *time.Time `gorm:"column:cancelled_at;type:datetime" json:"cancelledAt,omitempty"`
+	CancelledAt         *time.Time `gorm:"column:cancelled_at;type:timestamp" json:"cancelledAt,omitempty"`
 	CancelledBy         *uint      `gorm:"column:cancelled_by;type:bigint" json:"cancelledBy,omitempty"` // User ID who cancelled
-	TransactionDate     time.Time  `gorm:"column:transaction_date;type:datetime;default:CURRENT_TIMESTAMP;index" json:"transactionDate"`
+	TransactionDate     time.Time  `gorm:"column:transaction_date;type:timestamp;default:CURRENT_TIMESTAMP;index" json:"transactionDate"`
 	Version             int        `gorm:"not null;default:0" json:"version"` // Optimistic locking
-	CreatedAt           time.Time  `gorm:"column:created_at;type:datetime;default:CURRENT_TIMESTAMP;autoCreateTime" json:"createdAt"`
-	UpdatedAt           time.Time  `gorm:"column:updated_at;type:datetime;autoUpdateTime" json:"updatedAt"`
+	CreatedAt           time.Time  `gorm:"column:created_at;type:timestamp;default:CURRENT_TIMESTAMP;autoCreateTime" json:"createdAt"`
+	UpdatedAt           time.Time  `gorm:"column:updated_at;type:timestamp;autoUpdateTime" json:"updatedAt"`
 
 	Client   *Client   `gorm:"foreignKey:ClientID;constraint:OnDelete:CASCADE" json:"client"`
 	Tenant   Tenant    `gorm:"foreignKey:TenantID;constraint:OnDelete:RESTRICT" json:"tenant,omitempty"`

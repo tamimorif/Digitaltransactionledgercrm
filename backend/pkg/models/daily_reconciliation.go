@@ -17,8 +17,8 @@ type DailyReconciliation struct {
 	CurrencyBreakdown string    `gorm:"type:text" json:"currencyBreakdown"` // JSON: {"USD": 5000, "CAD": 3000}
 	Notes             *string   `gorm:"type:text" json:"notes,omitempty"`
 	CreatedByUserID   uint      `gorm:"type:bigint;not null" json:"createdByUserId"`
-	CreatedAt         time.Time `gorm:"type:datetime;default:CURRENT_TIMESTAMP;autoCreateTime" json:"createdAt"`
-	UpdatedAt         time.Time `gorm:"type:datetime;autoUpdateTime" json:"updatedAt"`
+	CreatedAt         time.Time `gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoCreateTime" json:"createdAt"`
+	UpdatedAt         time.Time `gorm:"type:timestamp;autoUpdateTime" json:"updatedAt"`
 
 	Tenant Tenant  `gorm:"foreignKey:TenantID;constraint:OnDelete:CASCADE" json:"tenant,omitempty"`
 	Branch *Branch `gorm:"foreignKey:BranchID;constraint:OnDelete:CASCADE" json:"branch,omitempty"`
