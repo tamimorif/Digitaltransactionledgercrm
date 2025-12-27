@@ -138,7 +138,7 @@ Push to `main` branch triggers automatic deployment:
 - `RESEND_API_KEY` - For email verification
 
 **Frontend (Vercel):**
-- `NEXT_PUBLIC_API_URL` - https://api.velopay.ca
+- `NEXT_PUBLIC_API_URL` - https://api.velopay.ca/api
 
 ## 📄 License
 

@@ -7,7 +7,11 @@
 // API & Storage
 // =============================================================================
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const RAW_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const NORMALIZED_API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, '');
+export const API_BASE_URL = NORMALIZED_API_BASE_URL.endsWith('/api')
+    ? NORMALIZED_API_BASE_URL
+    : `${NORMALIZED_API_BASE_URL}/api`;
 
 // Standardized storage keys - USE THESE EVERYWHERE
 export const STORAGE_KEYS = {
