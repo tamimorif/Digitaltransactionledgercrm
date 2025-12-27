@@ -33,7 +33,9 @@ func InitDB(dbPath string) (*gorm.DB, error) {
 			databaseURL = strings.Replace(databaseURL, "postgres://", "postgresql://", 1)
 		}
 
-		db, err = gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
+		db, err = gorm.Open(postgres.Open(databaseURL), &gorm.Config{
+			DisableForeignKeyConstraintWhenMigrating: true,
+		})
 		if err != nil {
 			log.Printf("Failed to connect to PostgreSQL: %v", err)
 			return nil, err
