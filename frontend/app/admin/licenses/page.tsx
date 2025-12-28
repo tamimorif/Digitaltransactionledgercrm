@@ -30,14 +30,16 @@ import {
     SelectValue,
 } from '@/src/components/ui/select';
 import { Badge } from '@/src/components/ui/badge';
-import { Plus, Copy, Ban, CheckCircle2, Loader2 } from 'lucide-react';
+import { Plus, Copy, Ban, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import type { License } from '@/src/lib/models/license.model';
 
 export default function LicenseManager() {
     const { data: licenses, isLoading } = useGetAllLicenses();
     const generateLicense = useGenerateLicense();
     const revokeLicense = useRevokeLicense();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const licensesList = (licenses ?? []) as License[];
 
     const [formData, setFormData] = useState({
         licenseType: 'starter',
@@ -64,17 +66,18 @@ export default function LicenseManager() {
                 durationValue: '',
                 notes: '',
             });
-        } catch (error) {
+        } catch {
             toast.error('Failed to generate license');
         }
     };
 
-    const handleRevoke = async (id: string) => {
+    const handleRevoke = async (id: number | string) => {
+        const licenseId = id.toString();
         if (confirm('Are you sure you want to revoke this license? This action cannot be undone.')) {
             try {
-                await revokeLicense.mutateAsync(id);
+                await revokeLicense.mutateAsync(licenseId);
                 toast.success('License revoked');
-            } catch (error) {
+            } catch {
                 toast.error('Failed to revoke license');
             }
         }
@@ -215,14 +218,14 @@ export default function LicenseManager() {
                                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-gray-400" />
                                 </TableCell>
                             </TableRow>
-                        ) : licenses?.length === 0 ? (
+                        ) : licensesList.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={6} className="h-24 text-center text-gray-500">
                                     No licenses found. Generate one to get started.
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            licenses?.map((license: any) => (
+                            licensesList.map((license) => (
                                 <TableRow key={license.id}>
                                     <TableCell className="font-mono text-xs">
                                         <div className="flex items-center gap-2">

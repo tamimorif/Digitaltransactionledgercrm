@@ -24,16 +24,9 @@ import {
     FormDescription,
 } from '@/src/components/ui/form';
 import { Input } from '@/src/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/src/components/ui/select';
 import { useCreateBranchUser, useCheckUsername } from '@/src/lib/queries/user.query';
-import { useGetBranches } from '@/src/lib/queries/branch.query';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/src/lib/error';
 
 const createUserSchema = z.object({
     username: z
@@ -64,15 +57,14 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     });
 
     const createUserMutation = useCreateBranchUser();
-    const { data: branches } = useGetBranches();
     const { data: usernameCheck, isLoading: isCheckingUsername } = useCheckUsername(
         usernameToCheck,
         checkEnabled && usernameToCheck.length >= 3
     );
+    const username = form.watch('username');
 
     // Debounce username checking
     useEffect(() => {
-        const username = form.watch('username');
         const timeout = setTimeout(() => {
             if (username && username.length >= 3) {
                 setUsernameToCheck(username);
@@ -83,7 +75,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
         }, 500);
 
         return () => clearTimeout(timeout);
-    }, [form.watch('username')]);
+    }, [username]);
 
     const onSubmit = async (data: CreateUserFormValues) => {
         try {
@@ -99,8 +91,8 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
             toast.success('User created successfully');
             form.reset();
             onOpenChange(false);
-        } catch (error: any) {
-            toast.error(error?.response?.data?.error || 'Failed to create user');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to create user'));
         }
     };
 

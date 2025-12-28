@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { getWebSocketService, WSMessage } from '../lib/websocket.service';
 
 // Main WebSocket hook

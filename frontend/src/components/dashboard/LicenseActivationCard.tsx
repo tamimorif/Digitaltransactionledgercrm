@@ -20,6 +20,7 @@ import { useActivateLicense } from '@/src/queries/license.query';
 import { useAuth } from '@/src/components/providers/auth-provider';
 import { toast } from 'sonner';
 import { Loader2, Key } from 'lucide-react';
+import { getErrorMessage } from '@/src/lib/error';
 
 const activationSchema = z.object({
   licenseKey: z
@@ -65,9 +66,9 @@ export function LicenseActivationCard() {
       setTimeout(() => {
         window.location.reload();
       }, 500);
-    } catch (error: any) {
+    } catch (error) {
       toast.error('Activation Error', {
-        description: error?.response?.data?.error || 'Invalid license key',
+        description: getErrorMessage(error, 'Invalid license key'),
       });
     } finally {
       setIsLoading(false);
@@ -103,7 +104,7 @@ export function LicenseActivationCard() {
                       {...field}
                       onChange={(e) => {
                         // Auto-format license key with dashes
-                        let value = e.target.value.replace(/[^A-Za-z0-9-]/g, '');
+                        const value = e.target.value.replace(/[^A-Za-z0-9-]/g, '');
                         field.onChange(value);
                       }}
                     />

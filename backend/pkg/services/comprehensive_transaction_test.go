@@ -67,7 +67,7 @@ func TestComprehensiveTransactions(t *testing.T) {
 		TenantID:       tenant.ID,
 		BaseCurrency:   "CAD",
 		TargetCurrency: "IRR",
-		Rate:           45000,
+		Rate:           models.NewDecimal(45000),
 		Source:         "MANUAL",
 	})
 	// USD -> IRR (Standard: 60000)
@@ -75,7 +75,7 @@ func TestComprehensiveTransactions(t *testing.T) {
 		TenantID:       tenant.ID,
 		BaseCurrency:   "USD",
 		TargetCurrency: "IRR",
-		Rate:           60000,
+		Rate:           models.NewDecimal(60000),
 		Source:         "MANUAL",
 	})
 
@@ -97,10 +97,10 @@ func TestComprehensiveTransactions(t *testing.T) {
 			BranchID:            &branch.ID,
 			ClientID:            client.ID,
 			PaymentMethod:       models.TransactionMethodBank,
-			SendAmount:          1000,
+			SendAmount:          models.NewDecimal(1000),
 			SendCurrency:        "CAD",
 			ReceiveCurrency:     "IRR",
-			RateApplied:         44000,
+			RateApplied:         models.NewDecimal(44000),
 			AllowPartialPayment: false,
 			Status:              "PENDING",
 			PaymentStatus:       models.PaymentStatusFullyPaid,
@@ -115,11 +115,11 @@ func TestComprehensiveTransactions(t *testing.T) {
 		// Irr Profit: 1000 * (45000 - 44000) = 1,000,000 IRR
 		// Cad Profit: 1,000,000 / 45000 = 22.22 CAD
 		expectedProfit := 22.22
-		if math.Abs(tx.Profit-expectedProfit) > 0.1 {
-			t.Errorf("Expected profit ~%.2f CAD, got %.2f", expectedProfit, tx.Profit)
+		if math.Abs(tx.Profit.Float64()-expectedProfit) > 0.1 {
+			t.Errorf("Expected profit ~%.2f CAD, got %.2f", expectedProfit, tx.Profit.Float64())
 		}
 		fmt.Printf("   ✅ Transaction Created: %s\n", tx.ID)
-		fmt.Printf("   💰 Profit Calculated: %.2f CAD\n", tx.Profit)
+		fmt.Printf("   💰 Profit Calculated: %.2f CAD\n", tx.Profit.Float64())
 	})
 
 	// Test Case 2: Cash Pickup (Loss Scenario)
@@ -130,10 +130,10 @@ func TestComprehensiveTransactions(t *testing.T) {
 			BranchID:            &branch.ID,
 			ClientID:            client.ID,
 			PaymentMethod:       models.TransactionMethodPickup,
-			SendAmount:          100,
+			SendAmount:          models.NewDecimal(100),
 			SendCurrency:        "USD",
 			ReceiveCurrency:     "IRR",
-			RateApplied:         61000,
+			RateApplied:         models.NewDecimal(61000),
 			AllowPartialPayment: false,
 			Status:              "PENDING",
 		}
@@ -147,11 +147,11 @@ func TestComprehensiveTransactions(t *testing.T) {
 		// Irr Loss: 100 * (60000 - 61000) = -100,000 IRR
 		// Usd Loss: -100,000 / 60000 = -1.66 USD
 		expectedProfit := -1.66
-		if math.Abs(tx.Profit-expectedProfit) > 0.1 {
-			t.Errorf("Expected profit ~%.2f USD, got %.2f", expectedProfit, tx.Profit)
+		if math.Abs(tx.Profit.Float64()-expectedProfit) > 0.1 {
+			t.Errorf("Expected profit ~%.2f USD, got %.2f", expectedProfit, tx.Profit.Float64())
 		}
 		fmt.Printf("   ✅ Transaction Created: %s\n", tx.ID)
-		fmt.Printf("   📉 Loss Calculated: %.2f USD\n", tx.Profit)
+		fmt.Printf("   📉 Loss Calculated: %.2f USD\n", tx.Profit.Float64())
 	})
 
 	// Test Case 3: Multi-Payment (Partial -> Complete)
@@ -162,10 +162,10 @@ func TestComprehensiveTransactions(t *testing.T) {
 			BranchID:            &branch.ID,
 			ClientID:            client.ID,
 			PaymentMethod:       models.TransactionMethodBank,
-			SendAmount:          2000,
+			SendAmount:          models.NewDecimal(2000),
 			SendCurrency:        "CAD",
 			ReceiveCurrency:     "IRR",
-			RateApplied:         44000,
+			RateApplied:         models.NewDecimal(44000),
 			AllowPartialPayment: true, // Enable Multi-Payment
 			Status:              "PENDING",
 		}
@@ -179,8 +179,8 @@ func TestComprehensiveTransactions(t *testing.T) {
 		if tx.PaymentStatus != models.PaymentStatusOpen {
 			t.Errorf("Expected status OPEN, got %s", tx.PaymentStatus)
 		}
-		if tx.RemainingBalance != 2000 {
-			t.Errorf("Expected remaining 2000, got %.2f", tx.RemainingBalance)
+		if tx.RemainingBalance.Float64() != 2000 {
+			t.Errorf("Expected remaining 2000, got %.2f", tx.RemainingBalance.Float64())
 		}
 
 		// Payment 1: 500 CAD
@@ -189,9 +189,9 @@ func TestComprehensiveTransactions(t *testing.T) {
 			TenantID:      tenant.ID,
 			BranchID:      &branch.ID,
 			TransactionID: tx.ID,
-			Amount:        500,
+			Amount:        models.NewDecimal(500),
 			Currency:      "CAD",
-			ExchangeRate:  1.0, // Same currency
+			ExchangeRate:  models.NewDecimal(1.0), // Same currency
 			PaymentMethod: models.PaymentMethodCash,
 		}
 		err = paymentService.CreatePayment(payment1, user.ID)
@@ -204,10 +204,10 @@ func TestComprehensiveTransactions(t *testing.T) {
 		if updatedTx.PaymentStatus != models.PaymentStatusPartial {
 			t.Errorf("Expected status PARTIAL, got %s", updatedTx.PaymentStatus)
 		}
-		if updatedTx.RemainingBalance != 1500 {
-			t.Errorf("Expected remaining 1500, got %.2f", updatedTx.RemainingBalance)
+		if updatedTx.RemainingBalance.Float64() != 1500 {
+			t.Errorf("Expected remaining 1500, got %.2f", updatedTx.RemainingBalance.Float64())
 		}
-		fmt.Printf("   ✅ Payment 1 Accepted. Remaining: %.2f\n", updatedTx.RemainingBalance)
+		fmt.Printf("   ✅ Payment 1 Accepted. Remaining: %.2f\n", updatedTx.RemainingBalance.Float64())
 
 		// Payment 2: 1500 CAD (Final)
 		fmt.Println("   💳 Adding Payment 2: 1500 CAD")
@@ -215,9 +215,9 @@ func TestComprehensiveTransactions(t *testing.T) {
 			TenantID:      tenant.ID,
 			BranchID:      &branch.ID,
 			TransactionID: tx.ID,
-			Amount:        1500,
+			Amount:        models.NewDecimal(1500),
 			Currency:      "CAD",
-			ExchangeRate:  1.0,
+			ExchangeRate:  models.NewDecimal(1.0),
 			PaymentMethod: models.PaymentMethodBankTransfer,
 			Details: map[string]interface{}{
 				"bankName":      "Test Bank",
@@ -235,8 +235,8 @@ func TestComprehensiveTransactions(t *testing.T) {
 		if updatedTx.PaymentStatus != models.PaymentStatusFullyPaid {
 			t.Errorf("Expected status FULLY_PAID, got %s", updatedTx.PaymentStatus)
 		}
-		if updatedTx.RemainingBalance > 0.01 {
-			t.Errorf("Expected remaining 0, got %.2f", updatedTx.RemainingBalance)
+		if updatedTx.RemainingBalance.Float64() > 0.01 {
+			t.Errorf("Expected remaining 0, got %.2f", updatedTx.RemainingBalance.Float64())
 		}
 		fmt.Printf("   ✅ Payment 2 Accepted. Status: %s\n", updatedTx.PaymentStatus)
 	})

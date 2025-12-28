@@ -246,6 +246,7 @@ func NewRouter(db *gorm.DB) http.Handler {
 
 			// Dashboard routes
 			protected.HandleFunc("/dashboard", dashboardHandler.GetDashboardHandler).Methods("GET")
+			protected.HandleFunc("/dashboard/stats", dashboardHandler.GetDashboardSummaryHandler).Methods("GET")
 
 			// Receipt generation routes
 			protected.HandleFunc("/receipts/outgoing/{id}", receiptHandler.GetOutgoingRemittanceReceiptHandler).Methods("GET")
@@ -290,6 +291,7 @@ func NewRouter(db *gorm.DB) http.Handler {
 			protected.HandleFunc("/reconciliation", reconciliationHandler.CreateReconciliationHandler).Methods("POST")
 			protected.HandleFunc("/reconciliation", reconciliationHandler.GetReconciliationHistoryHandler).Methods("GET")
 			protected.HandleFunc("/reconciliation/variance", reconciliationHandler.GetVarianceReportHandler).Methods("GET")
+			protected.HandleFunc("/reconciliation/system-state", reconciliationHandler.GetSystemStateHandler).Methods("GET")
 
 			// Report Dashboard routes
 			protected.HandleFunc("/reports/daily", reportHandler.GetDailyReportHandler).Methods("GET")

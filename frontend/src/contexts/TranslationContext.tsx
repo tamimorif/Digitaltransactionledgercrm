@@ -14,7 +14,7 @@ const TranslationContext = createContext<TranslationContextType | undefined>(und
 
 export function TranslationProvider({ children }: { children: ReactNode }) {
     const [locale, setLocaleState] = useState<Locale>('en');
-    const [translations, setTranslations] = useState<any>({});
+    const [translations, setTranslations] = useState<Record<string, unknown>>({});
 
     useEffect(() => {
         // Load locale from localStorage
@@ -49,11 +49,11 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
 
     const t = (key: string): string => {
         const keys = key.split('.');
-        let value: any = translations;
+        let value: unknown = translations;
 
         for (const k of keys) {
-            if (value && typeof value === 'object') {
-                value = value[k];
+            if (value && typeof value === 'object' && k in value) {
+                value = (value as Record<string, unknown>)[k];
             } else {
                 return key; // Return key if translation not found
             }

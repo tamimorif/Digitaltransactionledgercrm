@@ -14,13 +14,17 @@ interface CashBalance {
     [currency: string]: number;
 }
 
-export function CashBalanceWidget() {
+const CURRENCIES = ['CAD', 'USD', 'EUR', 'GBP', 'AED', 'TRY'];
+
+interface CashBalanceWidgetProps {
+    compact?: boolean;
+}
+
+export function CashBalanceWidget({ compact = false }: CashBalanceWidgetProps) {
     const { t } = useTranslation();
     const [balances, setBalances] = useState<CashBalance>({});
     const [isEditing, setIsEditing] = useState(false);
     const [editBalances, setEditBalances] = useState<CashBalance>({});
-
-    const CURRENCIES = ['CAD', 'USD', 'EUR', 'GBP', 'AED', 'TRY'];
 
     useEffect(() => {
         // Load balances from localStorage
@@ -53,11 +57,15 @@ export function CashBalanceWidget() {
         setEditBalances({});
     };
 
+    const gridClass = compact ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-3 gap-3';
+    const headerClass = compact ? 'pb-2 pt-4 px-4' : 'pb-3';
+    const contentClass = compact ? 'px-4 pb-4' : '';
+
     return (
         <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className={headerClass}>
                 <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg flex items-center gap-2">
+                    <CardTitle className="text-base flex items-center gap-2">
                         <Wallet className="h-5 w-5" />
                         {t('transaction.helpers.cashOnHand')}
                     </CardTitle>
@@ -77,8 +85,8 @@ export function CashBalanceWidget() {
                     )}
                 </div>
             </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-3 gap-3">
+            <CardContent className={contentClass}>
+                <div className={gridClass}>
                     {CURRENCIES.map(currency => (
                         <div key={currency}>
                             {isEditing ? (

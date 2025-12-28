@@ -73,10 +73,10 @@ func TestTransactionProfitCalculationStatus(t *testing.T) {
 		ClientID:        client.ID,
 		PaymentMethod:   models.TransactionMethodCash,
 		SendCurrency:    "USD",
-		SendAmount:      1000,
+		SendAmount:      models.NewDecimal(1000),
 		ReceiveCurrency: "CAD",
-		ReceiveAmount:   1350,
-		RateApplied:     1.35,
+		ReceiveAmount:   models.NewDecimal(1350),
+		RateApplied:     models.NewDecimal(1.35),
 		TransactionDate: time.Now(),
 	}
 
@@ -101,7 +101,7 @@ func TestTransactionProfitCalculationStatus(t *testing.T) {
 		TenantID:       tenant.ID,
 		BaseCurrency:   "USD",
 		TargetCurrency: "CAD",
-		Rate:           1.30, // Standard rate
+		Rate:           models.NewDecimal(1.30), // Standard rate
 		Source:         "MANUAL",
 	}
 	db.Create(rate)
@@ -112,10 +112,10 @@ func TestTransactionProfitCalculationStatus(t *testing.T) {
 		ClientID:        client.ID,
 		PaymentMethod:   models.TransactionMethodCash,
 		SendCurrency:    "USD",
-		SendAmount:      500,
+		SendAmount:      models.NewDecimal(500),
 		ReceiveCurrency: "CAD",
-		ReceiveAmount:   675,
-		RateApplied:     1.35,
+		ReceiveAmount:   models.NewDecimal(675),
+		RateApplied:     models.NewDecimal(1.35),
 		TransactionDate: time.Now(),
 	}
 
@@ -130,20 +130,20 @@ func TestTransactionProfitCalculationStatus(t *testing.T) {
 	if savedTxn2.ProfitCalculationStatus != models.ProfitStatusCalculated {
 		t.Errorf("Expected profit status CALCULATED, got %s", savedTxn2.ProfitCalculationStatus)
 	}
-	t.Logf("Second transaction profit status: %s, profit: %.2f", savedTxn2.ProfitCalculationStatus, savedTxn2.Profit)
+	t.Logf("Second transaction profit status: %s, profit: %s", savedTxn2.ProfitCalculationStatus, savedTxn2.Profit.String())
 
 	// Profit = SendAmount - (ReceiveAmount / StandardRate)
 	// Service calculates profit in Base Currency (USD).
 	// We received 500 USD. We gave 675 CAD.
 	// Cost of 675 CAD at Standard Rate (1.30) is 675 / 1.30 = 519.23 USD.
 	// Profit = 500 - 519.23 = -19.23.
-	expectedProfit := 500.0 - (675.0 / savedTxn2.StandardRate)
+	expectedProfit := 500.0 - (675.0 / savedTxn2.StandardRate.Float64())
 
 	// Allow small float difference
-	if math.Abs(savedTxn2.Profit-expectedProfit) > 0.01 {
-		t.Errorf("Expected Profit=%.2f, got=%.2f", expectedProfit, savedTxn2.Profit)
+	if math.Abs(savedTxn2.Profit.Float64()-expectedProfit) > 0.01 {
+		t.Errorf("Expected Profit=%.2f, got=%s", expectedProfit, savedTxn2.Profit.String())
 	}
-	t.Logf("Expected Profit=%.2f, got=%.2f", expectedProfit, savedTxn2.Profit)
+	t.Logf("Expected Profit=%.2f, got=%s", expectedProfit, savedTxn2.Profit.String())
 
 	t.Logf("✅ Transaction profit calculation status tracking works correctly")
 }
@@ -169,10 +169,10 @@ func TestTransactionVersionField(t *testing.T) {
 		ClientID:        client.ID,
 		PaymentMethod:   models.TransactionMethodCash,
 		SendCurrency:    "USD",
-		SendAmount:      100,
+		SendAmount:      models.NewDecimal(100),
 		ReceiveCurrency: "CAD",
-		ReceiveAmount:   135,
-		RateApplied:     1.35,
+		ReceiveAmount:   models.NewDecimal(135),
+		RateApplied:     models.NewDecimal(1.35),
 		TransactionDate: time.Now(),
 		Version:         0,
 	}
@@ -242,7 +242,7 @@ func TestLedgerServiceWithLocking(t *testing.T) {
 		ClientID:    client.ID,
 		Type:        models.LedgerTypeDeposit,
 		Currency:    "USD",
-		Amount:      1000,
+		Amount:      models.NewDecimal(1000),
 		Description: "Deposit 1",
 		CreatedBy:   1,
 	}
@@ -253,7 +253,7 @@ func TestLedgerServiceWithLocking(t *testing.T) {
 		ClientID:    client.ID,
 		Type:        models.LedgerTypeWithdrawal,
 		Currency:    "USD",
-		Amount:      -300,
+		Amount:      models.NewDecimal(-300),
 		Description: "Withdrawal 1",
 		CreatedBy:   1,
 	}
@@ -264,7 +264,7 @@ func TestLedgerServiceWithLocking(t *testing.T) {
 		ClientID:    client.ID,
 		Type:        models.LedgerTypeDeposit,
 		Currency:    "CAD",
-		Amount:      500,
+		Amount:      models.NewDecimal(500),
 		Description: "Deposit CAD",
 		CreatedBy:   1,
 	}
@@ -279,11 +279,11 @@ func TestLedgerServiceWithLocking(t *testing.T) {
 	expectedUSD := 700.0 // 1000 - 300
 	expectedCAD := 500.0
 
-	if balances["USD"] != expectedUSD {
-		t.Errorf("Expected USD balance=%.2f, got=%.2f", expectedUSD, balances["USD"])
+	if balances["USD"].Float64() != expectedUSD {
+		t.Errorf("Expected USD balance=%.2f, got=%.2f", expectedUSD, balances["USD"].Float64())
 	}
-	if balances["CAD"] != expectedCAD {
-		t.Errorf("Expected CAD balance=%.2f, got=%.2f", expectedCAD, balances["CAD"])
+	if balances["CAD"].Float64() != expectedCAD {
+		t.Errorf("Expected CAD balance=%.2f, got=%.2f", expectedCAD, balances["CAD"].Float64())
 	}
 
 	t.Logf("✅ Ledger service balance calculation works correctly")

@@ -104,7 +104,7 @@ type ProfitAnalysisResult struct {
 }
 
 // GetProfitAnalysis returns comprehensive profit analysis
-func (s *ProfitAnalysisService) GetProfitAnalysis(tenantID uint, startDate, endDate time.Time) (*ProfitAnalysisResult, error) {
+func (s *ProfitAnalysisService) GetProfitAnalysis(tenantID uint, branchID *uint, startDate, endDate time.Time) (*ProfitAnalysisResult, error) {
 	result := &ProfitAnalysisResult{
 		StartDate: startDate,
 		EndDate:   endDate,
@@ -119,7 +119,7 @@ func (s *ProfitAnalysisService) GetProfitAnalysis(tenantID uint, startDate, endD
 	}
 
 	// We use transactions table now
-	s.db.Model(&models.Transaction{}).
+	query := s.db.Model(&models.Transaction{}).
 		Select(`
 			COALESCE(SUM(profit + fee_charged), 0) as total_profit,
 			COALESCE(SUM(send_amount), 0) as total_volume,
@@ -127,8 +127,13 @@ func (s *ProfitAnalysisService) GetProfitAnalysis(tenantID uint, startDate, endD
 			COALESCE(AVG(rate_applied), 0) as avg_rate
 		`).
 		Where("tenant_id = ? AND status = ? AND transaction_date BETWEEN ? AND ?",
-			tenantID, models.StatusCompleted, startDate, endDate).
-		Scan(&summaryResult)
+			tenantID, models.StatusCompleted, startDate, endDate)
+
+	if branchID != nil {
+		query = query.Where("branch_id = ?", *branchID)
+	}
+
+	query.Scan(&summaryResult)
 
 	result.TotalProfitCAD = summaryResult.TotalProfit
 	result.TotalVolumeIRR = summaryResult.TotalVolume // Note: This might be mixed currencies if not filtered
@@ -143,25 +148,25 @@ func (s *ProfitAnalysisService) GetProfitAnalysis(tenantID uint, startDate, endD
 	}
 
 	// Profit by period (daily breakdown)
-	result.ByPeriod = s.GetProfitByPeriod(tenantID, startDate, endDate)
+	result.ByPeriod = s.GetProfitByPeriod(tenantID, branchID, startDate, endDate)
 
-	// Profit by branch
-	result.ByBranch = s.GetProfitByBranch(tenantID, startDate, endDate, result.TotalProfitCAD)
+	// Profit by branch (if branchID is set, this will just return the one branch, which is fine)
+	result.ByBranch = s.GetProfitByBranch(tenantID, branchID, startDate, endDate, result.TotalProfitCAD)
 
 	// Profit by currency pair (from transactions)
-	result.ByCurrencyPair = s.GetProfitByCurrencyPair(tenantID, startDate, endDate)
+	result.ByCurrencyPair = s.GetProfitByCurrencyPair(tenantID, branchID, startDate, endDate)
 
 	// Customer segments
-	result.ByCustomerSegment = s.GetProfitByCustomerSegment(tenantID, startDate, endDate, result.TotalProfitCAD)
+	result.ByCustomerSegment = s.GetProfitByCustomerSegment(tenantID, branchID, startDate, endDate, result.TotalProfitCAD)
 
 	// Trends
-	result.VsLastMonth = s.GetTrendComparison(tenantID, startDate, endDate, "month")
-	result.VsLastYear = s.GetTrendComparison(tenantID, startDate, endDate, "year")
+	result.VsLastMonth = s.GetTrendComparison(tenantID, branchID, startDate, endDate, "month")
+	result.VsLastYear = s.GetTrendComparison(tenantID, branchID, startDate, endDate, "year")
 
 	return result, nil
 }
 
-func (s *ProfitAnalysisService) GetProfitByPeriod(tenantID uint, startDate, endDate time.Time) []ProfitByPeriod {
+func (s *ProfitAnalysisService) GetProfitByPeriod(tenantID uint, branchID *uint, startDate, endDate time.Time) []ProfitByPeriod {
 	var results []struct {
 		Period          string
 		TotalProfit     float64
@@ -169,7 +174,7 @@ func (s *ProfitAnalysisService) GetProfitByPeriod(tenantID uint, startDate, endD
 		Volume          float64
 	}
 
-	s.db.Model(&models.Transaction{}).
+	query := s.db.Model(&models.Transaction{}).
 		Select(`
 			DATE(transaction_date) as period,
 			COALESCE(SUM(profit + fee_charged), 0) as total_profit,
@@ -177,8 +182,13 @@ func (s *ProfitAnalysisService) GetProfitByPeriod(tenantID uint, startDate, endD
 			COALESCE(SUM(send_amount), 0) as volume
 		`).
 		Where("tenant_id = ? AND status = ? AND transaction_date BETWEEN ? AND ?",
-			tenantID, models.StatusCompleted, startDate, endDate).
-		Group("DATE(transaction_date)").
+			tenantID, models.StatusCompleted, startDate, endDate)
+
+	if branchID != nil {
+		query = query.Where("branch_id = ?", *branchID)
+	}
+
+	query.Group("DATE(transaction_date)").
 		Order("period DESC").
 		Scan(&results)
 
@@ -195,7 +205,7 @@ func (s *ProfitAnalysisService) GetProfitByPeriod(tenantID uint, startDate, endD
 	return periods
 }
 
-func (s *ProfitAnalysisService) GetProfitByBranch(tenantID uint, startDate, endDate time.Time, totalProfit float64) []ProfitByBranch {
+func (s *ProfitAnalysisService) GetProfitByBranch(tenantID uint, branchID *uint, startDate, endDate time.Time, totalProfit float64) []ProfitByBranch {
 	var results []struct {
 		BranchID        uint
 		BranchName      string
@@ -204,7 +214,7 @@ func (s *ProfitAnalysisService) GetProfitByBranch(tenantID uint, startDate, endD
 		Volume          float64
 	}
 
-	s.db.Model(&models.Transaction{}).
+	query := s.db.Model(&models.Transaction{}).
 		Select(`
 			COALESCE(transactions.branch_id, 0) as branch_id,
 			COALESCE(branches.name, 'Unassigned') as branch_name,
@@ -214,8 +224,13 @@ func (s *ProfitAnalysisService) GetProfitByBranch(tenantID uint, startDate, endD
 		`).
 		Joins("LEFT JOIN branches ON transactions.branch_id = branches.id").
 		Where("transactions.tenant_id = ? AND transactions.status = ? AND transactions.transaction_date BETWEEN ? AND ?",
-			tenantID, models.StatusCompleted, startDate, endDate).
-		Group("transactions.branch_id, branches.name").
+			tenantID, models.StatusCompleted, startDate, endDate)
+
+	if branchID != nil {
+		query = query.Where("transactions.branch_id = ?", *branchID)
+	}
+
+	query.Group("transactions.branch_id, branches.name").
 		Order("total_profit DESC").
 		Scan(&results)
 
@@ -237,7 +252,7 @@ func (s *ProfitAnalysisService) GetProfitByBranch(tenantID uint, startDate, endD
 	return branches
 }
 
-func (s *ProfitAnalysisService) GetProfitByCurrencyPair(tenantID uint, startDate, endDate time.Time) []ProfitByCurrencyPair {
+func (s *ProfitAnalysisService) GetProfitByCurrencyPair(tenantID uint, branchID *uint, startDate, endDate time.Time) []ProfitByCurrencyPair {
 	var results []struct {
 		SendCurrency    string
 		ReceiveCurrency string
@@ -248,7 +263,7 @@ func (s *ProfitAnalysisService) GetProfitByCurrencyPair(tenantID uint, startDate
 		AvgRate         float64
 	}
 
-	s.db.Model(&models.Transaction{}).
+	query := s.db.Model(&models.Transaction{}).
 		Select(`
 			send_currency,
 			receive_currency,
@@ -259,8 +274,13 @@ func (s *ProfitAnalysisService) GetProfitByCurrencyPair(tenantID uint, startDate
 			COALESCE(AVG(rate_applied), 0) as avg_rate
 		`).
 		Where("tenant_id = ? AND status = ? AND transaction_date BETWEEN ? AND ?",
-			tenantID, models.StatusCompleted, startDate, endDate).
-		Group("send_currency, receive_currency").
+			tenantID, models.StatusCompleted, startDate, endDate)
+
+	if branchID != nil {
+		query = query.Where("branch_id = ?", *branchID)
+	}
+
+	query.Group("send_currency, receive_currency").
 		Order("total_profit DESC").
 		Scan(&results)
 
@@ -289,7 +309,7 @@ func (s *ProfitAnalysisService) GetProfitByCurrencyPair(tenantID uint, startDate
 	return pairs
 }
 
-func (s *ProfitAnalysisService) GetProfitByCustomerSegment(tenantID uint, startDate, endDate time.Time, totalProfit float64) []ProfitByCustomerSegment {
+func (s *ProfitAnalysisService) GetProfitByCustomerSegment(tenantID uint, branchID *uint, startDate, endDate time.Time, totalProfit float64) []ProfitByCustomerSegment {
 	var results []struct {
 		Segment     string
 		CustCount   int
@@ -305,6 +325,15 @@ func (s *ProfitAnalysisService) GetProfitByCustomerSegment(tenantID uint, startD
 				SUM(profit + fee_charged) as total_gain
 			FROM transactions 
 			WHERE tenant_id = ? AND status = 'COMPLETED' AND transaction_date BETWEEN ? AND ?
+	`
+	args := []interface{}{tenantID, startDate, endDate}
+
+	if branchID != nil {
+		segmentSQL += " AND branch_id = ?"
+		args = append(args, *branchID)
+	}
+
+	segmentSQL += `
 			GROUP BY client_id
 		)
 		SELECT 
@@ -321,7 +350,7 @@ func (s *ProfitAnalysisService) GetProfitByCustomerSegment(tenantID uint, startD
 		ORDER BY total_profit DESC
 	`
 
-	s.db.Raw(segmentSQL, tenantID, startDate, endDate).Scan(&results)
+	s.db.Raw(segmentSQL, args...).Scan(&results)
 
 	segments := make([]ProfitByCustomerSegment, len(results))
 	for i, r := range results {
@@ -345,7 +374,7 @@ func (s *ProfitAnalysisService) GetProfitByCustomerSegment(tenantID uint, startD
 	return segments
 }
 
-func (s *ProfitAnalysisService) GetTrendComparison(tenantID uint, startDate, endDate time.Time, compareType string) TrendComparison {
+func (s *ProfitAnalysisService) GetTrendComparison(tenantID uint, branchID *uint, startDate, endDate time.Time, compareType string) TrendComparison {
 	duration := endDate.Sub(startDate)
 
 	var prevStart, prevEnd time.Time
@@ -359,19 +388,27 @@ func (s *ProfitAnalysisService) GetTrendComparison(tenantID uint, startDate, end
 
 	// Current period profit
 	var currentProfit float64
-	s.db.Model(&models.Transaction{}).
+	queryCurr := s.db.Model(&models.Transaction{}).
 		Select("COALESCE(SUM(profit + fee_charged), 0)").
 		Where("tenant_id = ? AND status = ? AND transaction_date BETWEEN ? AND ?",
-			tenantID, models.StatusCompleted, startDate, endDate).
-		Scan(&currentProfit)
+			tenantID, models.StatusCompleted, startDate, endDate)
+	
+	if branchID != nil {
+		queryCurr = queryCurr.Where("branch_id = ?", *branchID)
+	}
+	queryCurr.Scan(&currentProfit)
 
 	// Previous period profit
 	var previousProfit float64
-	s.db.Model(&models.Transaction{}).
+	queryPrev := s.db.Model(&models.Transaction{}).
 		Select("COALESCE(SUM(profit + fee_charged), 0)").
 		Where("tenant_id = ? AND status = ? AND transaction_date BETWEEN ? AND ?",
-			tenantID, models.StatusCompleted, prevStart, prevEnd).
-		Scan(&previousProfit)
+			tenantID, models.StatusCompleted, prevStart, prevEnd)
+	
+	if branchID != nil {
+		queryPrev = queryPrev.Where("branch_id = ?", *branchID)
+	}
+	queryPrev.Scan(&previousProfit)
 
 	change := currentProfit - previousProfit
 	changePct := 0.0
@@ -389,14 +426,14 @@ func (s *ProfitAnalysisService) GetTrendComparison(tenantID uint, startDate, end
 }
 
 // GetDailyProfit returns daily profit for the specified period
-func (s *ProfitAnalysisService) GetDailyProfit(tenantID uint, days int) ([]ProfitByPeriod, error) {
+func (s *ProfitAnalysisService) GetDailyProfit(tenantID uint, branchID *uint, days int) ([]ProfitByPeriod, error) {
 	endDate := time.Now()
 	startDate := endDate.AddDate(0, 0, -days)
-	return s.GetProfitByPeriod(tenantID, startDate, endDate), nil
+	return s.GetProfitByPeriod(tenantID, branchID, startDate, endDate), nil
 }
 
 // GetMonthlyProfit returns monthly profit summary
-func (s *ProfitAnalysisService) GetMonthlyProfit(tenantID uint, months int) ([]ProfitByPeriod, error) {
+func (s *ProfitAnalysisService) GetMonthlyProfit(tenantID uint, branchID *uint, months int) ([]ProfitByPeriod, error) {
 	var results []struct {
 		Period          string
 		TotalProfit     float64
@@ -407,7 +444,7 @@ func (s *ProfitAnalysisService) GetMonthlyProfit(tenantID uint, months int) ([]P
 	endDate := time.Now()
 	startDate := endDate.AddDate(0, -months, 0)
 
-	s.db.Model(&models.Transaction{}).
+	query := s.db.Model(&models.Transaction{}).
 		Select(`
 			strftime('%Y-%m', transaction_date) as period,
 			COALESCE(SUM(profit + fee_charged), 0) as total_profit,
@@ -415,8 +452,13 @@ func (s *ProfitAnalysisService) GetMonthlyProfit(tenantID uint, months int) ([]P
 			COALESCE(SUM(send_amount), 0) as volume
 		`).
 		Where("tenant_id = ? AND status = ? AND transaction_date BETWEEN ? AND ?",
-			tenantID, models.StatusCompleted, startDate, endDate).
-		Group("strftime('%Y-%m', transaction_date)").
+			tenantID, models.StatusCompleted, startDate, endDate)
+
+	if branchID != nil {
+		query = query.Where("branch_id = ?", *branchID)
+	}
+
+	query.Group("strftime('%Y-%m', transaction_date)").
 		Order("period DESC").
 		Scan(&results)
 
@@ -442,7 +484,7 @@ type CustomerProfit struct {
 }
 
 // GetTopCustomers returns top profitable customers
-func (s *ProfitAnalysisService) GetTopCustomers(tenantID uint, limit int, startDate, endDate time.Time) ([]CustomerProfit, error) {
+func (s *ProfitAnalysisService) GetTopCustomers(tenantID uint, branchID *uint, limit int, startDate, endDate time.Time) ([]CustomerProfit, error) {
 	var results []struct {
 		ClientID    uint
 		ClientName  string
@@ -450,7 +492,7 @@ func (s *ProfitAnalysisService) GetTopCustomers(tenantID uint, limit int, startD
 		TxnCount    int
 	}
 
-	s.db.Model(&models.Transaction{}).
+	query := s.db.Model(&models.Transaction{}).
 		Select(`
 			transactions.client_id,
 			COALESCE(clients.name, 'Unknown') as client_name,
@@ -459,8 +501,13 @@ func (s *ProfitAnalysisService) GetTopCustomers(tenantID uint, limit int, startD
 		`).
 		Joins("LEFT JOIN clients ON transactions.client_id = clients.id").
 		Where("transactions.tenant_id = ? AND transactions.status = ? AND transactions.transaction_date BETWEEN ? AND ?",
-			tenantID, models.StatusCompleted, startDate, endDate).
-		Group("transactions.client_id, clients.name").
+			tenantID, models.StatusCompleted, startDate, endDate)
+
+	if branchID != nil {
+		query = query.Where("transactions.branch_id = ?", *branchID)
+	}
+
+	query.Group("transactions.client_id, clients.name").
 		Order("total_profit DESC").
 		Limit(limit).
 		Scan(&results)

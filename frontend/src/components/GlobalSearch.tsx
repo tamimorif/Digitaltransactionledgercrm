@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, FileText, Users, Truck, CreditCard, Loader2 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { globalSearch, GlobalSearchResult } from '@/src/lib/search-api';
 import { Input } from './ui/input';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { useRouter } from 'next/navigation';
 
-const ENTITY_ICONS: Record<string, any> = {
+const ENTITY_ICONS: Record<string, LucideIcon> = {
     transaction: CreditCard,
     customer: Users,
     pickup: Truck,
@@ -146,7 +147,7 @@ export function GlobalSearch({ onClose }: GlobalSearchProps) {
                     ) : results.length === 0 && !isLoading ? (
                         <div className="text-center text-gray-500 py-8">
                             <Search className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                            <p>No results found for "{query}"</p>
+                            <p>No results found for &quot;{query}&quot;</p>
                         </div>
                     ) : (
                         <div className="space-y-4">

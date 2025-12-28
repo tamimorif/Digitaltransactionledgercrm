@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
 import { remittanceApi } from '@/src/lib/remittanceApi';
 import { OutgoingRemittance, IncomingRemittance, ProfitSummary } from '@/src/models/remittance';
 import Link from 'next/link';
+import { getErrorMessage } from '@/src/lib/error';
 
 export default function RemittanceReports() {
-    const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -30,13 +29,8 @@ export default function RemittanceReports() {
         setEndDate(end.toISOString().split('T')[0]);
     }, []);
 
-    useEffect(() => {
-        if (startDate && endDate) {
-            loadData();
-        }
-    }, [startDate, endDate]);
-
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
+        if (!startDate || !endDate) return;
         try {
             setLoading(true);
             setError(null);
@@ -50,12 +44,16 @@ export default function RemittanceReports() {
             setProfitSummary(summaryData);
             setOutgoing(outgoingData);
             setIncoming(incomingData);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load report data');
+        } catch (err) {
+            setError(getErrorMessage(err, 'Failed to load report data'));
         } finally {
             setLoading(false);
         }
-    };
+    }, [startDate, endDate]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     // Calculate additional metrics
     const calculateMetrics = () => {
@@ -391,7 +389,7 @@ export default function RemittanceReports() {
                     <div>
                         <h4 className="font-semibold text-blue-900 mb-1">Export Functionality</h4>
                         <p className="text-sm text-blue-800">
-                            To export this data, you can use your browser's print function (Ctrl+P / Cmd+P) and save as PDF.
+                            To export this data, you can use your browser&apos;s print function (Ctrl+P / Cmd+P) and save as PDF.
                             For Excel export, consider installing a reporting library like <code className="bg-blue-100 px-1 rounded">xlsx</code>.
                         </p>
                     </div>

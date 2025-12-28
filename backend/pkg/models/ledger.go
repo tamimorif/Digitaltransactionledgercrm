@@ -24,10 +24,10 @@ type LedgerEntry struct {
 
 	Type     string  `gorm:"type:varchar(50);not null" json:"type"` // See LedgerType* constants
 	Currency string  `gorm:"type:varchar(10);not null" json:"currency"`
-	Amount   float64 `gorm:"type:decimal(20,4);not null" json:"amount"` // Positive=Credit, Negative=Debit
+	Amount   Decimal `gorm:"type:decimal(20,4);not null" json:"amount"` // Positive=Credit, Negative=Debit
 
 	Description    string   `gorm:"type:text" json:"description"`
-	ExchangeRate   *float64 `gorm:"type:decimal(20,6)" json:"exchangeRate,omitempty"`  // Rate used if part of exchange
+	ExchangeRate   *Decimal `gorm:"type:decimal(20,6)" json:"exchangeRate,omitempty"`  // Rate used if part of exchange
 	RelatedEntryID *uint    `gorm:"type:bigint;index" json:"relatedEntryId,omitempty"` // Link to the other side of an exchange/settlement
 
 	CreatedAt time.Time `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"createdAt"`

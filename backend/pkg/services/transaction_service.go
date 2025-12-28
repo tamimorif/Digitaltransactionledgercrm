@@ -39,7 +39,7 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, transaction 
 	// Calculate Profit
 	// Try to get the standard market rate for this currency pair
 	standardRateObj, err := s.exchangeRateService.GetCurrentRate(transaction.TenantID, transaction.SendCurrency, transaction.ReceiveCurrency)
-	if err == nil && standardRateObj != nil && standardRateObj.Rate > 0 {
+	if err == nil && standardRateObj != nil && standardRateObj.Rate.IsPositive() {
 		transaction.StandardRate = standardRateObj.Rate
 		// Profit = (Market Value of Input) - (Actual Output)
 		// Profit = (SendAmount * StandardRate) - ReceiveAmount
@@ -47,7 +47,8 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, transaction 
 		// Profit (ReceiveCurrency) = SendAmount * (StandardRate - RateApplied)
 
 		// To express Profit in Send Currency terms (Base Currency), we divide by StandardRate
-		transaction.Profit = (transaction.SendAmount * (transaction.StandardRate - transaction.RateApplied)) / transaction.StandardRate
+		// transaction.Profit = (transaction.SendAmount * (transaction.StandardRate - transaction.RateApplied)) / transaction.StandardRate
+		transaction.Profit = transaction.SendAmount.Mul(transaction.StandardRate.Sub(transaction.RateApplied)).Div(transaction.StandardRate)
 
 		transaction.ProfitCalculationStatus = models.ProfitStatusCalculated
 	} else {
@@ -56,8 +57,8 @@ func (s *TransactionService) CreateTransaction(ctx context.Context, transaction 
 			log.Printf("Warning: Could not fetch standard rate for %s/%s (tenant %d): %v",
 				transaction.SendCurrency, transaction.ReceiveCurrency, transaction.TenantID, err)
 		}
-		transaction.StandardRate = 0
-		transaction.Profit = 0
+		transaction.StandardRate = models.Zero()
+		transaction.Profit = models.Zero()
 		transaction.ProfitCalculationStatus = models.ProfitStatusPending
 	}
 

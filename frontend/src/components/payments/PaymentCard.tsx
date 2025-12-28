@@ -24,8 +24,11 @@ interface PaymentCardProps {
     showActions?: boolean;
 }
 
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'destructive';
+
 export function PaymentCard({ payment, onEdit, onCancel, showActions = true }: PaymentCardProps) {
     const statusInfo = PAYMENT_STATUS_LABELS[payment.status];
+    const badgeVariant = (statusInfo?.color || 'default') as BadgeVariant;
     const isCancelled = payment.status === 'CANCELLED';
     const isEdited = payment.isEdited;
 
@@ -42,7 +45,7 @@ export function PaymentCard({ payment, onEdit, onCancel, showActions = true }: P
                                 <h4 className="font-semibold text-lg">
                                     {payment.amount.toLocaleString()} {payment.currency}
                                 </h4>
-                                <Badge variant={statusInfo.color as any}>
+                                <Badge variant={badgeVariant}>
                                     {statusInfo.label}
                                 </Badge>
                             </div>

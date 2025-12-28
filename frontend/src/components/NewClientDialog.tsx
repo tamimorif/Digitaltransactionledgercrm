@@ -24,6 +24,8 @@ import { Input } from '@/src/components/ui/input';
 import { Button } from '@/src/components/ui/button';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import type { Client } from '@/src/lib/models/client.model';
+import { getErrorMessage } from '@/src/lib/error';
 
 const clientSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -36,7 +38,7 @@ type ClientFormValues = z.infer<typeof clientSchema>;
 interface NewClientDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onClientCreated: (client: any) => void;
+  onClientCreated: (client: Client) => void;
 }
 
 export function NewClientDialog({
@@ -64,9 +66,9 @@ export function NewClientDialog({
       form.reset();
       onClientCreated(client);
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error) {
       toast.error('Failed to create client', {
-        description: error?.response?.data?.error || 'Please try again',
+        description: getErrorMessage(error, 'Please try again'),
       });
     } finally {
       setIsLoading(false);

@@ -19,10 +19,10 @@ func NewLedgerService(db *gorm.DB) *LedgerService {
 
 // GetClientBalances calculates the current balance for each currency for a client.
 // Uses FOR SHARE lock to prevent concurrent modifications during read.
-func (s *LedgerService) GetClientBalances(clientID string, tenantID uint) (map[string]float64, error) {
+func (s *LedgerService) GetClientBalances(clientID string, tenantID uint) (map[string]models.Decimal, error) {
 	type Result struct {
 		Currency string
-		Total    float64
+		Total    models.Decimal
 	}
 
 	var results []Result
@@ -37,7 +37,7 @@ func (s *LedgerService) GetClientBalances(clientID string, tenantID uint) (map[s
 		return nil, err
 	}
 
-	balances := make(map[string]float64)
+	balances := make(map[string]models.Decimal)
 	for _, r := range results {
 		balances[r.Currency] = r.Total
 	}
@@ -47,8 +47,8 @@ func (s *LedgerService) GetClientBalances(clientID string, tenantID uint) (map[s
 
 // GetClientBalanceForCurrency gets the balance for a specific currency with row locking.
 // This is safer for withdrawal checks as it uses FOR UPDATE to prevent race conditions.
-func (s *LedgerService) GetClientBalanceForCurrency(tx *gorm.DB, clientID string, tenantID uint, currency string) (float64, error) {
-	var total float64
+func (s *LedgerService) GetClientBalanceForCurrency(tx *gorm.DB, clientID string, tenantID uint, currency string) (models.Decimal, error) {
+	var total models.Decimal
 	err := tx.Model(&models.LedgerEntry{}).
 		Clauses(clause.Locking{Strength: "UPDATE"}).
 		Select("COALESCE(sum(amount), 0)").
@@ -56,7 +56,7 @@ func (s *LedgerService) GetClientBalanceForCurrency(tx *gorm.DB, clientID string
 		Scan(&total).Error
 
 	if err != nil {
-		return 0, err
+		return models.Zero(), err
 	}
 	return total, nil
 }
@@ -82,7 +82,7 @@ func (s *LedgerService) AddEntry(entry models.LedgerEntry) (*models.LedgerEntry,
 //   - FX Sell (client gives USD): -100 USD
 //   - FX Buy (client receives CAD): +130 CAD
 func (s *LedgerService) AddEntryWithTx(tx *gorm.DB, entry models.LedgerEntry) (*models.LedgerEntry, error) {
-	if entry.Amount == 0 {
+	if entry.Amount.IsZero() {
 		return nil, errors.New("amount cannot be zero")
 	}
 
@@ -117,8 +117,11 @@ func (s *LedgerService) Exchange(
 		return nil, errors.New("rate must be positive")
 	}
 
+	amountDec := models.NewDecimal(amount)
+	rateDec := models.NewDecimal(rate)
+
 	// Calculate converted amount
-	convertedAmount := amount * rate
+	convertedAmount := amountDec.Mul(rateDec)
 
 	tx := s.db.Begin()
 	if tx.Error != nil {
@@ -137,9 +140,9 @@ func (s *LedgerService) Exchange(
 		BranchID:     branchID,
 		Type:         models.LedgerTypeExchangeOut,
 		Currency:     fromCurrency,
-		Amount:       -amount, // Negative because client is using it
+		Amount:       amountDec.Neg(), // Negative because client is using it
 		Description:  description + " (Sold)",
-		ExchangeRate: &rate,
+		ExchangeRate: &rateDec,
 		CreatedBy:    userID,
 		CreatedAt:    time.Now(),
 	}
@@ -154,11 +157,11 @@ func (s *LedgerService) Exchange(
 		TenantID:       tenantID,
 		ClientID:       clientID,
 		BranchID:       branchID,
-		Type:           models.LedgerTypeExchangeIn,
+		Type:         models.LedgerTypeExchangeIn,
 		Currency:       toCurrency,
 		Amount:         convertedAmount, // Positive
 		Description:    description + " (Bought)",
-		ExchangeRate:   &rate,
+		ExchangeRate:   &rateDec,
 		RelatedEntryID: &debitEntry.ID,
 		CreatedBy:      userID,
 		CreatedAt:      time.Now(),

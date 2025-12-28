@@ -13,6 +13,7 @@ import { Loader2, User, Lock, Building2, CreditCard, Save, Eye, EyeOff } from 'l
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { format } from 'date-fns';
+import { getErrorMessage } from '@/src/lib/error';
 
 interface License {
     id: number;
@@ -74,8 +75,8 @@ export default function SettingsPage() {
             queryClient.invalidateQueries({ queryKey: ['auth-user'] });
             toast.success('Username updated successfully');
         },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.error || 'Failed to update username');
+        onError: (error) => {
+            toast.error(getErrorMessage(error, 'Failed to update username'));
         }
     });
 
@@ -92,8 +93,8 @@ export default function SettingsPage() {
             toast.success('Password changed successfully');
             setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
         },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.error || 'Failed to change password');
+        onError: (error) => {
+            toast.error(getErrorMessage(error, 'Failed to change password'));
         }
     });
 

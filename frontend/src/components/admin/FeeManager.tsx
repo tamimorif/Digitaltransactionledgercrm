@@ -20,6 +20,7 @@ import {
     useCreateDefaultFeeRules,
 } from '@/src/lib/queries/fee.query';
 import { FeeRule, CreateFeeRuleRequest } from '@/src/lib/fee-api';
+import { getErrorMessage } from '@/src/lib/error';
 
 const FEE_TYPES = [
     { value: 'FLAT', label: 'Flat Fee', icon: DollarSign },
@@ -83,8 +84,8 @@ export function FeeManager() {
             toast.success('Fee rule created successfully');
             setShowCreateDialog(false);
             resetForm();
-        } catch (error: any) {
-            toast.error(error?.response?.data || 'Failed to create fee rule');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to create fee rule'));
         }
     };
 
@@ -95,8 +96,8 @@ export function FeeManager() {
             toast.success('Fee rule updated successfully');
             setEditingRule(null);
             resetForm();
-        } catch (error: any) {
-            toast.error(error?.response?.data || 'Failed to update fee rule');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to update fee rule'));
         }
     };
 
@@ -105,8 +106,8 @@ export function FeeManager() {
             await deleteMutation.mutateAsync(id);
             toast.success('Fee rule deleted successfully');
             setShowDeleteConfirm(null);
-        } catch (error: any) {
-            toast.error(error?.response?.data || 'Failed to delete fee rule');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to delete fee rule'));
         }
     };
 
@@ -114,8 +115,8 @@ export function FeeManager() {
         try {
             await createDefaultsMutation.mutateAsync();
             toast.success('Default fee rules created');
-        } catch (error: any) {
-            toast.error(error?.response?.data || 'Failed to create default rules');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to create default rules'));
         }
     };
 
@@ -205,7 +206,7 @@ export function FeeManager() {
                 ) : !feeRules || feeRules.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                         <p>No fee rules configured</p>
-                        <p className="text-sm mt-2">Click "Create Defaults" to add standard fee rules</p>
+                        <p className="text-sm mt-2">Click &quot;Create Defaults&quot; to add standard fee rules</p>
                     </div>
                 ) : (
                     <div className="space-y-3">

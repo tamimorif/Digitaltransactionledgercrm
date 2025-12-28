@@ -34,9 +34,9 @@ export function AdvancedSearchDialog({ open, onOpenChange }: AdvancedSearchDialo
     const [dateTo, setDateTo] = useState('');
     const [amountMin, setAmountMin] = useState('');
     const [amountMax, setAmountMax] = useState('');
-    const [status, setStatus] = useState<string[]>([]);
-    const [currency, setCurrency] = useState<string[]>([]);
-    const [results, setResults] = useState<any[]>([]);
+    const [status] = useState<string[]>([]);
+    const [currency] = useState<string[]>([]);
+    const [results, setResults] = useState<unknown[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);

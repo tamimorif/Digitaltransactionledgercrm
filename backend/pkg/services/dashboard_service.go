@@ -68,6 +68,44 @@ type Alert struct {
 	Link     string `json:"link,omitempty"`
 }
 
+// DailyVolume represents daily transaction volume
+type DailyVolume struct {
+	Date     string  `json:"date"`
+	Income   float64 `json:"income"`   // Money received (SendAmount)
+	Outgoing float64 `json:"outgoing"` // Money sent out (ReceiveAmount converted to base?) - simplified to volume
+}
+
+// DashboardSummaryKPIs represents compact KPIs for a summary endpoint
+type DashboardSummaryKPIs struct {
+	TotalVolumeToday   float64 `json:"total_volume_today"`
+	ProfitToday        float64 `json:"profit_today"`
+	PendingRemittances int     `json:"pending_remittances"`
+	IncomingPending    int     `json:"incoming_pending"`
+}
+
+// CashFlowPoint represents a simple in/out cash flow point
+type CashFlowPoint struct {
+	Date string  `json:"date"`
+	In   float64 `json:"in"`
+	Out  float64 `json:"out"`
+}
+
+// RecentTransactionSummary represents a compact recent transaction record
+type RecentTransactionSummary struct {
+	ID        string    `json:"id"`
+	Client    string    `json:"client"`
+	Amount    float64   `json:"amount"`
+	Currency  string    `json:"currency"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// DashboardSummary is a compact response for a summary endpoint
+type DashboardSummary struct {
+	KPIs               DashboardSummaryKPIs       `json:"kpis"`
+	CashFlow           []CashFlowPoint            `json:"cash_flow"`
+	RecentTransactions []RecentTransactionSummary `json:"recent_transactions"`
+}
+
 // DashboardData is the complete dashboard response
 type DashboardData struct {
 	// Overview Cards
@@ -79,9 +117,10 @@ type DashboardData struct {
 	MonthMetrics    DailyMetrics         `json:"monthMetrics"`
 
 	// Charts Data
-	DebtAging   []DebtAging   `json:"debtAging"`
-	RateTrends  []RateTrend   `json:"rateTrends"`
-	DailyProfit []DailyProfit `json:"dailyProfit"`
+	DebtAging    []DebtAging   `json:"debtAging"`
+	RateTrends   []RateTrend   `json:"rateTrends"`
+	DailyProfit  []DailyProfit `json:"dailyProfit"`
+	DailyVolumes []DailyVolume `json:"dailyVolumes"` // New field
 
 	// Alerts
 	Alerts []Alert `json:"alerts"`
@@ -106,7 +145,7 @@ func (s *DashboardService) GetDashboardData(tenantID uint, branchID *uint) (*Das
 	var wg sync.WaitGroup
 
 	// Parallel fetching of independent data
-	wg.Add(10)
+	wg.Add(11) // Increased from 10
 
 	// Get outgoing summary
 	go func() {
@@ -160,6 +199,12 @@ func (s *DashboardService) GetDashboardData(tenantID uint, branchID *uint) (*Das
 		dashboard.DailyProfit = s.getDailyProfit(tenantID, 30)
 	}()
 
+	// Get daily volume (last 30 days) - NEW
+	go func() {
+		defer wg.Done()
+		dashboard.DailyVolumes = s.getDailyVolume(tenantID, branchID, 30)
+	}()
+
 	// Get quick stats (combined into one goroutine)
 	go func() {
 		defer wg.Done()
@@ -175,6 +220,105 @@ func (s *DashboardService) GetDashboardData(tenantID uint, branchID *uint) (*Das
 	dashboard.Alerts = s.generateAlerts(tenantID, branchID, dashboard)
 
 	return dashboard, nil
+}
+
+// GetDashboardSummary returns a compact summary payload for the dashboard
+func (s *DashboardService) GetDashboardSummary(tenantID uint, branchID *uint) (*DashboardSummary, error) {
+	summary := &DashboardSummary{}
+
+	// KPIs
+	startOfDay := time.Now().Truncate(24 * time.Hour)
+	todayMetrics := s.getMetrics(tenantID, branchID, startOfDay, time.Now())
+	outgoingSummary := s.getRemittanceSummary(tenantID, branchID, "outgoing")
+	incomingSummary := s.getRemittanceSummary(tenantID, branchID, "incoming")
+
+	summary.KPIs = DashboardSummaryKPIs{
+		TotalVolumeToday:   todayMetrics.TransactionVolume,
+		ProfitToday:        todayMetrics.Profit,
+		PendingRemittances: outgoingSummary.PendingCount,
+		IncomingPending:    incomingSummary.PendingCount,
+	}
+
+	// Cash Flow (last 30 days)
+	volumes := s.getDailyVolume(tenantID, branchID, 30)
+	summary.CashFlow = make([]CashFlowPoint, 0, len(volumes))
+	for _, v := range volumes {
+		summary.CashFlow = append(summary.CashFlow, CashFlowPoint{
+			Date: v.Date,
+			In:   v.Income,
+			Out:  v.Outgoing,
+		})
+	}
+
+	// Recent Transactions
+	var transactions []models.Transaction
+	query := s.db.Model(&models.Transaction{}).
+		Preload("Client").
+		Where("tenant_id = ? AND status = ?", tenantID, models.StatusCompleted).
+		Order("transaction_date DESC, created_at DESC").
+		Limit(10)
+
+	if branchID != nil {
+		query = query.Where("branch_id = ?", *branchID)
+	}
+
+	if err := query.Find(&transactions).Error; err != nil {
+		return nil, err
+	}
+
+	summary.RecentTransactions = make([]RecentTransactionSummary, 0, len(transactions))
+	for _, tx := range transactions {
+		clientName := "Walk-in Customer"
+		if tx.Client != nil && tx.Client.Name != "" {
+			clientName = tx.Client.Name
+		}
+
+		summary.RecentTransactions = append(summary.RecentTransactions, RecentTransactionSummary{
+			ID:        tx.ID,
+			Client:    clientName,
+			Amount:    tx.SendAmount.Float64(),
+			Currency:  tx.SendCurrency,
+			CreatedAt: tx.TransactionDate,
+		})
+	}
+
+	return summary, nil
+}
+
+func (s *DashboardService) getDailyVolume(tenantID uint, branchID *uint, days int) []DailyVolume {
+	var results []DailyVolume
+
+	// Simple query: Group by date, sum SendAmount (Income)
+	// For "Outgoing", typically in a ledger, we might look at payouts.
+	// For now, let's map:
+	// Income = Sum(SendAmount) for standard transactions (Money IN)
+	// Outgoing = Sum(ReceiveAmount) converted to Base? Or withdrawals?
+	// Let's stick to Transaction Volume as "Income" for this chart as requested by "Cash Flow" often implies In/Out.
+	// If the frontend wants "Volume", usually it means Total Traded Volume.
+	// If it wants "Cash Flow", it means Deposits vs Withdrawals.
+	// Let's assume Income = Total Received, Outgoing = Total Paid Out (e.g. from cash balances).
+
+	// Actually, let's use the `transactions` table.
+	// Income: Sum of `send_amount` (client gives us money)
+	// Outgoing: We don't track our payouts in `transactions` well unless we check `payments` or specific types.
+	// Let's simplify: Income = SendAmount (Volume). Outgoing = 0 for now until we have better payout tracking.
+
+	// Wait, Codex plan said: "Income map to send_amount, Outgoing to receive_amount".
+	// Let's do that.
+
+	query := s.db.Model(&models.Transaction{}).
+		Select("DATE(transaction_date) as date, COALESCE(SUM(send_amount), 0) as income, COALESCE(SUM(receive_amount), 0) as outgoing").
+		Where("tenant_id = ? AND transaction_date >= date('now', ?) AND status = ?", tenantID, fmt.Sprintf("-%d days", days), models.StatusCompleted)
+
+	if branchID != nil {
+		query = query.Where("branch_id = ?", *branchID)
+	}
+
+	query.Group("DATE(transaction_date)").
+		Order("date ASC").
+		Scan(&results)
+
+	return results
 }
 
 func (s *DashboardService) getRemittanceSummary(tenantID uint, branchID *uint, remittanceType string) RemittanceSummary {

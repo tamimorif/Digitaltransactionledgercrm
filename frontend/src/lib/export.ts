@@ -144,11 +144,12 @@ export function exportToPDF(transactions: ExportTransaction[], filename: string 
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const reportTitle = filename.replace(/_/g, ' ');
     let html = `
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Transactions Report</title>
+            <title>${reportTitle} Report</title>
             <style>
                 body { font-family: Arial, sans-serif; margin: 20px; }
                 h1 { text-align: center; color: #333; }
@@ -162,7 +163,7 @@ export function exportToPDF(transactions: ExportTransaction[], filename: string 
         </head>
         <body>
             <div class="header">
-                <h1>Transactions Report</h1>
+                <h1>${reportTitle} Report</h1>
                 <p class="date">Generated on ${format(new Date(), 'MMMM dd, yyyy HH:mm')}</p>
             </div>
             <table>

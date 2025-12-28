@@ -132,6 +132,22 @@ func (h *Hub) Broadcast(message WSMessage) {
 	h.broadcast <- message
 }
 
+// BroadcastToAll sends a message to all tenants with active clients
+func (h *Hub) BroadcastToAll(message WSMessage) {
+	h.mu.RLock()
+	tenantIDs := make([]uint, 0, len(h.clients))
+	for tenantID := range h.clients {
+		tenantIDs = append(tenantIDs, tenantID)
+	}
+	h.mu.RUnlock()
+
+	for _, tenantID := range tenantIDs {
+		msg := message
+		msg.TenantID = tenantID
+		h.Broadcast(msg)
+	}
+}
+
 // BroadcastTransactionUpdate broadcasts a transaction update
 func (h *Hub) BroadcastTransactionUpdate(tenantID uint, action string, data map[string]interface{}) {
 	h.Broadcast(WSMessage{
@@ -169,6 +185,15 @@ func (h *Hub) BroadcastRemittanceUpdate(tenantID uint, action string, data map[s
 		Action:   action,
 		Data:     data,
 		TenantID: tenantID,
+	})
+}
+
+// BroadcastRateUpdateAll broadcasts FX rate updates to all tenants
+func (h *Hub) BroadcastRateUpdateAll(data map[string]interface{}) {
+	h.BroadcastToAll(WSMessage{
+		Type:   "fx_rate",
+		Action: "updated",
+		Data:   data,
 	})
 }
 

@@ -7,8 +7,8 @@ interface OfflineDB extends DBSchema {
             id?: number;
             method: string;
             url: string;
-            data: any;
-            headers: any;
+            data: unknown;
+            headers: Record<string, string>;
             timestamp: number;
             retryCount: number;
         };
@@ -42,8 +42,8 @@ export const initDB = () => {
 export const saveRequestToQueue = async (request: {
     method: string;
     url: string;
-    data: any;
-    headers: any;
+    data: unknown;
+    headers: Record<string, string>;
 }) => {
     const db = await initDB();
     return db.add(STORE_NAME, {

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -6,7 +5,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/src/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/src/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
-import { Input } from '@/src/components/ui/input';
 import { Textarea } from '@/src/components/ui/textarea';
 import { FormattedInput } from '@/src/components/ui/formatted-input';
 import { Loader2 } from 'lucide-react';
@@ -14,6 +12,7 @@ import { toast } from 'sonner';
 import { useCreateTransfer } from '@/src/lib/queries/transfer.query';
 import { useGetBranches } from '@/src/lib/queries/branch.query';
 import { useAuth } from '@/src/components/providers/auth-provider';
+import { getErrorMessage } from '@/src/lib/error';
 
 const formSchema = z.object({
     sourceBranchId: z.number().min(1, 'Source branch is required'),
@@ -64,8 +63,8 @@ export function CreateTransferDialog({ open, onOpenChange }: CreateTransferDialo
             toast.success('Transfer initiated successfully');
             onOpenChange(false);
             form.reset();
-        } catch (error: any) {
-            toast.error(error.response?.data || 'Failed to initiate transfer');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to initiate transfer'));
         }
     };
 

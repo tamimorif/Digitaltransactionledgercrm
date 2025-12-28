@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
-import { Button } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
 import { Skeleton } from '@/src/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
@@ -28,7 +27,7 @@ import {
     useGetTopCustomers,
 } from '@/src/lib/queries/dashboard.query';
 import { ProfitFilters } from '@/src/lib/models/dashboard.model';
-import { formatNumber, formatCurrency } from '@/src/lib/format';
+import { formatCurrency } from '@/src/lib/format';
 import { cn } from '@/src/lib/utils';
 import {
     TrendingUp,
@@ -46,9 +45,11 @@ interface ProfitAnalysisDashboardProps {
     branchId?: number;
 }
 
+type Period = 'day' | 'week' | 'month';
+
 export function ProfitAnalysisDashboard({ branchId }: ProfitAnalysisDashboardProps) {
-    const [period, setPeriod] = useState<'day' | 'week' | 'month'>('day');
-    const [dateRange, setDateRange] = useState<{ start?: string; end?: string }>({});
+    const [period, setPeriod] = useState<Period>('day');
+    const [dateRange] = useState<{ start?: string; end?: string }>({});
 
     const filters: ProfitFilters = {
         branchId,
@@ -113,7 +114,7 @@ export function ProfitAnalysisDashboard({ branchId }: ProfitAnalysisDashboardPro
                         </TabsTrigger>
                     </TabsList>
 
-                    <Select value={period} onValueChange={(v) => setPeriod(v as any)}>
+                    <Select value={period} onValueChange={(value) => setPeriod(value as Period)}>
                         <SelectTrigger className="w-32">
                             <SelectValue />
                         </SelectTrigger>

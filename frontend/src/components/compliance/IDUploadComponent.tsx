@@ -9,6 +9,7 @@ import {
     useVerificationStatus,
 } from '@/src/lib/queries/compliance.query';
 import type { DocumentType, ComplianceDocument } from '@/src/lib/compliance-api';
+import { getErrorMessage } from '@/src/lib/error';
 
 interface IDUploadComponentProps {
     customerId: number;
@@ -41,7 +42,7 @@ export function IDUploadComponent({ customerId, onComplete }: IDUploadComponentP
 
     // Queries
     const { data: compliance, isLoading: complianceLoading } = useCustomerCompliance(customerId);
-    const { data: documents, isLoading: docsLoading } = useComplianceDocuments(compliance?.id || 0);
+    const { data: documents } = useComplianceDocuments(compliance?.id || 0);
     const { data: verificationStatus, refetch: refetchStatus } = useVerificationStatus(
         compliance?.id || 0,
         showExternalVerification && !!compliance?.externalProviderId
@@ -51,32 +52,7 @@ export function IDUploadComponent({ customerId, onComplete }: IDUploadComponentP
     const uploadMutation = useUploadComplianceDocument();
     const initiateMutation = useInitiateVerification();
 
-    const handleFileDrop = useCallback(
-        async (e: React.DragEvent<HTMLDivElement>) => {
-            e.preventDefault();
-            setDragActive(false);
-            setUploadError(null);
-
-            const files = e.dataTransfer.files;
-            if (files.length > 0 && compliance) {
-                await handleFileUpload(files[0]);
-            }
-        },
-        [compliance]
-    );
-
-    const handleFileSelect = useCallback(
-        async (e: React.ChangeEvent<HTMLInputElement>) => {
-            setUploadError(null);
-            const files = e.target.files;
-            if (files && files.length > 0 && compliance) {
-                await handleFileUpload(files[0]);
-            }
-        },
-        [compliance]
-    );
-
-    const handleFileUpload = async (file: File) => {
+    const handleFileUpload = useCallback(async (file: File) => {
         if (!compliance) return;
 
         // Validate file type
@@ -98,10 +74,35 @@ export function IDUploadComponent({ customerId, onComplete }: IDUploadComponentP
                 documentType: selectedDocType,
                 file,
             });
-        } catch (error: any) {
-            setUploadError(error.message || 'Failed to upload file');
+        } catch (error) {
+            setUploadError(getErrorMessage(error, 'Failed to upload file'));
         }
-    };
+    }, [compliance, selectedDocType, uploadMutation]);
+
+    const handleFileDrop = useCallback(
+        async (e: React.DragEvent<HTMLDivElement>) => {
+            e.preventDefault();
+            setDragActive(false);
+            setUploadError(null);
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                await handleFileUpload(files[0]);
+            }
+        },
+        [handleFileUpload]
+    );
+
+    const handleFileSelect = useCallback(
+        async (e: React.ChangeEvent<HTMLInputElement>) => {
+            setUploadError(null);
+            const files = e.target.files;
+            if (files && files.length > 0) {
+                await handleFileUpload(files[0]);
+            }
+        },
+        [handleFileUpload]
+    );
 
     const handleInitiateVerification = async () => {
         if (!compliance) return;
@@ -109,8 +110,8 @@ export function IDUploadComponent({ customerId, onComplete }: IDUploadComponentP
         try {
             await initiateMutation.mutateAsync(compliance.id);
             setShowExternalVerification(true);
-        } catch (error: any) {
-            setUploadError(error.message || 'Failed to initiate verification');
+        } catch (error) {
+            setUploadError(getErrorMessage(error, 'Failed to initiate verification'));
         }
     };
 

@@ -3,7 +3,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/src/components/ui/table';
 import { Badge } from '@/src/components/ui/badge';
-import { Button } from '@/src/components/ui/button';
 import { TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 import { useTranslation } from '@/src/contexts/TranslationContext';
 
@@ -25,10 +24,9 @@ interface Settlement {
 
 interface SettlementHistoryTableProps {
     settlements: Settlement[];
-    remittanceId: number;
 }
 
-export function SettlementHistoryTable({ settlements, remittanceId }: SettlementHistoryTableProps) {
+export function SettlementHistoryTable({ settlements }: SettlementHistoryTableProps) {
     const { t } = useTranslation();
 
     if (!settlements || settlements.length === 0) {

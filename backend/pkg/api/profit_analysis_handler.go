@@ -32,6 +32,7 @@ func NewProfitAnalysisHandler(db *gorm.DB) *ProfitAnalysisHandler {
 // @Security BearerAuth
 // @Param startDate query string false "Start date (YYYY-MM-DD)"
 // @Param endDate query string false "End date (YYYY-MM-DD)"
+// @Param branchId query int false "Branch ID"
 // @Success 200 {object} services.ProfitAnalysisResult
 // @Router /analytics/profit [get]
 func (h *ProfitAnalysisHandler) GetProfitAnalysisHandler(w http.ResponseWriter, r *http.Request) {
@@ -41,23 +42,10 @@ func (h *ProfitAnalysisHandler) GetProfitAnalysisHandler(w http.ResponseWriter, 
 		return
 	}
 
-	// Parse dates
-	startDate := time.Now().AddDate(0, -1, 0) // Default: last month
-	endDate := time.Now()
+	startDate, endDate := parseDateRange(r)
+	branchID := parseBranchID(r)
 
-	if startStr := r.URL.Query().Get("startDate"); startStr != "" {
-		if parsed, err := time.Parse("2006-01-02", startStr); err == nil {
-			startDate = parsed
-		}
-	}
-
-	if endStr := r.URL.Query().Get("endDate"); endStr != "" {
-		if parsed, err := time.Parse("2006-01-02", endStr); err == nil {
-			endDate = parsed.Add(24*time.Hour - time.Second) // End of day
-		}
-	}
-
-	result, err := h.profitService.GetProfitAnalysis(*tenantID, startDate, endDate)
+	result, err := h.profitService.GetProfitAnalysis(*tenantID, branchID, startDate, endDate)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -75,6 +63,7 @@ func (h *ProfitAnalysisHandler) GetProfitAnalysisHandler(w http.ResponseWriter, 
 // @Produce json
 // @Security BearerAuth
 // @Param days query int false "Number of days" default(30)
+// @Param branchId query int false "Branch ID"
 // @Success 200 {array} services.ProfitByPeriod
 // @Router /analytics/profit/daily [get]
 func (h *ProfitAnalysisHandler) GetDailyProfitHandler(w http.ResponseWriter, r *http.Request) {
@@ -90,8 +79,9 @@ func (h *ProfitAnalysisHandler) GetDailyProfitHandler(w http.ResponseWriter, r *
 			days = parsed
 		}
 	}
+	branchID := parseBranchID(r)
 
-	result, err := h.profitService.GetDailyProfit(*tenantID, days)
+	result, err := h.profitService.GetDailyProfit(*tenantID, branchID, days)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -109,6 +99,7 @@ func (h *ProfitAnalysisHandler) GetDailyProfitHandler(w http.ResponseWriter, r *
 // @Produce json
 // @Security BearerAuth
 // @Param months query int false "Number of months" default(12)
+// @Param branchId query int false "Branch ID"
 // @Success 200 {array} services.ProfitByPeriod
 // @Router /analytics/profit/monthly [get]
 func (h *ProfitAnalysisHandler) GetMonthlyProfitHandler(w http.ResponseWriter, r *http.Request) {
@@ -124,8 +115,9 @@ func (h *ProfitAnalysisHandler) GetMonthlyProfitHandler(w http.ResponseWriter, r
 			months = parsed
 		}
 	}
+	branchID := parseBranchID(r)
 
-	result, err := h.profitService.GetMonthlyProfit(*tenantID, months)
+	result, err := h.profitService.GetMonthlyProfit(*tenantID, branchID, months)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -143,6 +135,7 @@ func (h *ProfitAnalysisHandler) GetProfitByBranchHandler(w http.ResponseWriter, 
 		return
 	}
 	startDate, endDate := parseDateRange(r)
+	branchID := parseBranchID(r)
 
 	// We need total profit for percentage calculation, so we get the full analysis or just sum it up
 	// For efficiency, we could just get branch data, but percentage requires total.
@@ -151,13 +144,13 @@ func (h *ProfitAnalysisHandler) GetProfitByBranchHandler(w http.ResponseWriter, 
 	// Note: The service method requires totalProfit to calculate percentages.
 	// We can pass 0 for now if we don't want to calculate it separately, or calculate it first.
 	// Let's calculate total profit first.
-	summary, err := h.profitService.GetProfitAnalysis(*tenantID, startDate, endDate)
+	summary, err := h.profitService.GetProfitAnalysis(*tenantID, branchID, startDate, endDate)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	result := h.profitService.GetProfitByBranch(*tenantID, startDate, endDate, summary.TotalProfitCAD)
+	result := h.profitService.GetProfitByBranch(*tenantID, branchID, startDate, endDate, summary.TotalProfitCAD)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
@@ -171,9 +164,10 @@ func (h *ProfitAnalysisHandler) GetProfitTrendHandler(w http.ResponseWriter, r *
 		return
 	}
 	startDate, endDate := parseDateRange(r)
+	branchID := parseBranchID(r)
 	// groupBy := r.URL.Query().Get("groupBy") // Currently service only supports daily via GetProfitByPeriod
 
-	result := h.profitService.GetProfitByPeriod(*tenantID, startDate, endDate)
+	result := h.profitService.GetProfitByPeriod(*tenantID, branchID, startDate, endDate)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
@@ -187,6 +181,7 @@ func (h *ProfitAnalysisHandler) GetTopCustomersHandler(w http.ResponseWriter, r 
 		return
 	}
 	startDate, endDate := parseDateRange(r)
+	branchID := parseBranchID(r)
 
 	limit := 10
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
@@ -195,7 +190,7 @@ func (h *ProfitAnalysisHandler) GetTopCustomersHandler(w http.ResponseWriter, r 
 		}
 	}
 
-	result, err := h.profitService.GetTopCustomers(*tenantID, limit, startDate, endDate)
+	result, err := h.profitService.GetTopCustomers(*tenantID, branchID, limit, startDate, endDate)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -221,4 +216,14 @@ func parseDateRange(r *http.Request) (time.Time, time.Time) {
 		}
 	}
 	return startDate, endDate
+}
+
+func parseBranchID(r *http.Request) *uint {
+	if idStr := r.URL.Query().Get("branchId"); idStr != "" {
+		if id, err := strconv.ParseUint(idStr, 10, 64); err == nil {
+			uid := uint(id)
+			return &uid
+		}
+	}
+	return nil
 }

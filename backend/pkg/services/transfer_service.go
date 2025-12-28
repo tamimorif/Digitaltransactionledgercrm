@@ -52,7 +52,7 @@ func (s *TransferService) CreateTransfer(tenantID, sourceBranchID, destBranchID 
 		return nil, err
 	}
 
-	if balance.FinalBalance < amount {
+	if balance.FinalBalance.LessThan(models.NewDecimal(amount)) {
 		tx.Rollback()
 		return nil, errors.New("insufficient funds in source branch")
 	}

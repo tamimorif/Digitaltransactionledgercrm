@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { X, Clock, AlertCircle } from 'lucide-react';
 import { Card } from './ui/card';
-import { Button } from './ui/button';
 
 interface RateLimitInfo {
     retryAfter: number;

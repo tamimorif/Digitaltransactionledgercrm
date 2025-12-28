@@ -68,9 +68,7 @@ export interface LoginResponse {
   tenant?: Tenant;
 }
 
-export interface GetMeResponse extends User {
-  // GetMeResponse is now an alias for User with the same structure
-}
+export type GetMeResponse = User;
 
 // ==================== Context Types ====================
 

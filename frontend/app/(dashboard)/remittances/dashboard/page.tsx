@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { remittanceApi } from '@/src/lib/remittanceApi';
 import { OutgoingRemittance, IncomingRemittance, ProfitSummary } from '@/src/models/remittance';
 import Link from 'next/link';
+import { getErrorMessage } from '@/src/lib/error';
 
 export default function RemittanceDashboard() {
     const [outgoing, setOutgoing] = useState<OutgoingRemittance[]>([]);
@@ -31,8 +32,8 @@ export default function RemittanceDashboard() {
             setOutgoing(outgoingData);
             setIncoming(incomingData);
             setProfitSummary(summaryData);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load remittance data');
+        } catch (err) {
+            setError(getErrorMessage(err, 'Failed to load remittance data'));
             console.error('Error loading remittance data:', err);
         } finally {
             setLoading(false);

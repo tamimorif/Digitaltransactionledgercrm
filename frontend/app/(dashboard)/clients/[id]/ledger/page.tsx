@@ -4,10 +4,9 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useGetClientBalances, useGetClientEntries, useAddLedgerEntry, useExchangeCurrency } from '@/src/lib/queries/ledger.query';
 import { useGetClient } from '@/src/lib/queries/client.query';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/src/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Button } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
 import {
     Table,
     TableBody,
@@ -23,12 +22,11 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from '@/src/components/ui/dialog';
 import { Input } from '@/src/components/ui/input';
 import { Label } from '@/src/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
-import { ArrowLeft, Plus, ArrowRightLeft, Wallet, History, ArrowUpRight, ArrowDownRight, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Plus, ArrowRightLeft, Wallet, History, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'IRR', 'AED', 'TRY', 'USDT'];
@@ -40,8 +38,8 @@ export default function ClientLedgerPage() {
     const clientIdNum = parseInt(clientId, 10);
 
     const { data: client, isLoading: isClientLoading } = useGetClient(clientIdNum);
-    const { data: balances, isLoading: isBalancesLoading } = useGetClientBalances(clientId);
-    const { data: entries, isLoading: isEntriesLoading } = useGetClientEntries(clientId);
+    const { data: balances } = useGetClientBalances(clientId);
+    const { data: entries } = useGetClientEntries(clientId);
 
     const addEntryMutation = useAddLedgerEntry(clientId);
     const exchangeMutation = useExchangeCurrency(clientId);
@@ -78,7 +76,7 @@ export default function ClientLedgerPage() {
             toast.success('Entry added successfully');
             setShowAddFunds(false);
             setAddFundsData({ type: 'DEPOSIT', currency: 'USD', amount: '', description: '' });
-        } catch (error) {
+        } catch {
             toast.error('Failed to add entry');
         }
     };
@@ -96,7 +94,7 @@ export default function ClientLedgerPage() {
             toast.success('Exchange completed successfully');
             setShowExchange(false);
             setExchangeData({ fromCurrency: 'USD', toCurrency: 'IRR', amount: '', rate: '', description: '' });
-        } catch (error) {
+        } catch {
             toast.error('Failed to complete exchange');
         }
     };

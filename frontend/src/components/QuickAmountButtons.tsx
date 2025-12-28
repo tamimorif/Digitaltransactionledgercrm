@@ -1,7 +1,6 @@
 'use client';
 
 import { Button } from '@/src/components/ui/button';
-import { useTranslation } from 'react-i18next';
 
 interface QuickAmountButtonsProps {
     currency: string;
@@ -9,8 +8,6 @@ interface QuickAmountButtonsProps {
 }
 
 export function QuickAmountButtons({ currency, onAmountSelect }: QuickAmountButtonsProps) {
-    const { t } = useTranslation();
-
     const presets: { [key: string]: number[] } = {
         CAD: [100, 200, 500, 1000, 2000],
         USD: [100, 200, 500, 1000, 2000],

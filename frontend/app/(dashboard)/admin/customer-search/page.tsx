@@ -50,7 +50,7 @@ export default function CustomerSearchPage() {
                 <CardHeader>
                     <CardTitle>Global Customer Search</CardTitle>
                     <CardDescription>
-                        Search by phone number or customer name to see all companies and branches they've registered with
+                        Search by phone number or customer name to see all companies and branches they have registered with
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

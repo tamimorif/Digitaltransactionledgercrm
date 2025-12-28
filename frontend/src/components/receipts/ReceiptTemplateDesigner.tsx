@@ -123,7 +123,6 @@ export function ReceiptTemplateDesigner() {
                     ) : editMode ? (
                         <TemplateEditor
                             template={selectedId ? selectedTemplate : undefined}
-                            variables={variables || []}
                             activeSection={activeSection}
                             onSectionChange={setActiveSection}
                             onCancel={() => { setEditMode(false); if (!selectedId) setSelectedId(null); }}
@@ -138,10 +137,7 @@ export function ReceiptTemplateDesigner() {
 
                 {/* Variables Panel */}
                 {editMode && (
-                    <VariablesPanel
-                        variables={variables || []}
-                        templateType={selectedTemplate?.templateType || 'transaction'}
-                    />
+                    <VariablesPanel variables={variables || []} />
                 )}
             </div>
 
@@ -252,14 +248,12 @@ function TemplateViewer({
 
 function TemplateEditor({
     template,
-    variables,
     activeSection,
     onSectionChange,
     onCancel,
     onSave,
 }: {
     template?: ReceiptTemplate | null;
-    variables: ReceiptVariable[];
     activeSection: 'header' | 'body' | 'footer';
     onSectionChange: (section: 'header' | 'body' | 'footer') => void;
     onCancel: () => void;
@@ -319,24 +313,6 @@ function TemplateEditor({
             onSave(result.id);
         } catch (error) {
             console.error('Failed to save template:', error);
-        }
-    };
-
-    const insertVariable = (varName: string) => {
-        const textarea = document.getElementById(`editor-${activeSection}`) as HTMLTextAreaElement;
-        if (textarea) {
-            const start = textarea.selectionStart;
-            const end = textarea.selectionEnd;
-            const key = `${activeSection}Html` as 'headerHtml' | 'bodyHtml' | 'footerHtml';
-            const currentValue = form[key] || '';
-            const newValue = currentValue.substring(0, start) + varName + currentValue.substring(end);
-            setForm({ ...form, [key]: newValue });
-
-            // Restore cursor position
-            setTimeout(() => {
-                textarea.focus();
-                textarea.setSelectionRange(start + varName.length, start + varName.length);
-            }, 0);
         }
     };
 
@@ -498,10 +474,8 @@ function TemplateEditor({
 
 function VariablesPanel({
     variables,
-    templateType,
 }: {
     variables: ReceiptVariable[];
-    templateType: string;
 }) {
     const groupedVariables = useMemo(() => {
         return variables.reduce((acc, v) => {

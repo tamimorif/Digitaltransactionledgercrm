@@ -11,7 +11,7 @@ export function LiveTicker() {
 
     if (isLoading) {
         return (
-            <div className="bg-primary text-primary-foreground py-2 overflow-hidden border-b border-white/10">
+            <div className="border-b border-border bg-muted/40 py-2">
                 <div className="container mx-auto px-4 flex items-center justify-center text-sm font-medium">
                     Loading live market rates...
                 </div>
@@ -33,7 +33,7 @@ export function LiveTicker() {
     };
 
     return (
-        <div className="w-full overflow-hidden py-3">
+        <div className="w-full overflow-hidden border-b border-border bg-muted/30 py-3">
             <div className="flex animate-marquee hover:[animation-play-state:paused] w-max items-center">
                 {/* Duplicate the list to ensure smooth looping */}
                 {[...rates, ...rates, ...rates].map((rate, idx) => {

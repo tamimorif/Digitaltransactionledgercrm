@@ -19,6 +19,7 @@ import { Input } from '@/src/components/ui/input';
 import { useVerifyEmail, useResendCode } from '@/src/queries/auth.query';
 import { toast } from 'sonner';
 import { Loader2, Mail } from 'lucide-react';
+import { getErrorMessage } from '@/src/lib/error';
 
 const verifySchema = z.object({
   email: z
@@ -83,9 +84,9 @@ export function VerifyEmailForm() {
       localStorage.removeItem('pending_verification_email');
       
       router.push('/login');
-    } catch (error: any) {
+    } catch (error) {
       toast.error('Verification Error', {
-        description: error?.response?.data?.error || 'Invalid verification code',
+        description: getErrorMessage(error, 'Invalid verification code'),
       });
     } finally {
       setIsLoading(false);
@@ -106,9 +107,9 @@ export function VerifyEmailForm() {
       });
       setCanResend(false);
       setCountdown(60);
-    } catch (error: any) {
+    } catch (error) {
       toast.error('Error Sending Code', {
-        description: error?.response?.data?.error || 'Please try again',
+        description: getErrorMessage(error, 'Please try again'),
       });
     }
   }

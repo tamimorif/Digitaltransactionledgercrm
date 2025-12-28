@@ -15,6 +15,8 @@ interface PaymentProgressBarProps {
     showDetails?: boolean;
 }
 
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'destructive';
+
 export function PaymentProgressBar({ transaction, showDetails = true }: PaymentProgressBarProps) {
     if (!transaction.allowPartialPayment) {
         return null;
@@ -48,7 +50,7 @@ export function PaymentProgressBar({ transaction, showDetails = true }: PaymentP
                 <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">Payment Progress</span>
                     <Badge 
-                        variant={statusColor as any}
+                        variant={statusColor as BadgeVariant}
                         className="flex items-center gap-1"
                     >
                         {getStatusIcon()}

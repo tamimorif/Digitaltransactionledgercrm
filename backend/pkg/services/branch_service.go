@@ -138,6 +138,42 @@ func (bs *BranchService) generateBranchCode(tenantID uint, name string) string {
 	return fmt.Sprintf("BR-%d-%d", tenantID, time.Now().Unix())
 }
 
+// BranchWithStats includes branch details and performance stats
+type BranchWithStats struct {
+	models.Branch
+	TodayVolume float64 `json:"todayVolume"`
+	CurrentCash float64 `json:"currentCash"`
+}
+
+// GetBranchesWithStats retrieves all branches with summary statistics
+func (bs *BranchService) GetBranchesWithStats(tenantID uint) ([]BranchWithStats, error) {
+	var summaries []BranchWithStats
+
+	// We use subqueries to calculate stats efficiently
+	// 1. Current Cash: Sum of all cash balances for this branch
+	// 2. Today's Volume: Sum of send_amount for transactions today
+
+	// SQLite syntax for date('now') vs Postgres CURRENT_DATE is handled by GORM usually,
+	// but raw SQL might be safer if we check driver. For now assuming standardized SQL.
+	// Actually, `transactions` stores `transaction_date`.
+
+	err := bs.DB.Table("branches").
+		Select(`
+			branches.*, 
+			COALESCE((SELECT SUM(final_balance) FROM cash_balances WHERE cash_balances.branch_id = branches.id AND cash_balances.tenant_id = branches.tenant_id), 0) as current_cash,
+			COALESCE((SELECT SUM(send_amount) FROM transactions WHERE transactions.branch_id = branches.id AND transactions.tenant_id = branches.tenant_id AND DATE(transactions.transaction_date) = DATE('now')), 0) as today_volume
+		`).
+		Where("branches.tenant_id = ?", tenantID).
+		Order("branches.is_primary DESC, branches.created_at ASC").
+		Scan(&summaries).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get branch summaries: %w", err)
+	}
+
+	return summaries, nil
+}
+
 // GetBranches retrieves all branches for a tenant
 func (bs *BranchService) GetBranches(tenantID uint) ([]models.Branch, error) {
 	var branches []models.Branch

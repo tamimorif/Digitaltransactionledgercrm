@@ -25,6 +25,13 @@ export interface DailyReconciliation {
     };
 }
 
+export interface ExpectedBalanceBreakdown {
+    currency: string;
+    cash: number;
+    bank: number;
+    total: number;
+}
+
 /**
  * Hook to create a new reconciliation record
  */
@@ -77,5 +84,23 @@ export const useGetVarianceReport = () => {
             const response = await apiClient.get<DailyReconciliation[]>('/reconciliation/variance');
             return response.data;
         },
+    });
+};
+
+/**
+ * Hook to get system state (expected balances) for a branch
+ */
+export const useGetSystemState = (branchId?: number) => {
+    return useQuery({
+        queryKey: ['reconciliationSystemState', branchId],
+        queryFn: async () => {
+            const params = new URLSearchParams();
+            if (branchId) params.append('branchId', branchId.toString());
+            const response = await apiClient.get<ExpectedBalanceBreakdown[]>(
+                `/reconciliation/system-state?${params.toString()}`
+            );
+            return response.data;
+        },
+        enabled: !!branchId,
     });
 };

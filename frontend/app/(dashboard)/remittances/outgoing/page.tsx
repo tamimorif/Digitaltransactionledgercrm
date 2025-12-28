@@ -1,14 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
 import { remittanceApi } from '@/src/lib/remittanceApi';
 import { OutgoingRemittance } from '@/src/models/remittance';
-import { REMITTANCE_STATUS_COLORS, REMITTANCE_STATUS_LABELS } from '@/src/models/remittance';
 import Link from 'next/link';
+import { getErrorMessage } from '@/src/lib/error';
 
 export default function OutgoingRemittancesList() {
-    const router = useRouter();
     const [remittances, setRemittances] = useState<OutgoingRemittance[]>([]);
     const [filteredRemittances, setFilteredRemittances] = useState<OutgoingRemittance[]>([]);
     const [loading, setLoading] = useState(true);
@@ -18,27 +16,23 @@ export default function OutgoingRemittancesList() {
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
     const [searchQuery, setSearchQuery] = useState('');
 
-    useEffect(() => {
-        loadRemittances();
-    }, []);
-
-    useEffect(() => {
-        applyFilters();
-    }, [remittances, statusFilter, searchQuery]);
-
-    const loadRemittances = async () => {
+    const loadRemittances = useCallback(async () => {
         try {
             setLoading(true);
             const data = await remittanceApi.getOutgoing();
             setRemittances(data);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load remittances');
+        } catch (err) {
+            setError(getErrorMessage(err, 'Failed to load remittances'));
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const applyFilters = () => {
+    useEffect(() => {
+        loadRemittances();
+    }, [loadRemittances]);
+
+    const applyFilters = useCallback(() => {
         let filtered = [...remittances];
 
         // Status filter
@@ -57,7 +51,11 @@ export default function OutgoingRemittancesList() {
         }
 
         setFilteredRemittances(filtered);
-    };
+    }, [remittances, searchQuery, statusFilter]);
+
+    useEffect(() => {
+        applyFilters();
+    }, [applyFilters]);
 
     const getStatusColor = (status: string) => {
         switch (status) {

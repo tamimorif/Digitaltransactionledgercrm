@@ -20,6 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { Loader2, AlertCircle, CheckCircle2, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import apiClient from '@/src/lib/api-client';
+import { getErrorMessage } from '@/src/lib/error';
 
 const resetPasswordSchema = z.object({
     code: z.string().min(6, 'Code must be at least 6 characters'),
@@ -69,9 +70,8 @@ function ResetPasswordForm() {
             setTimeout(() => {
                 router.push('/login');
             }, 2000);
-        } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || 'Failed to reset password';
-            setError(errorMessage);
+        } catch (error) {
+            setError(getErrorMessage(error, 'Failed to reset password'));
         } finally {
             setIsLoading(false);
         }

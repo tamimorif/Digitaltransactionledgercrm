@@ -11,6 +11,7 @@ import { Separator } from '@/src/components/ui/separator';
 import { toast } from 'sonner';
 import { Edit2, Mail, User, Building2, Shield, Calendar, Check, X } from 'lucide-react';
 import axiosInstance from '@/src/lib/axios-config';
+import { getErrorMessage } from '@/src/lib/error';
 
 export default function AccountPage() {
     const { user, tenant, refreshUser } = useAuth();
@@ -30,10 +31,10 @@ export default function AccountPage() {
             toast.success('Organization name updated successfully');
             setIsEditingName(false);
             await refreshUser();
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to update organization name:', error);
             toast.error('Failed to update organization name', {
-                description: error?.response?.data?.error || 'Please try again',
+                description: getErrorMessage(error, 'Please try again'),
             });
         } finally {
             setIsUpdating(false);

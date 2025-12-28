@@ -19,6 +19,10 @@ import {
 import { Loader2, Key, Copy, Check, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/src/lib/error';
+
+type LicenseType = 'trial' | 'starter' | 'professional' | 'business' | 'enterprise' | 'custom';
+type DurationType = 'lifetime' | 'monthly' | 'yearly' | 'custom_days';
 
 export default function GenerateLicensePage() {
   const router = useRouter();
@@ -27,9 +31,15 @@ export default function GenerateLicensePage() {
   const [copied, setCopied] = useState(false);
   const [generatedLicense, setGeneratedLicense] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
-    licenseType: 'starter' as 'trial' | 'starter' | 'professional' | 'business' | 'enterprise' | 'custom',
-    durationType: 'yearly' as 'lifetime' | 'monthly' | 'yearly' | 'custom_days',
+  const [formData, setFormData] = useState<{
+    licenseType: LicenseType;
+    durationType: DurationType;
+    userLimit: string;
+    durationValue: string;
+    notes: string;
+  }>({
+    licenseType: 'starter',
+    durationType: 'yearly',
     userLimit: '5',
     durationValue: '',
     notes: '',
@@ -63,9 +73,9 @@ export default function GenerateLicensePage() {
 
       setGeneratedLicense(response.licenseKey);
       toast.success('License generated successfully');
-    } catch (error: any) {
+    } catch (error) {
       toast.error('Failed to generate license', {
-        description: error?.response?.data?.error || 'Please try again',
+        description: getErrorMessage(error, 'Please try again'),
       });
     }
   };
@@ -108,7 +118,7 @@ export default function GenerateLicensePage() {
               <Select
                 value={formData.licenseType}
                 onValueChange={(value) =>
-                  setFormData({ ...formData, licenseType: value as any })
+                  setFormData({ ...formData, licenseType: value as LicenseType })
                 }
               >
                 <SelectTrigger>
@@ -130,7 +140,7 @@ export default function GenerateLicensePage() {
               <Select
                 value={formData.durationType}
                 onValueChange={(value) =>
-                  setFormData({ ...formData, durationType: value as any })
+                  setFormData({ ...formData, durationType: value as DurationType })
                 }
               >
                 <SelectTrigger>

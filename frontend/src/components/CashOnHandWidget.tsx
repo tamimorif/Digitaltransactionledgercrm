@@ -15,6 +15,8 @@ interface CashBalances {
     updatedAt?: string;
 }
 
+type RateMap = Record<string, number>;
+
 export function CashOnHandWidget() {
     const [balances, setBalances] = useState<CashBalances>({
         CAD: 0,
@@ -74,10 +76,10 @@ export function CashOnHandWidget() {
         try {
             // Try new format first (from BuySellRatesWidget)
             let stored = localStorage.getItem('buySellRates');
-            let rates: any;
+            let rates: RateMap;
 
             if (stored) {
-                rates = JSON.parse(stored);
+                rates = JSON.parse(stored) as RateMap;
                 // Start with CAD (base currency)
                 let total = balances.CAD;
 
@@ -103,7 +105,7 @@ export function CashOnHandWidget() {
             stored = localStorage.getItem('dailyRates');
             if (!stored) return balances.CAD;
 
-            rates = JSON.parse(stored);
+            rates = JSON.parse(stored) as RateMap;
             let total = balances.CAD;
 
             if (rates.CAD > 0) total += balances.USD * rates.CAD;
@@ -111,7 +113,7 @@ export function CashOnHandWidget() {
             if (rates.IRR > 0 && rates.CAD > 0) total += (balances.IRR / rates.IRR) * rates.CAD;
 
             return total;
-        } catch (error) {
+        } catch {
             return balances.CAD;
         }
     };

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { remittanceApi } from '@/src/lib/remittanceApi';
 import { CreateIncomingRemittanceRequest } from '@/src/models/remittance';
-import { PAYMENT_METHOD_LABELS } from '@/src/models/remittance';
+import { getErrorMessage } from '@/src/lib/error';
 
 export default function CreateIncomingRemittance() {
     const router = useRouter();
@@ -68,8 +68,8 @@ export default function CreateIncomingRemittance() {
 
             // Success! Redirect to dashboard
             router.push('/remittances/dashboard');
-        } catch (err: any) {
-            setError(err.message || 'Failed to create remittance');
+        } catch (err) {
+            setError(getErrorMessage(err, 'Failed to create remittance'));
         } finally {
             setLoading(false);
         }

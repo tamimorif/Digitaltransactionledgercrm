@@ -86,7 +86,7 @@ func (bh *BranchHandler) GetBranchesHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	branches, err := bh.BranchService.GetBranches(*user.TenantID)
+	branches, err := bh.BranchService.GetBranchesWithStats(*user.TenantID)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return

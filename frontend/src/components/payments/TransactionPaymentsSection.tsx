@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Button } from '@/src/components/ui/button';
 import {
@@ -16,6 +16,7 @@ import {
     useCompleteTransaction
 } from '@/src/lib/queries/payment.query';
 import { Transaction } from '@/src/lib/models/client.model';
+import type { CreatePaymentRequest } from '@/src/lib/models/payment.model';
 import { CheckCircle2 } from 'lucide-react';
 import { canCompleteTransaction } from '@/src/lib/payment-api';
 
@@ -35,7 +36,7 @@ export default function TransactionPaymentsSection({ transaction }: TransactionP
     // Get last payment info for repeat functionality
     const lastPayment = payments && payments.length > 0 ? payments[0] : null;
 
-    const handleAddPayment = async (data: any) => {
+    const handleAddPayment = async (data: CreatePaymentRequest) => {
         await createPaymentMutation.mutateAsync(data);
         setShowAddDialog(false);
         setQuickPayAmount(null);
@@ -46,7 +47,7 @@ export default function TransactionPaymentsSection({ transaction }: TransactionP
         setShowCompleteDialog(false);
     };
 
-    const handleQuickPay = (amount: number, description: string) => {
+    const handleQuickPay = (amount: number) => {
         setQuickPayAmount(amount);
         setShowAddDialog(true);
     };

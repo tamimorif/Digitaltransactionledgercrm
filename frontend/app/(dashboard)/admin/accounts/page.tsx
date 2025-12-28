@@ -22,9 +22,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/src/components/ui/dialog';
-import { Loader2, Users, Search, Eye, Building2, Mail, Calendar, Shield, UserCheck } from 'lucide-react';
+import { Loader2, Users, Search, Eye, Building2, Mail, Shield, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import axiosInstance from '@/src/lib/axios-config';
+import { getErrorMessage } from '@/src/lib/error';
 
 interface User {
     id: number;
@@ -82,9 +83,9 @@ export default function AllAccountsPage() {
             const response = await axiosInstance.get('/admin/users');
             setUsers(response.data);
             setFilteredUsers(response.data);
-        } catch (error: any) {
+        } catch (error) {
             toast.error('Failed to fetch users', {
-                description: error?.response?.data?.error || 'Please try again',
+                description: getErrorMessage(error, 'Please try again'),
             });
         } finally {
             setIsLoading(false);
@@ -123,9 +124,9 @@ export default function AllAccountsPage() {
                 }
                 setShowDetailDialog(true);
             }
-        } catch (error: any) {
+        } catch (error) {
             toast.error('Failed to fetch user details', {
-                description: error?.response?.data?.error || 'Please try again',
+                description: getErrorMessage(error, 'Please try again'),
             });
         }
     };
@@ -156,7 +157,7 @@ export default function AllAccountsPage() {
         }
     };
 
-    const getRoleBadgeVariant = (role: string): any => {
+    const getRoleBadgeVariant = (role: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
         switch (role) {
             case 'superadmin':
                 return 'destructive';

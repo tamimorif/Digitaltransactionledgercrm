@@ -9,6 +9,7 @@ import {
     cancelPayment,
     completeTransaction,
 } from '../payment-api';
+import { getErrorMessage } from '../error';
 import type {
     Payment,
     CreatePaymentRequest,
@@ -68,8 +69,8 @@ export function useCreatePayment(transactionId: string) {
             queryClient.invalidateQueries({ queryKey: ['transactions', transactionId] });
             queryClient.invalidateQueries({ queryKey: ['transactions'] });
         },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.message || 'Failed to add payment');
+        onError: (error) => {
+            toast.error(getErrorMessage(error, 'Failed to add payment'));
         },
     });
 }
@@ -91,8 +92,8 @@ export function useUpdatePayment(transactionId: string) {
             queryClient.invalidateQueries({ queryKey: paymentKeys.detail(variables.paymentId) });
             queryClient.invalidateQueries({ queryKey: ['transactions', transactionId] });
         },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.message || 'Failed to update payment');
+        onError: (error) => {
+            toast.error(getErrorMessage(error, 'Failed to update payment'));
         },
     });
 }
@@ -112,8 +113,8 @@ export function useDeletePayment(transactionId: string) {
             queryClient.invalidateQueries({ queryKey: paymentKeys.list(transactionId) });
             queryClient.invalidateQueries({ queryKey: ['transactions', transactionId] });
         },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.message || 'Failed to delete payment');
+        onError: (error) => {
+            toast.error(getErrorMessage(error, 'Failed to delete payment'));
         },
     });
 }
@@ -134,8 +135,8 @@ export function useCancelPayment(transactionId: string) {
             queryClient.invalidateQueries({ queryKey: paymentKeys.list(transactionId) });
             queryClient.invalidateQueries({ queryKey: ['transactions', transactionId] });
         },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.message || 'Failed to cancel payment');
+        onError: (error) => {
+            toast.error(getErrorMessage(error, 'Failed to cancel payment'));
         },
     });
 }
@@ -156,8 +157,8 @@ export function useCompleteTransaction() {
             queryClient.invalidateQueries({ queryKey: ['transactions', transactionId] });
             queryClient.invalidateQueries({ queryKey: ['transactions'] });
         },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.message || 'Failed to complete transaction');
+        onError: (error) => {
+            toast.error(getErrorMessage(error, 'Failed to complete transaction'));
         },
     });
 }

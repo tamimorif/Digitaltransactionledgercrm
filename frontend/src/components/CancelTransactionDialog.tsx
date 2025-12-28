@@ -15,6 +15,7 @@ import { Textarea } from './ui/textarea';
 import { useCancelTransaction } from '@/src/lib/queries/client.query';
 import { toast } from 'sonner';
 import { AlertTriangle, Loader2 } from 'lucide-react';
+import { getErrorMessage } from '@/src/lib/error';
 
 interface CancelTransactionDialogProps {
     open: boolean;
@@ -48,8 +49,8 @@ export function CancelTransactionDialog({
             setReason('');
             onOpenChange(false);
             onSuccess?.();
-        } catch (error: any) {
-            toast.error(error.response?.data || 'Failed to cancel transaction');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to cancel transaction'));
         }
     };
 

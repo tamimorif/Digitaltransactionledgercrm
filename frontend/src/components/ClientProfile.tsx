@@ -18,9 +18,7 @@ import {
   ArrowDownRight,
   X,
   Edit,
-  Info,
   History,
-  Loader2,
   Filter,
   FilterX,
   Wallet,
@@ -79,6 +77,20 @@ interface Transaction {
   allowPartialPayment?: boolean;
   // Profit field
   profit?: number;
+}
+
+interface EditHistoryEntry {
+  type?: string;
+  sendAmount?: number;
+  sendCurrency?: string;
+  receiveAmount?: number;
+  receiveCurrency?: string;
+  rateApplied?: number;
+  feeCharged?: number;
+  beneficiaryName?: string;
+  beneficiaryDetails?: string;
+  userNotes?: string;
+  editedAt?: string;
 }
 
 interface ClientProfileProps {
@@ -220,7 +232,7 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Branches</SelectItem>
-                  {branches?.map((branch: any) => (
+                  {branches?.map((branch) => (
                     <SelectItem key={branch.id} value={String(branch.id)}>
                       {branch.name}
                     </SelectItem>
@@ -365,7 +377,7 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
                                         <p className="text-xs text-amber-700">
                                           {(() => {
                                             try {
-                                              const history = JSON.parse(tx.editHistory || '[]');
+                                              const history = JSON.parse(tx.editHistory || '[]') as EditHistoryEntry[];
                                               return `${history.length} previous ${history.length === 1 ? 'version' : 'versions'}`;
                                             } catch {
                                               return 'Previous versions';
@@ -378,8 +390,8 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
                                   <div className="p-4 space-y-3 max-h-[500px] overflow-y-auto">
                                     {(() => {
                                       try {
-                                        const history = JSON.parse(tx.editHistory || '[]');
-                                        return history.slice().reverse().map((edit: any, index: number) => (
+                                        const history = JSON.parse(tx.editHistory || '[]') as EditHistoryEntry[];
+                                        return history.slice().reverse().map((edit, index: number) => (
                                           <div
                                             key={index}
                                             className="p-4 bg-white rounded-xl border-2 border-gray-100 shadow-sm hover:shadow-md transition-shadow"
@@ -395,11 +407,17 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
                                                 </span>
                                               </div>
                                               <span className="text-xs text-gray-400 font-medium">
-                                                {new Date(edit.editedAt).toLocaleDateString()} at{' '}
-                                                {new Date(edit.editedAt).toLocaleTimeString([], {
-                                                  hour: '2-digit',
-                                                  minute: '2-digit'
-                                                })}
+                                                {edit.editedAt ? (
+                                                  <>
+                                                    {new Date(edit.editedAt).toLocaleDateString()} at{' '}
+                                                    {new Date(edit.editedAt).toLocaleTimeString([], {
+                                                      hour: '2-digit',
+                                                      minute: '2-digit'
+                                                    })}
+                                                  </>
+                                                ) : (
+                                                  'Date unavailable'
+                                                )}
                                               </span>
                                             </div>
 
@@ -461,7 +479,7 @@ export function ClientProfile({ client, onClose }: ClientProfileProps) {
                                             </div>
                                           </div>
                                         ));
-                                      } catch (error) {
+                                      } catch {
                                         return (
                                           <div className="text-sm text-gray-500 text-center py-4">
                                             Unable to load edit history

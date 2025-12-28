@@ -23,7 +23,8 @@ import {
   SelectValue,
 } from './ui/select';
 import { toast } from 'sonner';
-import { Calculator, ArrowDownRight, Wallet } from 'lucide-react';
+import { Wallet } from 'lucide-react';
+import { getErrorMessage } from '@/src/lib/error';
 
 interface Transaction {
   id: string;
@@ -98,10 +99,10 @@ export function PaymentDialog({
         exchangeRate: '',
         notes: '',
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error adding payment:', error);
       toast.error('Failed to add payment', {
-        description: error?.response?.data?.error || 'Please try again',
+        description: getErrorMessage(error, 'Please try again'),
       });
     } finally {
       setIsSubmitting(false);
@@ -114,7 +115,7 @@ export function PaymentDialog({
         <DialogHeader>
           <DialogTitle>Add Payment / Drawdown</DialogTitle>
           <DialogDescription>
-            Record a payment from the client's balance.
+            Record a payment from the client&apos;s balance.
           </DialogDescription>
         </DialogHeader>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import '@/src/lib/i18n/config';
@@ -12,7 +12,7 @@ import { Button } from '@/src/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { Textarea } from '@/src/components/ui/textarea';
 import { toast } from 'sonner';
-import { Loader2, Send, CheckCircle, Search, User, Phone, X, Check, AlertCircle, Star, Clock, Calculator, FileText, CreditCard, Banknote } from 'lucide-react';
+import { Loader2, Send, CheckCircle, Search, User, Phone, Check, AlertCircle, Star, Clock, Calculator } from 'lucide-react';
 import { useCreatePickupTransaction, useGetPickupTransactions } from '@/src/lib/queries/pickup.query';
 import { useGetBranches } from '@/src/lib/queries/branch.query';
 import { useSearchCustomers, useFindOrCreateCustomer } from '@/src/lib/queries/customer.query';
@@ -26,7 +26,8 @@ import { CashBalanceWidget } from '@/src/components/CashBalanceWidget';
 import { TransactionSummaryDashboard } from '@/src/components/TransactionSummaryDashboard';
 import { QuickAmountButtons } from '@/src/components/QuickAmountButtons';
 
-import { calculateReceivedAmount, saveRateToHistory, getLastRate, findDuplicateTransaction, formatTimeAgo } from '@/src/lib/transaction-helpers';
+import { calculateReceivedAmount, saveRateToHistory, getLastRate, findDuplicateTransaction, formatTimeAgo, type DuplicateCheckableTransaction } from '@/src/lib/transaction-helpers';
+import { getErrorMessage } from '@/src/lib/error';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'IRR', 'AED', 'TRY'];
 
@@ -43,6 +44,28 @@ interface RecentRecipient {
     lastUsed: string;
 }
 
+type TransactionType = 'CASH_PICKUP' | 'CASH_EXCHANGE' | 'BANK_TRANSFER' | 'CARD_SWAP_IRR' | 'INCOMING_FUNDS';
+type IdType = 'passport' | 'national_id' | 'drivers_license' | 'other';
+
+type FormData = {
+    senderName: string;
+    senderPhone: string;
+    recipientName: string;
+    recipientPhone: string;
+    recipientIban: string;
+    transactionType: TransactionType;
+    receiverBranchId: string;
+    amount: string;
+    senderCurrency: string;
+    receiverCurrency: string;
+    exchangeRate: string;
+    fees: string;
+    notes: string;
+    idType: IdType;
+    idNumber: string;
+    allowPartialPayment: boolean;
+};
+
 export default function SendMoneyPickupPage() {
     const router = useRouter();
     const { user } = useAuth();
@@ -55,13 +78,13 @@ export default function SendMoneyPickupPage() {
         }
     }, [user, router]);
 
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<FormData>({
         senderName: '',
         senderPhone: '',
         recipientName: '',
         recipientPhone: '',
         recipientIban: '',
-        transactionType: 'CASH_PICKUP' as 'CASH_PICKUP' | 'CASH_EXCHANGE' | 'BANK_TRANSFER' | 'CARD_SWAP_IRR' | 'INCOMING_FUNDS',
+        transactionType: 'CASH_PICKUP',
         receiverBranchId: '',
         amount: '',
         senderCurrency: '',
@@ -69,7 +92,7 @@ export default function SendMoneyPickupPage() {
         exchangeRate: '1',
         fees: '',
         notes: '',
-        idType: 'passport' as 'passport' | 'national_id' | 'drivers_license' | 'other',
+        idType: 'passport',
         idNumber: '',
         allowPartialPayment: false,
     });
@@ -81,8 +104,6 @@ export default function SendMoneyPickupPage() {
     const [showRecipientResults, setShowRecipientResults] = useState(false);
     const [senderExists, setSenderExists] = useState<boolean | null>(null);
     const [recipientExists, setRecipientExists] = useState<boolean | null>(null);
-    const [selectedSenderCustomer, setSelectedSenderCustomer] = useState<Customer | null>(null);
-    const [selectedRecipientCustomer, setSelectedRecipientCustomer] = useState<Customer | null>(null);
 
     // Refs for click outside and auto-focus
     const senderSearchRef = useRef<HTMLDivElement>(null);
@@ -95,7 +116,7 @@ export default function SendMoneyPickupPage() {
     const [favorites, setFavorites] = useState<string[]>([]); // Store phone numbers of favorites
     const [showPreview, setShowPreview] = useState(false);
     const [showCalculator, setShowCalculator] = useState(false);
-    const [duplicateWarning, setDuplicateWarning] = useState<any | null>(null);
+    const [duplicateWarning, setDuplicateWarning] = useState<DuplicateCheckableTransaction | null>(null);
 
     const { data: branches } = useGetBranches();
     const createPickupMutation = useCreatePickupTransaction();
@@ -145,7 +166,7 @@ export default function SendMoneyPickupPage() {
                     // Clean up empty drafts
                     localStorage.removeItem('transaction_draft');
                 }
-            } catch (e) {
+            } catch {
                 localStorage.removeItem('transaction_draft');
             }
         }
@@ -182,7 +203,7 @@ export default function SendMoneyPickupPage() {
                 senderCurrency: 'IRR',
             }));
         }
-    }, [formData.transactionType]);
+    }, [formData.transactionType, formData.senderCurrency]);
 
     // Auto-load last used rate for Card Swap
     useEffect(() => {
@@ -192,7 +213,7 @@ export default function SendMoneyPickupPage() {
                 setFormData(prev => ({ ...prev, exchangeRate: lastRate }));
             }
         }
-    }, [formData.transactionType, formData.receiverCurrency]);
+    }, [formData.transactionType, formData.receiverCurrency, formData.exchangeRate]);
 
     // Handle click outside to close search results
     useEffect(() => {
@@ -279,7 +300,7 @@ export default function SendMoneyPickupPage() {
                 setFormData(prev => ({ ...prev, exchangeRate: lastRate || '1' }));
             }
         }
-    }, [formData.senderCurrency, formData.receiverCurrency]);
+    }, [formData.senderCurrency, formData.receiverCurrency, formData.exchangeRate]);
 
     // Duplicate detection
     useEffect(() => {
@@ -291,7 +312,7 @@ export default function SendMoneyPickupPage() {
                 recentPickups.data,
                 10 // 10 minutes
             );
-            setDuplicateWarning(duplicate);
+            setDuplicateWarning(duplicate ?? null);
         } else {
             setDuplicateWarning(null);
         }
@@ -318,7 +339,6 @@ export default function SendMoneyPickupPage() {
     };
 
     const selectSenderCustomer = (customer: Customer) => {
-        setSelectedSenderCustomer(customer);
         setFormData({
             ...formData,
             senderName: customer.fullName,
@@ -350,7 +370,6 @@ export default function SendMoneyPickupPage() {
     };
 
     const selectRecipientCustomer = (customer: Customer) => {
-        setSelectedRecipientCustomer(customer);
         setFormData({
             ...formData,
             recipientName: customer.fullName,
@@ -382,6 +401,32 @@ export default function SendMoneyPickupPage() {
         toast.success(favorites.includes(phone) ? 'Removed from favorites' : 'Added to favorites');
     };
 
+    const clearForm = useCallback(() => {
+        setFormData({
+            senderName: '',
+            senderPhone: '',
+            recipientName: '',
+            recipientPhone: '',
+            recipientIban: '',
+            transactionType: 'CASH_PICKUP',
+            receiverBranchId: '',
+            amount: '',
+            senderCurrency: '',
+            receiverCurrency: '',
+            exchangeRate: '1',
+            fees: '0',
+            notes: '',
+            idType: 'passport',
+            idNumber: '',
+            allowPartialPayment: false,
+        });
+        setSenderExists(null);
+        setRecipientExists(null);
+        setDuplicateWarning(null);
+        localStorage.removeItem('transaction_draft');
+        toast.success(t('transaction.validation.fillRequired'));
+    }, [t]);
+
     // Keyboard shortcuts
     useEffect(() => {
         const handleKeyboard = (e: KeyboardEvent) => {
@@ -405,35 +450,7 @@ export default function SendMoneyPickupPage() {
 
         document.addEventListener('keydown', handleKeyboard);
         return () => document.removeEventListener('keydown', handleKeyboard);
-    }, [showPreview, showCalculator]);
-
-    const clearForm = () => {
-        setFormData({
-            senderName: '',
-            senderPhone: '',
-            recipientName: '',
-            recipientPhone: '',
-            recipientIban: '',
-            transactionType: 'CASH_PICKUP',
-            receiverBranchId: '',
-            amount: '',
-            senderCurrency: '',
-            receiverCurrency: '',
-            exchangeRate: '1',
-            fees: '0',
-            notes: '',
-            idType: 'passport',
-            idNumber: '',
-            allowPartialPayment: false,
-        });
-        setSenderExists(null);
-        setRecipientExists(null);
-        setSelectedSenderCustomer(null);
-        setSelectedRecipientCustomer(null);
-        setDuplicateWarning(null);
-        localStorage.removeItem('transaction_draft');
-        toast.success(t('transaction.validation.fillRequired'));
-    };
+    }, [showPreview, showCalculator, clearForm]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -569,8 +586,8 @@ export default function SendMoneyPickupPage() {
 
             // Reset form and states
             clearForm();
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Failed to create money transfer');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to create money transfer'));
         }
     };
 
@@ -619,21 +636,8 @@ export default function SendMoneyPickupPage() {
     }
 
     return (
-        <div className="container max-w-4xl mx-auto py-8 space-y-6">
-            {/* Language Toggle */}
-            <div className="flex justify-end">
-                <LanguageToggle />
-            </div>
-
-            {/* Transaction Summary Dashboard */}
-            {recentPickups?.data && recentPickups.data.length > 0 && (
-                <TransactionSummaryDashboard transactions={recentPickups.data} />
-            )}
-
-            {/* Cash Balance Widget */}
-            <CashBalanceWidget />
-
-            <div className="flex items-center justify-between">
+        <div className="mx-auto w-full max-w-6xl px-6 py-8 space-y-6">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
                     <h1 className="text-3xl font-bold">
                         {t(`transaction.types.${formData.transactionType}`)}
@@ -642,9 +646,14 @@ export default function SendMoneyPickupPage() {
                         {t(`transaction.descriptions.${formData.transactionType}`)}
                     </p>
                 </div>
+                <div className="flex items-center gap-3">
+                    <LanguageToggle />
+                </div>
             </div>
 
-            <form onSubmit={handleSubmit}>
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr),340px]">
+                <div className="space-y-6">
+                    <form onSubmit={handleSubmit}>
                 <Card className="overflow-visible">
                     <CardHeader>
                         <CardTitle>
@@ -770,7 +779,7 @@ export default function SendMoneyPickupPage() {
                                     <Label htmlFor="idType">{t('transaction.labels.idType')} (Optional)</Label>
                                     <Select
                                         value={formData.idType}
-                                        onValueChange={(value: any) => setFormData({ ...formData, idType: value })}
+                                        onValueChange={(value) => setFormData({ ...formData, idType: value as IdType })}
                                     >
                                         <SelectTrigger id="idType">
                                             <SelectValue placeholder="Select ID type" />
@@ -950,7 +959,7 @@ export default function SendMoneyPickupPage() {
                             <Label htmlFor="transactionType">Transaction Type *</Label>
                             <Select
                                 value={formData.transactionType}
-                                onValueChange={(value: any) => setFormData({ ...formData, transactionType: value })}
+                                onValueChange={(value) => setFormData({ ...formData, transactionType: value as TransactionType })}
                             >
                                 <SelectTrigger id="transactionType">
                                     <SelectValue />
@@ -1003,7 +1012,7 @@ export default function SendMoneyPickupPage() {
                                         <SelectValue placeholder="Select branch where money will be picked up" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {branches?.map((branch: any) => (
+                                        {branches?.map((branch) => (
                                             <SelectItem key={branch.id} value={branch.id.toString()}>
                                                 {branch.name} ({branch.branchCode})
                                             </SelectItem>
@@ -1383,53 +1392,84 @@ export default function SendMoneyPickupPage() {
                     </Button>
                 </div>
 
-                {/* Keyboard Shortcuts Help */}
-                <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border text-xs text-muted-foreground">
-                    <p className="font-medium mb-1">⌨️ Keyboard Shortcuts:</p>
-                    <div className="grid grid-cols-2 gap-2">
-                        <span>• <kbd className="px-1 py-0.5 bg-white dark:bg-gray-800 rounded border">Ctrl/Cmd + S</kbd> Review transaction</span>
-                        <span>• <kbd className="px-1 py-0.5 bg-white dark:bg-gray-800 rounded border">Ctrl/Cmd + K</kbd> Toggle calculator</span>
-                        <span>• <kbd className="px-1 py-0.5 bg-white dark:bg-gray-800 rounded border">Esc</kbd> Clear form</span>
-                        <span>• Auto-saves every second</span>
-                    </div>
+                    </form>
                 </div>
-            </form>
 
-            {/* Calculator Widget */}
-            {showCalculator && (
-                <div className="mt-6">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowCalculator(false)}
-                        className="mb-3"
-                    >
-                        Hide Calculator
-                    </Button>
-                    <CalculatorWidget
-                        onRateCalculated={(from, to, rate) => {
-                            setFormData({
-                                ...formData,
-                                senderCurrency: from,
-                                receiverCurrency: to,
-                                exchangeRate: rate.toString(),
-                            });
-                            toast.success(`Rate applied: 1 ${from} = ${rate} ${to}`);
-                        }}
-                    />
+                <div className="space-y-6">
+                    {recentPickups?.data && recentPickups.data.length > 0 && (
+                        <Card className="border-border/60">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-semibold">Today Snapshot</CardTitle>
+                                <CardDescription className="text-xs">
+                                    Latest pickup activity across currencies
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                                <TransactionSummaryDashboard transactions={recentPickups.data} compact />
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    <CashBalanceWidget compact />
+
+                    <Card className="border-border/60">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-semibold">Quick Tools</CardTitle>
+                            <CardDescription className="text-xs">Utilities for fast rate checks</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setShowCalculator((prev) => !prev)}
+                                className="w-full justify-start"
+                            >
+                                <Calculator className="mr-2 h-4 w-4" />
+                                {showCalculator ? 'Hide Calculator' : 'Show Calculator'}
+                            </Button>
+                            <div className="text-xs text-muted-foreground">
+                                Tip: Press Ctrl/Cmd + K to toggle the calculator.
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {showCalculator && (
+                        <CalculatorWidget
+                            sticky={false}
+                            onRateCalculated={(from, to, rate) => {
+                                setFormData({
+                                    ...formData,
+                                    senderCurrency: from,
+                                    receiverCurrency: to,
+                                    exchangeRate: rate.toString(),
+                                });
+                                toast.success(`Rate applied: 1 ${from} = ${rate} ${to}`);
+                            }}
+                        />
+                    )}
+
+                    <Card className="border-border/60">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-semibold">Keyboard Shortcuts</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-xs text-muted-foreground">
+                            <div className="flex items-center justify-between">
+                                <span>Review transaction</span>
+                                <kbd className="px-1 py-0.5 rounded border bg-muted">Ctrl/Cmd + S</kbd>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span>Toggle calculator</span>
+                                <kbd className="px-1 py-0.5 rounded border bg-muted">Ctrl/Cmd + K</kbd>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span>Clear form</span>
+                                <kbd className="px-1 py-0.5 rounded border bg-muted">Esc</kbd>
+                            </div>
+                            <div className="text-xs text-muted-foreground">Drafts auto-save every second.</div>
+                        </CardContent>
+                    </Card>
                 </div>
-            )}
-
-            {!showCalculator && (
-                <Button
-                    variant="outline"
-                    onClick={() => setShowCalculator(true)}
-                    className="mt-4"
-                >
-                    <Calculator className="mr-2 h-4 w-4" />
-                    Show Calculator
-                </Button>
-            )}
+            </div>
 
             {/* Transaction Preview Dialog */}
             <TransactionPreviewDialog
@@ -1458,8 +1498,8 @@ export default function SendMoneyPickupPage() {
                         : undefined,
                     fees: formData.fees,
                     notes: formData.notes,
-                    senderBranch: branches?.find((b: any) => b.id === user?.primaryBranchId)?.name,
-                    receiverBranch: branches?.find((b: any) => b.id === parseInt(formData.receiverBranchId))?.name,
+                    senderBranch: branches?.find((branch) => branch.id === user?.primaryBranchId)?.name,
+                    receiverBranch: branches?.find((branch) => branch.id === parseInt(formData.receiverBranchId))?.name,
                     allowPartialPayment: formData.allowPartialPayment,
                 }}
             />

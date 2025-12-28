@@ -18,9 +18,10 @@ import { useMarkAsPickedUp } from '@/src/lib/queries/pickup.query';
 import { EditPickupDialog } from '@/src/components/EditPickupDialog';
 import { ManagePaymentsDialog } from '@/src/components/ManagePaymentsDialog';
 import { PickupTransaction } from '@/src/lib/models/pickup.model';
-import { exportToCSV, exportToExcel, exportToPDF } from '@/src/lib/export';
+import { exportToCSV, exportToExcel, exportToPDF, type ExportTransaction } from '@/src/lib/export';
 import { LiveIndicator } from '@/src/components/LiveIndicator';
 import { useWebSocket, usePickupUpdates } from '@/src/hooks/useWebSocket';
+import type { WSMessage } from '@/src/lib/websocket.service';
 
 
 interface PendingPickup {
@@ -79,9 +80,10 @@ export default function PendingPickupsPage() {
     });
 
     // Handle pickup updates via WebSocket
-    const handlePickupUpdate = useCallback((message: any) => {
+    const handlePickupUpdate = useCallback((message: WSMessage) => {
+        const pickupCode = (message.data as { pickupCode?: string }).pickupCode || 'New';
         console.log('Pickup update:', message);
-        toast.info(`Pickup ${message.action}: ${message.data.pickupCode || 'New'}`, {
+        toast.info(`Pickup ${message.action}: ${pickupCode}`, {
             description: 'Pickup data has been updated',
         });
         // Refresh pickup list
@@ -115,10 +117,28 @@ export default function PendingPickupsPage() {
             setShowVerifyDialog(false);
             setSelectedPickup(null);
             refetch();
-        } catch (error) {
+        } catch {
             toast.error('Failed to verify transaction');
         }
     };
+
+    const toExportTransaction = (pickup: PendingPickup): ExportTransaction => ({
+        pickupCode: pickup.pickupCode,
+        transactionType: 'PICKUP',
+        senderName: pickup.senderName,
+        senderPhone: pickup.senderPhone,
+        recipientName: pickup.recipientName,
+        recipientPhone: pickup.recipientPhone,
+        amount: pickup.amount,
+        currency: pickup.currency,
+        receiverCurrency: pickup.receiverCurrency,
+        exchangeRate: pickup.exchangeRate,
+        receiverAmount: pickup.receiverAmount,
+        fees: pickup.fees,
+        status: pickup.status,
+        createdAt: pickup.createdAt,
+        notes: pickup.notes,
+    });
 
     const handleEditSuccess = () => {
         refetch();
@@ -175,7 +195,7 @@ export default function PendingPickupsPage() {
                                             const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter;
                                             return matchesDate && matchesStatus;
                                         });
-                                        exportToCSV(filtered as any, 'transactions');
+                                        exportToCSV(filtered.map(toExportTransaction), 'transactions');
                                         toast.success(`Exported ${filtered.length} transactions to CSV`);
                                     }}
                                 >
@@ -192,7 +212,7 @@ export default function PendingPickupsPage() {
                                             const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter;
                                             return matchesDate && matchesStatus;
                                         });
-                                        exportToExcel(filtered as any, 'transactions');
+                                        exportToExcel(filtered.map(toExportTransaction), 'transactions');
                                         toast.success(`Exported ${filtered.length} transactions to Excel`);
                                     }}
                                 >
@@ -209,7 +229,7 @@ export default function PendingPickupsPage() {
                                             const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter;
                                             return matchesDate && matchesStatus;
                                         });
-                                        exportToPDF(filtered as any, 'transactions');
+                                        exportToPDF(filtered.map(toExportTransaction), 'transactions');
                                     }}
                                 >
                                     <Download className="h-4 w-4 mr-2" />

@@ -108,7 +108,7 @@ func (h *LedgerHandler) AddEntry(w http.ResponseWriter, r *http.Request) {
 		BranchID:    user.PrimaryBranchID,
 		Type:        req.Type,
 		Currency:    req.Currency,
-		Amount:      req.Amount,
+		Amount:      models.NewDecimal(req.Amount),
 		Description: req.Description,
 		CreatedBy:   user.ID,
 	}

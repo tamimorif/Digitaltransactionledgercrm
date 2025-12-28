@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { Loader2, Plus, Trash2, User } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import { getErrorMessage } from '@/src/lib/error';
 
 interface BranchUser {
     id: number;
@@ -64,8 +65,8 @@ export function ManageBranchUsersDialog({ open, onOpenChange, branchId, branchNa
             setFormData({ username: '', password: '' });
             setShowAddForm(false);
         },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.error || 'Failed to create user');
+        onError: (error) => {
+            toast.error(getErrorMessage(error, 'Failed to create user'));
         }
     });
 
@@ -82,8 +83,8 @@ export function ManageBranchUsersDialog({ open, onOpenChange, branchId, branchNa
             queryClient.invalidateQueries({ queryKey: ['branch-users', branchId] });
             toast.success('User deleted successfully');
         },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.error || 'Failed to delete user');
+        onError: (error) => {
+            toast.error(getErrorMessage(error, 'Failed to delete user'));
         }
     });
 
@@ -147,7 +148,7 @@ export function ManageBranchUsersDialog({ open, onOpenChange, branchId, branchNa
                                     <div className="text-center">
                                         <User className="h-8 w-8 mx-auto mb-2 opacity-50" />
                                         <p className="mb-2">No users assigned to this branch</p>
-                                        <p className="text-sm">Click "Add User" above to create a user account with username and password</p>
+                                        <p className="text-sm">Click &quot;Add User&quot; above to create a user account with username and password</p>
                                     </div>
                                 </CardContent>
                             </Card>

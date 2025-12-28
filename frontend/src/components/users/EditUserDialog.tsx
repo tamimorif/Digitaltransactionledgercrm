@@ -32,8 +32,9 @@ import {
 } from '@/src/components/ui/select';
 import { useUpdateUser } from '@/src/lib/queries/user.query';
 import { useGetBranches } from '@/src/lib/queries/branch.query';
-import { User } from '@/src/lib/user-api';
+import { User, UpdateUserRequest } from '@/src/lib/user-api';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/src/lib/error';
 
 const editUserSchema = z.object({
     username: z.string().min(3, 'Username must be at least 3 characters').optional().or(z.literal('')),
@@ -68,7 +69,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
 
     const onSubmit = async (data: EditUserFormValues) => {
         try {
-            const payload: any = {};
+            const payload: UpdateUserRequest = {};
 
             if (data.username && data.username !== user.username) {
                 payload.username = data.username;
@@ -93,8 +94,8 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
             await updateUserMutation.mutateAsync({ id: user.id, data: payload });
             toast.success('User updated successfully');
             onOpenChange(false);
-        } catch (error: any) {
-            toast.error(error?.response?.data?.error || 'Failed to update user');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to update user'));
         }
     };
 

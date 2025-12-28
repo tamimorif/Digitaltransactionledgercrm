@@ -20,6 +20,7 @@ import { useAuth } from '@/src/components/providers/auth-provider';
 import { toast } from 'sonner';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
+import { getErrorMessage } from '@/src/lib/error';
 
 const loginSchema = z.object({
   email: z
@@ -67,10 +68,8 @@ export function LoginForm() {
       } else {
         router.push('/dashboard');
       }
-    } catch (error: any) {
-      // Display error on the card instead of toast
-      const errorMessage = error?.response?.data?.error || 'Invalid email or password';
-      setError(errorMessage);
+    } catch (error) {
+      setError(getErrorMessage(error, 'Invalid email or password'));
     } finally {
       setIsLoading(false);
     }
@@ -148,7 +147,7 @@ export function LoginForm() {
 
       <div className="text-center text-sm">
         <p className="text-muted-foreground">
-          Don't have an account?{' '}
+          Don&apos;t have an account?{' '}
           <Link
             href="/register"
             className="font-medium text-primary hover:underline"

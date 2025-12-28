@@ -6,7 +6,6 @@ import { Button } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
 import { ScrollArea } from '@/src/components/ui/scroll-area';
 import {
-    AlertCircle,
     Clock,
     DollarSign,
     ArrowRight,
@@ -83,7 +82,7 @@ export function PendingPaymentsWidget({
                         </div>
                         <div>
                             <p className="font-medium">All Caught Up!</p>
-                            <p className="text-sm opacity-80">No pending payments at this time.</p>
+                        <p className="text-sm opacity-80">No pending actions at this time.</p>
                         </div>
                     </div>
                 </CardContent>
@@ -97,7 +96,7 @@ export function PendingPaymentsWidget({
                 <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                         <CreditCard className="h-5 w-5 text-primary" />
-                        Pending Payments
+                        Pending Actions
                         <Badge variant="secondary" className="ml-2">
                             {transactions.length}
                         </Badge>

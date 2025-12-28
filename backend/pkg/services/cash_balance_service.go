@@ -18,8 +18,8 @@ func NewCashBalanceService(db *gorm.DB) *CashBalanceService {
 }
 
 // CalculateBalanceFromTransactions calculates cash balance from transactions
-func (s *CashBalanceService) CalculateBalanceFromTransactions(tenantID uint, branchID *uint, currency string) (float64, error) {
-	var balance float64
+func (s *CashBalanceService) CalculateBalanceFromTransactions(tenantID uint, branchID *uint, currency string) (models.Decimal, error) {
+	var balance models.Decimal
 
 	// NOTE: transactions table does not have generic (currency, amount) columns.
 	// Cash balances are primarily affected by CASH payments.
@@ -37,7 +37,7 @@ func (s *CashBalanceService) CalculateBalanceFromTransactions(tenantID uint, bra
 	// Sum all completed cash payments
 	err := query.Select("COALESCE(SUM(amount), 0)").Scan(&balance).Error
 	if err != nil {
-		return 0, err
+		return models.Zero(), err
 	}
 
 	return balance, nil
@@ -75,7 +75,7 @@ func (s *CashBalanceService) GetOrCreateCashBalance(tenantID uint, branchID *uin
 		BranchID:              branchID,
 		Currency:              currency,
 		AutoCalculatedBalance: autoBalance,
-		ManualAdjustment:      0,
+		ManualAdjustment:      models.Zero(),
 		FinalBalance:          autoBalance,
 		LastCalculatedAt:      time.Now(),
 	}
@@ -104,7 +104,7 @@ func (s *CashBalanceService) RefreshCashBalance(id uint) (*models.CashBalance, e
 	now := time.Now()
 	updates := map[string]interface{}{
 		"auto_calculated_balance": autoBalance,
-		"final_balance":           autoBalance + cashBalance.ManualAdjustment,
+		"final_balance":           autoBalance.Add(cashBalance.ManualAdjustment),
 		"last_calculated_at":      now,
 		"updated_at":              now,
 	}
@@ -170,7 +170,7 @@ func (s *CashBalanceService) CreateManualAdjustment(tenantID uint, branchID *uin
 				BranchID:              branchID,
 				Currency:              currency,
 				AutoCalculatedBalance: autoBalance,
-				ManualAdjustment:      0,
+				ManualAdjustment:      models.Zero(),
 				FinalBalance:          autoBalance,
 				LastCalculatedAt:      time.Now(),
 			}
@@ -180,17 +180,18 @@ func (s *CashBalanceService) CreateManualAdjustment(tenantID uint, branchID *uin
 		}
 
 		balanceBefore := cashBalance.FinalBalance
+		amountDec := models.NewDecimal(amount)
 
 		// Create adjustment record
 		adjustment = &models.CashAdjustment{
 			TenantID:      tenantID,
 			BranchID:      branchID,
 			Currency:      currency,
-			Amount:        amount,
+			Amount:        amountDec,
 			Reason:        reason,
 			AdjustedBy:    adjustedBy,
 			BalanceBefore: balanceBefore,
-			BalanceAfter:  balanceBefore + amount,
+			BalanceAfter:  balanceBefore.Add(amountDec),
 		}
 
 		if err := tx.Create(adjustment).Error; err != nil {
@@ -206,8 +207,8 @@ func (s *CashBalanceService) CreateManualAdjustment(tenantID uint, branchID *uin
 		}
 
 		updates := map[string]interface{}{
-			"manual_adjustment":         cashBalance.ManualAdjustment + amount,
-			"final_balance":             cashBalance.FinalBalance + amount,
+			"manual_adjustment":         cashBalance.ManualAdjustment.Add(amountDec),
+			"final_balance":             cashBalance.FinalBalance.Add(amountDec),
 			"last_manual_adjustment_at": &now,
 			"updated_at":                now,
 			"version":                   gorm.Expr("version + 1"),
@@ -234,8 +235,8 @@ func (s *CashBalanceService) CreateManualAdjustment(tenantID uint, branchID *uin
 }
 
 // calculateBalanceWithTx calculates balance within a transaction
-func (s *CashBalanceService) calculateBalanceWithTx(tx *gorm.DB, tenantID uint, branchID *uint, currency string) (float64, error) {
-	var balance float64
+func (s *CashBalanceService) calculateBalanceWithTx(tx *gorm.DB, tenantID uint, branchID *uint, currency string) (models.Decimal, error) {
+	var balance models.Decimal
 
 	query := tx.Model(&models.Payment{}).
 		Where("tenant_id = ? AND currency = ? AND payment_method = ? AND status = ?",
@@ -248,7 +249,7 @@ func (s *CashBalanceService) calculateBalanceWithTx(tx *gorm.DB, tenantID uint, 
 
 	err := query.Select("COALESCE(SUM(amount), 0)").Scan(&balance).Error
 	if err != nil {
-		return 0, err
+		return models.Zero(), err
 	}
 
 	return balance, nil
@@ -281,7 +282,7 @@ func (s *CashBalanceService) UpdateCashBalance(tx *gorm.DB, tenantID uint, branc
 			BranchID:              branchID,
 			Currency:              currency,
 			AutoCalculatedBalance: autoBalance,
-			ManualAdjustment:      0,
+			ManualAdjustment:      models.Zero(),
 			FinalBalance:          autoBalance,
 			LastCalculatedAt:      time.Now(),
 		}
@@ -290,16 +291,18 @@ func (s *CashBalanceService) UpdateCashBalance(tx *gorm.DB, tenantID uint, branc
 		}
 	}
 
+	amountDec := models.NewDecimal(amount)
+
 	// Create adjustment record
 	adjustment := models.CashAdjustment{
 		TenantID:      tenantID,
 		BranchID:      branchID,
 		Currency:      currency,
-		Amount:        amount,
+		Amount:        amountDec,
 		Reason:        reason,
 		AdjustedBy:    adjustedBy,
 		BalanceBefore: cashBalance.FinalBalance,
-		BalanceAfter:  cashBalance.FinalBalance + amount,
+		BalanceAfter:  cashBalance.FinalBalance.Add(amountDec),
 	}
 
 	if err := tx.Create(&adjustment).Error; err != nil {
@@ -314,38 +317,9 @@ func (s *CashBalanceService) UpdateCashBalance(tx *gorm.DB, tenantID uint, branc
 		return err
 	}
 
-	// Determine what field to update based on context?
-	// Actually, payments affect "auto_calculated_balance" (implicitly, if we re-summed) AND "final_balance".
-	// AND manual adjustments affect "manual_adjustment" and "final_balance".
-	//
-	// Wait. `CalculateBalanceFromTransactions` sums up ALL payments.
-	// If we increment `auto_calculated_balance` here manually, we sustain the state.
-	// But if we someday re-run `CalculateBalanceFromTransactions`, it will sum up the payments table.
-	//
-	// The current logic in `PaymentService` (lines 170-174) updates `auto_calculated_balance` + amount.
-	// This is correct for PAYMENTs.
-	//
-	// However, `CreateManualAdjustment` (Line 209) updates `manual_adjustment` + amount.
-	//
-	// So `UpdateCashBalance` needs to know if it's a structural payment or a manual tweak?
-	//
-	// Actually, `PaymentService` is handling *Payments*. Payments are "Auto Calculated" sources.
-	// Manual adjustments are different.
-	//
-	// Let's add a parameter `isManual bool` or separate methods.
-	// `PaymentService` deals with `Payments`.
-
-	// Let's rename this to `RecordPaymentImpact` or `UpdateBalanceForPayment`?
-	// Or just generic `UpdateCashBalance` with `isManual` flag.
-	//
-	// Let's look at `PaymentService`:
-	// It updates `auto_calculated_balance`.
-
-	// So let's add `UpdateAutoBalance` specifically for payments.
-
 	updates := map[string]interface{}{
-		"auto_calculated_balance": cashBalance.AutoCalculatedBalance + amount,
-		"final_balance":           cashBalance.FinalBalance + amount,
+		"auto_calculated_balance": cashBalance.AutoCalculatedBalance.Add(amountDec),
+		"final_balance":           cashBalance.FinalBalance.Add(amountDec),
 		"updated_at":              now,
 		"version":                 gorm.Expr("version + 1"),
 	}

@@ -11,7 +11,11 @@ import { useGetActiveCurrencies } from '@/src/lib/queries/cash-balance.query';
 import { useGetRates } from '@/src/lib/queries/exchange-rate.query';
 import { toast } from 'sonner';
 
-export function QuickConvertWidget() {
+interface QuickConvertWidgetProps {
+    compact?: boolean;
+}
+
+export function QuickConvertWidget({ compact = false }: QuickConvertWidgetProps) {
     const [amount, setAmount] = useState<string>('');
     const [fromCurrency, setFromCurrency] = useState<string>('USD');
     const [toCurrency, setToCurrency] = useState<string>('EUR');
@@ -40,7 +44,7 @@ export function QuickConvertWidget() {
         }
 
         // Find direct rate
-        let rateObj = rates.find(r => r.baseCurrency === fromCurrency && r.targetCurrency === toCurrency);
+        const rateObj = rates.find(r => r.baseCurrency === fromCurrency && r.targetCurrency === toCurrency);
         let rate = rateObj?.rate;
 
         // If direct rate not found, try inverse
@@ -72,16 +76,21 @@ export function QuickConvertWidget() {
         setRateUsed(null);
     }, [amount, fromCurrency, toCurrency]);
 
+    const spacingClass = compact ? 'space-y-3' : 'space-y-4';
+    const inputClass = compact ? 'h-9 text-sm' : '';
+    const triggerClass = compact ? 'h-9 text-sm' : '';
+    const buttonClass = compact ? 'h-9 text-sm bg-emerald-600 hover:bg-emerald-700' : '';
+
     return (
         <Card className="h-full">
-            <CardHeader className="pb-2">
+            <CardHeader className={compact ? 'pb-1' : 'pb-2'}>
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Calculator className="h-4 w-4" />
                     Quick Convert
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="space-y-4">
+                <div className={spacingClass}>
                     <div className="space-y-2">
                         <Label htmlFor="amount">Amount</Label>
                         <Input
@@ -90,6 +99,7 @@ export function QuickConvertWidget() {
                             placeholder="0.00"
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
+                            className={inputClass}
                         />
                     </div>
 
@@ -97,7 +107,7 @@ export function QuickConvertWidget() {
                         <div className="space-y-2">
                             <Label>From</Label>
                             <Select value={fromCurrency} onValueChange={setFromCurrency}>
-                                <SelectTrigger>
+                                <SelectTrigger className={triggerClass}>
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -115,7 +125,7 @@ export function QuickConvertWidget() {
                         <div className="space-y-2">
                             <Label>To</Label>
                             <Select value={toCurrency} onValueChange={setToCurrency}>
-                                <SelectTrigger>
+                                <SelectTrigger className={triggerClass}>
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -128,7 +138,7 @@ export function QuickConvertWidget() {
                     </div>
 
                     <Button
-                        className="w-full"
+                        className={`w-full ${buttonClass}`}
                         onClick={handleCalculate}
                         disabled={!amount || isLoading}
                     >
@@ -136,11 +146,11 @@ export function QuickConvertWidget() {
                     </Button>
 
                     {result !== null && (
-                        <div className="mt-4 p-3 bg-muted rounded-md text-center">
+                        <div className={`rounded-md text-center ${compact ? 'p-2 bg-muted/60' : 'mt-4 p-3 bg-muted'}`}>
                             <div className="text-xs text-muted-foreground mb-1">
                                 Rate: {rateUsed?.toFixed(4)}
                             </div>
-                            <div className="text-xl font-bold">
+                            <div className={compact ? 'text-lg font-bold' : 'text-xl font-bold'}>
                                 {result.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 <span className="text-sm font-normal ml-1">{toCurrency}</span>
                             </div>

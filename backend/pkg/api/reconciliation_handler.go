@@ -132,3 +132,33 @@ func (h *ReconciliationHandler) GetVarianceReportHandler(w http.ResponseWriter, 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(reconciliations)
 }
+
+// GetSystemStateHandler returns the expected system balances for a branch
+func (h *ReconciliationHandler) GetSystemStateHandler(w http.ResponseWriter, r *http.Request) {
+	tenantID := middleware.GetTenantID(r)
+	if tenantID == nil {
+		http.Error(w, "Tenant ID required", http.StatusBadRequest)
+		return
+	}
+
+	branchIDStr := r.URL.Query().Get("branchId")
+	if branchIDStr == "" {
+		http.Error(w, "Branch ID required", http.StatusBadRequest)
+		return
+	}
+
+	var branchID uint
+	if _, err := fmt.Sscanf(branchIDStr, "%d", &branchID); err != nil {
+		http.Error(w, "Invalid Branch ID", http.StatusBadRequest)
+		return
+	}
+
+	systemState, err := h.ReconciliationService.GetSystemState(*tenantID, branchID)
+	if err != nil {
+		http.Error(w, "Failed to get system state: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(systemState)
+}

@@ -13,6 +13,7 @@ import {
 import { Badge } from '@/src/components/ui/badge';
 import { Loader2, Power, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
+import type { Tenant } from '@/src/lib/models/admin.model';
 
 export default function TenantManager() {
     const { data: tenants, isLoading } = useGetAllTenants();
@@ -20,28 +21,29 @@ export default function TenantManager() {
     const activateTenant = useActivateTenant();
     const deleteTenant = useDeleteTenant();
 
-    const handleStatusChange = async (tenant: any) => {
+    const handleStatusChange = async (tenant: Tenant) => {
         try {
+            const tenantId = tenant.id.toString();
             if (tenant.status === 'active') {
                 if (confirm(`Are you sure you want to suspend ${tenant.name}? Users will not be able to login.`)) {
-                    await suspendTenant.mutateAsync(tenant.id);
+                    await suspendTenant.mutateAsync(tenantId);
                     toast.success('Tenant suspended');
                 }
             } else {
-                await activateTenant.mutateAsync(tenant.id);
+                await activateTenant.mutateAsync(tenantId);
                 toast.success('Tenant activated');
             }
-        } catch (error) {
+        } catch {
             toast.error('Failed to update tenant status');
         }
     };
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = async (id: number | string) => {
         if (confirm('WARNING: This will permanently delete the tenant and ALL their data (transactions, clients, users). This action CANNOT be undone. Are you sure?')) {
             try {
-                await deleteTenant.mutateAsync(id);
+                await deleteTenant.mutateAsync(id.toString());
                 toast.success('Tenant deleted');
-            } catch (error) {
+            } catch {
                 toast.error('Failed to delete tenant');
             }
         }
@@ -81,7 +83,7 @@ export default function TenantManager() {
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            tenants?.map((tenant: any) => (
+                            tenants?.map((tenant: Tenant) => (
                                 <TableRow key={tenant.id}>
                                     <TableCell className="font-medium">{tenant.name}</TableCell>
                                     <TableCell>

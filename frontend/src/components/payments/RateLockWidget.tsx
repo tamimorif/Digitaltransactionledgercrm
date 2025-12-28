@@ -40,7 +40,6 @@ export function RateLockWidget({
     const [lockExpiresAt, setLockExpiresAt] = useState<Date | null>(null);
     const [timeRemaining, setTimeRemaining] = useState<number>(0);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [rateAtLock, setRateAtLock] = useState<number | null>(null);
 
     // Calculate rate change percentage
     const rateChangePercent = lockedRate && currentRate
@@ -49,6 +48,15 @@ export function RateLockWidget({
 
     const hasSignificantChange = Math.abs(rateChangePercent) >= rateChangeThreshold;
     const rateIncreased = rateChangePercent > 0;
+
+    const handleUnlock = useCallback(() => {
+        setIsLocked(false);
+        setLockedRate(null);
+        setLockExpiresAt(null);
+        setTimeRemaining(0);
+
+        onRateUnlocked?.();
+    }, [onRateUnlocked]);
 
     // Timer effect
     useEffect(() => {
@@ -65,28 +73,17 @@ export function RateLockWidget({
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [isLocked, lockExpiresAt]);
+    }, [handleUnlock, isLocked, lockExpiresAt]);
 
     const handleLock = useCallback(() => {
         const expiresAt = new Date(Date.now() + lockDurationMinutes * 60 * 1000);
         setIsLocked(true);
         setLockedRate(currentRate);
-        setRateAtLock(currentRate);
         setLockExpiresAt(expiresAt);
         setTimeRemaining(lockDurationMinutes * 60 * 1000);
 
         onRateLocked?.(currentRate, expiresAt);
     }, [currentRate, lockDurationMinutes, onRateLocked]);
-
-    const handleUnlock = useCallback(() => {
-        setIsLocked(false);
-        setLockedRate(null);
-        setLockExpiresAt(null);
-        setTimeRemaining(0);
-        setRateAtLock(null);
-
-        onRateUnlocked?.();
-    }, [onRateUnlocked]);
 
     const handleRefresh = async () => {
         if (!onRefreshRate) return;

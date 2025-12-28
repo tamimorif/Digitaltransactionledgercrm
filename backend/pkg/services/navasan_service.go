@@ -26,11 +26,12 @@ type NavasanRate struct {
 
 // NavasanService fetches exchange rates from navasan.tech
 type NavasanService struct {
-	client      *http.Client
-	cachedRates map[string]NavasanRate
-	cacheMutex  sync.RWMutex
-	cacheExpiry time.Time
-	cacheTTL    time.Duration
+	client          *http.Client
+	cachedRates     map[string]NavasanRate
+	cacheMutex      sync.RWMutex
+	cacheExpiry     time.Time
+	cacheTTL        time.Duration
+	updateThreshold float64
 }
 
 // NewNavasanService creates a new Navasan service
@@ -39,8 +40,9 @@ func NewNavasanService() *NavasanService {
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		cachedRates: make(map[string]NavasanRate),
-		cacheTTL:    5 * time.Minute,
+		cachedRates:     make(map[string]NavasanRate),
+		cacheTTL:        60 * time.Second,
+		updateThreshold: 0.25,
 	}
 }
 
@@ -73,6 +75,8 @@ func (s *NavasanService) GetRates() (map[string]NavasanRate, error) {
 
 // FetchRates fetches fresh rates from Navasan API
 func (s *NavasanService) FetchRates() (map[string]NavasanRate, error) {
+	previousRates := s.cloneCachedRates()
+
 	apiKey := os.Getenv("NAVASAN_API_KEY")
 	if apiKey == "" {
 		// Fallback or error? For now error to prompt configuration
@@ -113,6 +117,11 @@ func (s *NavasanService) FetchRates() (map[string]NavasanRate, error) {
 	rates := s.mapAPIResponseToRates(apiResponse)
 	now := time.Now()
 
+	updates := s.detectSignificantChanges(previousRates, rates)
+	if len(updates) > 0 {
+		s.broadcastRateUpdates(updates)
+	}
+
 	// Update cache
 	s.cacheMutex.Lock()
 	s.cachedRates = rates
@@ -120,6 +129,71 @@ func (s *NavasanService) FetchRates() (map[string]NavasanRate, error) {
 	s.cacheMutex.Unlock()
 
 	return rates, nil
+}
+
+func (s *NavasanService) cloneCachedRates() map[string]NavasanRate {
+	s.cacheMutex.RLock()
+	defer s.cacheMutex.RUnlock()
+
+	if len(s.cachedRates) == 0 {
+		return nil
+	}
+
+	clone := make(map[string]NavasanRate, len(s.cachedRates))
+	for k, v := range s.cachedRates {
+		clone[k] = v
+	}
+	return clone
+}
+
+func (s *NavasanService) detectSignificantChanges(previous, current map[string]NavasanRate) []NavasanRate {
+	if len(previous) == 0 || len(current) == 0 {
+		return nil
+	}
+
+	threshold := decimal.NewFromFloat(s.updateThreshold)
+	updates := make([]NavasanRate, 0)
+
+	for code, currentRate := range current {
+		prevRate, ok := previous[code]
+		if !ok || prevRate.Value.IsZero() {
+			continue
+		}
+
+		diff := currentRate.Value.Sub(prevRate.Value).Abs()
+		pct := diff.Div(prevRate.Value.Abs()).Mul(decimal.NewFromInt(100))
+
+		if pct.GreaterThan(threshold) || pct.Equal(threshold) {
+			updates = append(updates, currentRate)
+		}
+	}
+
+	return updates
+}
+
+func (s *NavasanService) broadcastRateUpdates(rates []NavasanRate) {
+	if len(rates) == 0 {
+		return
+	}
+
+	payload := make([]map[string]interface{}, 0, len(rates))
+	for _, rate := range rates {
+		payload = append(payload, map[string]interface{}{
+			"currency":       rate.Currency,
+			"currency_fa":    rate.CurrencyFA,
+			"value":          rate.Value.StringFixed(0),
+			"change":         rate.Change.StringFixed(0),
+			"change_percent": rate.ChangePercent,
+			"updated_at":     rate.UpdatedAt,
+			"fetched_at":     rate.FetchedAt.Format(time.RFC3339),
+		})
+	}
+
+	hub := GetHub()
+	hub.BroadcastRateUpdateAll(map[string]interface{}{
+		"rates":             payload,
+		"threshold_percent": s.updateThreshold,
+	})
 }
 
 // mapAPIResponseToRates converts API response to our domain model

@@ -62,10 +62,10 @@ func (h *Handler) GetDailyAnalyticsHandler(w http.ResponseWriter, r *http.Reques
 		count++
 
 		// Volume (Send Amount)
-		totalVolume[tx.SendCurrency] += tx.SendAmount
+		totalVolume[tx.SendCurrency] += tx.SendAmount.Float64()
 
 		// Fees (Assuming Fee is in Send Currency)
-		totalFees[tx.SendCurrency] += tx.FeeCharged
+		totalFees[tx.SendCurrency] += tx.FeeCharged.Float64()
 	}
 
 	response := AnalyticsResponse{

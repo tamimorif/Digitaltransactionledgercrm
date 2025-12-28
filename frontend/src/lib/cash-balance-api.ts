@@ -50,7 +50,7 @@ export const getAdjustmentHistory = async (
     page = 1,
     limit = 20
 ): Promise<AdjustmentHistoryResponse> => {
-    const params: Record<string, any> = { page, limit };
+    const params: Record<string, string | number> = { page, limit };
     if (branchId) params.branch_id = branchId;
     if (currency) params.currency = currency;
 

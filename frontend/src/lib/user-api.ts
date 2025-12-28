@@ -28,7 +28,7 @@ export interface UpdateUserRequest {
     username?: string;
     email?: string;
     password?: string;
-    primaryBranchId?: number;
+    primaryBranchId?: number | null;
     role?: string;
     status?: string;
 }

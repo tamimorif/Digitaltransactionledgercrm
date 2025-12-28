@@ -5,14 +5,7 @@ import { Search, UserPlus } from 'lucide-react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
-
-interface Client {
-  id: number | string;
-  name: string;
-  phoneNumber: string;
-  email: string;
-  joinDate: string;
-}
+import type { Client } from '@/src/lib/models/client.model';
 
 interface ClientSearchProps {
   onClientSelect: (client: Client) => void;

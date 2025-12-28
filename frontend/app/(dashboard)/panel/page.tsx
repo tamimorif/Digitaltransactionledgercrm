@@ -4,9 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/components/providers/auth-provider';
 import { useGetClients } from '@/src/lib/queries/client.query';
-import { DailyRatesWidget } from '@/src/components/DailyRatesWidget';
-import { CashOnHandWidget } from '@/src/components/CashOnHandWidget';
-import { BuySellRatesWidget } from '@/src/components/BuySellRatesWidget';
 import { ClientSearch } from '@/src/components/ClientSearch';
 import { ClientProfile } from '@/src/components/ClientProfile';
 import { NewClientDialog } from '@/src/components/NewClientDialog';
@@ -19,51 +16,66 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/src/lib/api-client';
 import { formatDistanceToNow } from 'date-fns';
+import type { Client } from '@/src/lib/models/client.model';
+
+type CashBalanceSummary = {
+  id: number;
+  currency: string;
+  amount?: number;
+  lastUpdated?: string;
+};
+
+type PendingPickupCount = {
+  count: number;
+};
 
 type PanelMode = 'client' | 'send-pickup' | 'receive-pickup' | 'walk-in';
 
 export default function PanelPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'superadmin';
   const { data: clients = [], isLoading } = useGetClients();
-  const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [showNewClientDialog, setShowNewClientDialog] = useState(false);
   const [showWalkInDialog, setShowWalkInDialog] = useState(false);
   const [panelMode, setPanelMode] = useState<PanelMode>('client');
 
   // Redirect SuperAdmin to admin dashboard
   useEffect(() => {
-    if (user?.role === 'superadmin') {
+    if (isSuperAdmin) {
       router.push('/admin');
     }
-  }, [user, router]);
+  }, [isSuperAdmin, router]);
 
-  const handleClientSelect = (client: any) => {
+  const handleClientSelect = (client: Client) => {
     setSelectedClient(client);
   };
 
-  // Don't render for SuperAdmin
-  if (user?.role === 'superadmin') {
-    return null;
-  }
-
   // Fetch cash balances
-  const { data: balances, isLoading: isBalancesLoading } = useQuery({
+  const { data: balances, isLoading: isBalancesLoading } = useQuery<CashBalanceSummary[]>({
     queryKey: ['cash-balances'],
     queryFn: async () => {
       const response = await apiClient.get('/cash-balances');
       return response.data;
     },
+    enabled: !isSuperAdmin,
   });
 
   // Fetch pending pickups count
-  const { data: pendingCount, isLoading: isPendingCountLoading } = useQuery({
+  const { data: pendingCount, isLoading: isPendingCountLoading } = useQuery<PendingPickupCount>({
     queryKey: ['pending-pickups-count'],
     queryFn: async () => {
       const response = await apiClient.get('/pickups/pending/count');
       return response.data;
     },
+    enabled: !isSuperAdmin,
   });
+
+  // Don't render for SuperAdmin
+  if (isSuperAdmin) {
+    return null;
+  }
 
   return (
     <div className="container mx-auto px-6 py-8">
@@ -72,7 +84,7 @@ export default function PanelPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
-            Today's Cash Balance by Currency
+            Today&apos;s Cash Balance by Currency
           </CardTitle>
           <CardDescription>Current cash on hand across all branches</CardDescription>
         </CardHeader>
@@ -83,7 +95,7 @@ export default function PanelPage() {
             </div>
           ) : balances && balances.length > 0 ? (
             <div className="space-y-4">
-              {balances.map((balance: any) => (
+              {balances.map((balance: CashBalanceSummary) => (
                 <div key={balance.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -92,7 +104,7 @@ export default function PanelPage() {
                     <div>
                       <p className="text-sm text-muted-foreground">Available Balance</p>
                       <p className="text-2xl font-bold">
-                        {parseFloat(balance.amount || 0).toLocaleString(undefined, {
+                        {(balance.amount ?? 0).toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}

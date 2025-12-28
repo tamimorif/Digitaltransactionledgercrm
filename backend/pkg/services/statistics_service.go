@@ -181,11 +181,11 @@ func (s *StatisticsService) GetTransactionsForExport(tenantID uint, branchID *ui
 			Date:               tx.CreatedAt.Format("2006-01-02 15:04:05"),
 			Type:               paymentMethod, // Assign the derived payment method to the 'Type' field
 			SendCurrency:       tx.SendCurrency,
-			SendAmount:         tx.SendAmount,
+			SendAmount:         tx.SendAmount.Float64(),
 			ReceiveCurrency:    tx.ReceiveCurrency,
-			ReceiveAmount:      tx.ReceiveAmount,
-			RateApplied:        tx.RateApplied,
-			FeeCharged:         tx.FeeCharged,
+			ReceiveAmount:      tx.ReceiveAmount.Float64(),
+			RateApplied:        tx.RateApplied.Float64(),
+			FeeCharged:         tx.FeeCharged.Float64(),
 			BeneficiaryName:    stringValue(tx.BeneficiaryName),
 			BeneficiaryPhone:   "", // Not in model
 			BeneficiaryBank:    "", // Part of BeneficiaryDetails

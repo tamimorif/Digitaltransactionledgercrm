@@ -4,10 +4,13 @@ export interface Branch {
     id: number;
     tenantId: number;
     name: string;
-    location: string;
+    location?: string;
     branchCode: string;
     isPrimary: boolean;
     status: 'active' | 'inactive';
+    username?: string | null;
+    todayVolume?: number;
+    currentCash?: number;
     createdAt: string;
     updatedAt: string;
 }

@@ -11,9 +11,13 @@ import {
 } from '@/src/components/ui/table';
 import { Badge } from '@/src/components/ui/badge';
 import { Loader2, Mail, Building2 } from 'lucide-react';
+import type { User } from '@/src/lib/models/auth.model';
+
+type AdminUser = User & { tenant?: { name?: string } };
 
 export default function UsersManager() {
     const { data: users, isLoading } = useGetAllUsers();
+    const usersList = (users ?? []) as AdminUser[];
 
     return (
         <div className="space-y-6">
@@ -40,14 +44,14 @@ export default function UsersManager() {
                                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-gray-400" />
                                 </TableCell>
                             </TableRow>
-                        ) : users?.length === 0 ? (
+                        ) : usersList.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={5} className="h-24 text-center text-gray-500">
                                     No users found.
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            users?.map((user: any) => (
+                            usersList.map((user) => (
                                 <TableRow key={user.id}>
                                     <TableCell>
                                         <div className="flex flex-col">

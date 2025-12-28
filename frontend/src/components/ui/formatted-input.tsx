@@ -53,7 +53,7 @@ const FormattedInput = React.forwardRef<HTMLInputElement, FormattedInputProps>(
             } else {
                 setDisplayValue('');
             }
-        }, [value, allowDecimals]); // Removed displayValue from deps to avoid loop, logic relies on current closure or ref
+        }, [value, allowDecimals, displayValue]);
 
 
         const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -79,9 +79,10 @@ func GenerateVerificationCode() (string, error) {
 
 // SendVerificationEmail sends a verification code to the user's email
 func (es *EmailService) SendVerificationEmail(toEmail, code string) error {
-	// ALWAYS log the code in the server logs for debugging/testing purposes
-	// This ensures you can login even if email delivery fails
-	log.Printf("🔐 [DEBUG] Verification code for %s: %s", toEmail, code)
+	// In DEV mode, log the code to console so developers can login without email
+	if es.Provider == "dev" {
+		log.Printf("🔐 [DEBUG] Verification code for %s: %s", toEmail, code)
+	}
 
 	subject := "Email Verification Code - Digital Transaction Ledger"
 	body := es.getVerificationEmailHTML(code)

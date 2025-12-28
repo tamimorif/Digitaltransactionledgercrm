@@ -7,7 +7,7 @@ export interface GlobalSearchResult {
     title: string;
     subtitle: string;
     description: string;
-    data: Record<string, any>;
+    data: Record<string, unknown>;
     createdAt?: string;
 }
 
@@ -21,7 +21,7 @@ export interface SearchFilter {
     status?: string[];
     currency?: string[];
     branchId?: number;
-    customFields?: Record<string, any>;
+    customFields?: Record<string, unknown>;
 }
 
 export interface SavedSearch {
@@ -38,7 +38,7 @@ export interface SavedSearch {
 }
 
 export interface AdvancedSearchResponse {
-    results: any[];
+    results: unknown[];
     total: number;
     page: number;
     limit: number;
@@ -52,7 +52,7 @@ export async function globalSearch(query: string, limit: number = 50): Promise<G
             params: { q: query, limit }
         });
         return response.data.results || [];
-    } catch (error: any) {
+    } catch (error) {
         console.error('Global search failed:', error);
         throw error;
     }
@@ -69,7 +69,7 @@ export async function advancedSearch(
             params: { page, limit }
         });
         return response.data;
-    } catch (error: any) {
+    } catch (error) {
         console.error('Advanced search failed:', error);
         throw error;
     }
@@ -88,7 +88,7 @@ export async function saveSearch(
             filter
         });
         return response.data;
-    } catch (error: any) {
+    } catch (error) {
         console.error('Save search failed:', error);
         throw error;
     }
@@ -99,7 +99,7 @@ export async function getSavedSearches(): Promise<SavedSearch[]> {
     try {
         const response = await axiosInstance.get('/search/saved');
         return response.data || [];
-    } catch (error: any) {
+    } catch (error) {
         console.error('Get saved searches failed:', error);
         throw error;
     }
@@ -111,7 +111,7 @@ export async function deleteSavedSearch(id: number): Promise<void> {
         await axiosInstance.delete(`/search/saved/${id}`, {
             params: { id }
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error('Delete saved search failed:', error);
         throw error;
     }

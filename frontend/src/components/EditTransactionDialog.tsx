@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from './ui/select';
 import { toast } from 'sonner';
-import { Calculator, AlertCircle, History, Loader2, Wallet, ArrowDownLeft } from 'lucide-react';
+import { Calculator, AlertCircle, History, Wallet } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import {
   Collapsible,
@@ -36,6 +36,7 @@ import {
 } from './ui/collapsible';
 
 import { Switch } from './ui/switch';
+import { getErrorMessage } from '@/src/lib/error';
 
 interface Transaction {
   id: string;
@@ -75,6 +76,20 @@ import { CURRENCIES } from '@/src/lib/constants';
 
 type TransactionType = 'CASH_EXCHANGE' | 'BANK_TRANSFER';
 
+interface EditHistoryEntry {
+  type?: string;
+  sendAmount?: number;
+  sendCurrency?: string;
+  receiveAmount?: number;
+  receiveCurrency?: string;
+  rateApplied?: number;
+  feeCharged?: number;
+  beneficiaryName?: string;
+  beneficiaryDetails?: string;
+  userNotes?: string;
+  editedAt?: string;
+  editedByBranchName?: string;
+}
 
 export function EditTransactionDialog({
   open,
@@ -99,7 +114,7 @@ export function EditTransactionDialog({
 
   const [showHistory, setShowHistory] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
-  const [editHistory, setEditHistory] = useState<any[]>([]);
+  const [editHistory, setEditHistory] = useState<EditHistoryEntry[]>([]);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
 
   const { data: payments = [], refetch: refetchPayments } = useGetPayments(transaction.id);
@@ -124,7 +139,7 @@ export function EditTransactionDialog({
       // Parse edit history
       if (transaction.editHistory) {
         try {
-          const history = JSON.parse(transaction.editHistory);
+          const history = JSON.parse(transaction.editHistory) as EditHistoryEntry[];
           setEditHistory(Array.isArray(history) ? history : []);
         } catch (error) {
           console.error('Failed to parse edit history:', error);
@@ -207,10 +222,10 @@ export function EditTransactionDialog({
       // onOpenChange(false); 
       // Let's keep it open or close based on user preference? Standard is close.
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating transaction:', error);
       toast.error('Failed to update transaction', {
-        description: error?.response?.data?.error || 'Please try again',
+        description: getErrorMessage(error, 'Please try again'),
       });
     } finally {
       setIsSubmitting(false);
@@ -297,7 +312,7 @@ export function EditTransactionDialog({
 
                         {/* Payments List */}
                         <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                          {payments.map((payment: any) => (
+                          {payments.map((payment) => (
                             <div key={payment.id} className="p-3 bg-white rounded-lg border border-blue-100 shadow-sm flex justify-between items-center">
                               <div>
                                 <div className="flex items-center gap-2">
@@ -313,7 +328,7 @@ export function EditTransactionDialog({
                                 </div>
                                 {payment.notes && (
                                   <div className="text-xs text-gray-500 italic mt-0.5">
-                                    "{payment.notes}"
+                                    &quot;{payment.notes}&quot;
                                   </div>
                                 )}
                               </div>
@@ -386,11 +401,17 @@ export function EditTransactionDialog({
                               </div>
                               <div className="text-right">
                                 <div className="text-xs text-gray-400 font-medium">
-                                  {new Date(edit.editedAt).toLocaleDateString()} at{' '}
-                                  {new Date(edit.editedAt).toLocaleTimeString([], {
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
+                                  {edit.editedAt ? (
+                                    <>
+                                      {new Date(edit.editedAt).toLocaleDateString()} at{' '}
+                                      {new Date(edit.editedAt).toLocaleTimeString([], {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </>
+                                  ) : (
+                                    'Date unavailable'
+                                  )}
                                 </div>
                                 {edit.editedByBranchName && (
                                   <div className="text-xs text-blue-600 font-medium mt-0.5">

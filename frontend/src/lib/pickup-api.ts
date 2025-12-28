@@ -21,7 +21,7 @@ export const getPickupTransactions = async (
     page = 1,
     limit = 20
 ): Promise<PickupTransactionsResponse> => {
-    const params: Record<string, any> = { page, limit };
+    const params: Record<string, string | number> = { page, limit };
     if (branchId) params.branch_id = branchId;
     if (status) params.status = status;
 

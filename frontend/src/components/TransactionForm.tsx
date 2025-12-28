@@ -26,8 +26,9 @@ import {
   SelectValue,
 } from './ui/select';
 import { toast } from 'sonner';
-import { ArrowRight, Calculator, Loader2, Star, Save } from 'lucide-react';
+import { Calculator, Star, Save } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
+import { getErrorMessage } from '@/src/lib/error';
 
 const FAVORITES_KEY = 'transaction_favorites';
 
@@ -213,10 +214,10 @@ export function TransactionForm({
       });
       setSaveAsFavorite(false);
       setFavoriteName('');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating transaction:', error);
       toast.error('Failed to create transaction', {
-        description: error?.response?.data?.error || 'Please try again',
+        description: getErrorMessage(error, 'Please try again'),
       });
     } finally {
       setIsSubmitting(false);

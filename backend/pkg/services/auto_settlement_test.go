@@ -282,12 +282,12 @@ func TestProfitAnalysisService(t *testing.T) {
 		ClientID:        client.ID,
 		PaymentMethod:   models.TransactionMethodCash,
 		SendCurrency:    "CAD",
-		SendAmount:      1250.00,
+		SendAmount:      models.NewDecimal(1250.00),
 		ReceiveCurrency: "IRR",
-		ReceiveAmount:   100000000,
-		RateApplied:     80000,
-		StandardRate:    81000,
-		Profit:          expectedProfit,
+		ReceiveAmount:   models.NewDecimal(100000000),
+		RateApplied:     models.NewDecimal(80000),
+		StandardRate:    models.NewDecimal(81000),
+		Profit:          models.NewDecimal(expectedProfit),
 		Status:          models.StatusCompleted,
 		TransactionDate: time.Now(),
 	}
@@ -300,7 +300,7 @@ func TestProfitAnalysisService(t *testing.T) {
 		startDate := time.Now().AddDate(0, -1, 0)
 		endDate := time.Now().AddDate(0, 0, 1)
 
-		result, err := profitService.GetProfitAnalysis(tenant.ID, startDate, endDate)
+		result, err := profitService.GetProfitAnalysis(tenant.ID, nil, startDate, endDate)
 		if err != nil {
 			t.Fatalf("Failed to get profit analysis: %v", err)
 		}
@@ -321,7 +321,7 @@ func TestProfitAnalysisService(t *testing.T) {
 	})
 
 	t.Run("GetDailyProfit", func(t *testing.T) {
-		periods, err := profitService.GetDailyProfit(tenant.ID, 30)
+		periods, err := profitService.GetDailyProfit(tenant.ID, nil, 30)
 		if err != nil {
 			t.Fatalf("Failed to get daily profit: %v", err)
 		}

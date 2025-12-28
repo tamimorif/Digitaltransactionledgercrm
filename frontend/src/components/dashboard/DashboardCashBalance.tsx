@@ -6,7 +6,6 @@ import { Button } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
 import { Label } from '@/src/components/ui/label';
-import { Input } from '@/src/components/ui/input';
 import { FormattedInput } from '@/src/components/ui/formatted-input';
 import { Textarea } from '@/src/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
@@ -20,6 +19,15 @@ import {
 } from '@/src/lib/queries/cash-balance.query';
 import { useAuth } from '@/src/components/providers/auth-provider';
 import { useTranslation } from '@/src/contexts/TranslationContext';
+import { getErrorMessage } from '@/src/lib/error';
+import type { CashBalance } from '@/src/lib/models/cash-balance.model';
+
+interface CashBalanceRow {
+    branchID?: number;
+    currency: string;
+    manualBalance: number;
+    calculatedBalance: number;
+}
 
 export function DashboardCashBalance() {
     const [showAdjustDialog, setShowAdjustDialog] = useState(false);
@@ -33,6 +41,12 @@ export function DashboardCashBalance() {
     const { data: currencies } = useGetActiveCurrencies();
     const refreshAllMutation = useRefreshAllBalances();
     const createAdjustmentMutation = useCreateAdjustment();
+    const balances: CashBalanceRow[] = (cashBalances ?? []).map((balance: CashBalance) => ({
+        branchID: balance.branchId,
+        currency: balance.currency,
+        manualBalance: balance.finalBalance,
+        calculatedBalance: balance.autoCalculatedBalance,
+    }));
 
     return (
         <Card className="h-full border-l-4 border-l-primary">
@@ -54,8 +68,8 @@ export function DashboardCashBalance() {
                                     await refreshAllMutation.mutateAsync();
                                     toast.success('Balances refreshed');
                                     refetchBalances();
-                                } catch (error: any) {
-                                    toast.error('Failed to refresh');
+                                } catch (error) {
+                                    toast.error(getErrorMessage(error, 'Failed to refresh'));
                                 }
                             }}
                             disabled={refreshAllMutation.isPending}
@@ -93,7 +107,7 @@ export function DashboardCashBalance() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {cashBalances.map((balance: any) => (
+                        {balances.map((balance) => (
                             <div key={`${balance.branchID}-${balance.currency}`} className="p-3 rounded-lg border bg-card text-card-foreground shadow-sm">
                                 <div className="flex items-center justify-between mb-1">
                                     <Badge variant="outline" className="text-xs font-bold">
@@ -207,8 +221,8 @@ export function DashboardCashBalance() {
                                     setAdjustAmount('');
                                     setAdjustReason('');
                                     refetchBalances();
-                                } catch (error: any) {
-                                    toast.error('Failed to adjust');
+                                } catch (error) {
+                                    toast.error(getErrorMessage(error, 'Failed to adjust'));
                                 }
                             }}
                             disabled={createAdjustmentMutation.isPending}

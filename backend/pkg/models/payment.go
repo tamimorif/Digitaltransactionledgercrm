@@ -12,11 +12,11 @@ type Payment struct {
 	BranchID      *uint  `gorm:"type:bigint;index" json:"branchId"`             // Which branch made the payment
 
 	// Payment Details
-	Amount       float64                `gorm:"type:real;not null" json:"amount"`
+	Amount       Decimal                `gorm:"type:decimal(20,4);not null" json:"amount"`
 	Currency     string                 `gorm:"type:varchar(10);not null" json:"currency"`
-	ExchangeRate float64                `gorm:"type:real;default:1" json:"exchangeRate"` // Rate used to convert to transaction currency
-	AmountInBase float64                `gorm:"type:real;not null" json:"amountInBase"`  // Amount converted to transaction's base currency
-	Details      map[string]interface{} `gorm:"serializer:json" json:"details"`          // JSONB details for method-specific data
+	ExchangeRate Decimal                `gorm:"type:decimal(20,6);default:1" json:"exchangeRate"` // Rate used to convert to transaction currency
+	AmountInBase Decimal                `gorm:"type:decimal(20,4);not null" json:"amountInBase"`  // Amount converted to transaction's base currency
+	Details      map[string]interface{} `gorm:"serializer:json" json:"details"`                   // JSONB details for method-specific data
 
 	// Payment Method
 	PaymentMethod string `gorm:"type:varchar(50);not null;default:'CASH'" json:"paymentMethod"` // CASH, BANK_TRANSFER, CARD, CHEQUE, ONLINE

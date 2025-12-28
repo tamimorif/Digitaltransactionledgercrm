@@ -9,6 +9,7 @@ backend/vendor/
 # --- Next.js / Frontend ---
 .next/
 frontend/.next/
+frontend/.next/cache/
 out/
 build/
 frontend/build/
@@ -43,6 +44,7 @@ coverage/
 # Go workspace and cache
 go/
 tmp/
+backend/.gocache/
 
 # --- Databases (Local Dev) ---
 *.db
@@ -100,3 +102,4 @@ desktop.ini
 
 # --- Misc ---
 codex-implementaion-suggestion.txt
+.aider*

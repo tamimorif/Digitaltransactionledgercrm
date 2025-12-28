@@ -48,7 +48,7 @@ type CacheConfig struct {
 // DefaultCacheConfig returns default cache configuration
 func DefaultCacheConfig() CacheConfig {
 	return CacheConfig{
-		ExchangeRateTTL: 5 * time.Minute,  // Exchange rates cached for 5 minutes
+		ExchangeRateTTL: 1 * time.Minute,  // Exchange rates cached for 1 minute
 		LicenseTTL:      10 * time.Minute, // Licenses cached for 10 minutes
 		TenantTTL:       15 * time.Minute, // Tenant info cached for 15 minutes
 		UserTTL:         5 * time.Minute,  // User info cached for 5 minutes

@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/src/componen
 import { TransactionPaymentsSection } from '@/src/components/payments';
 import { PickupTransaction } from '@/src/lib/models/pickup.model';
 import { CreditCard } from 'lucide-react';
+import { toPaymentTransaction } from '@/src/lib/transaction-adapter';
 
 interface ManagePaymentsDialogProps {
     transaction: PickupTransaction | null;
@@ -14,12 +15,7 @@ interface ManagePaymentsDialogProps {
 export function ManagePaymentsDialog({ transaction, open, onOpenChange }: ManagePaymentsDialogProps) {
     if (!transaction) return null;
 
-    // Cast PickupTransaction to any to satisfy TransactionPaymentsSection props for now
-    // In a real scenario, we should align the types or make the component generic
-    const transactionAdapter = {
-        ...transaction,
-        id: transaction.transactionId || transaction.id.toString(), // Use transactionId (UUID) if available, else fallback to id
-    } as any;
+    const transactionAdapter = toPaymentTransaction(transaction);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>

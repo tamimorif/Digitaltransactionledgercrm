@@ -33,6 +33,7 @@ import {
 import { SettlementSuggestion } from '@/src/lib/models/dashboard.model';
 import { formatNumber, formatCurrency } from '@/src/lib/format';
 import { cn } from '@/src/lib/utils';
+import { getErrorMessage } from '@/src/lib/error';
 import {
     ArrowLeftRight,
     Zap,
@@ -54,7 +55,6 @@ interface AutoSettlementPanelProps {
 export function AutoSettlementPanel({
     incomingId,
     incomingCode,
-    incomingAmount,
     remainingAmount,
     onSettlementComplete,
 }: AutoSettlementPanelProps) {
@@ -74,8 +74,8 @@ export function AutoSettlementPanel({
             );
             refetch();
             onSettlementComplete?.();
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Auto-settlement failed');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Auto-settlement failed'));
         }
     };
 
@@ -113,8 +113,8 @@ export function AutoSettlementPanel({
             setCustomAmount('');
             refetch();
             onSettlementComplete?.();
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Settlement failed');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Settlement failed'));
         }
     };
 

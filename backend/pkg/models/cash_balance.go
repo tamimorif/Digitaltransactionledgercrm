@@ -11,9 +11,9 @@ type CashBalance struct {
 	BranchID               *uint      `gorm:"type:bigint;index" json:"branchId"` // NULL for company-wide balance
 	Currency               string     `gorm:"type:varchar(10);not null" json:"currency"`
 	Version                int        `gorm:"not null;default:0" json:"version"`
-	AutoCalculatedBalance  float64    `gorm:"type:real;not null;default:0" json:"autoCalculatedBalance"`
-	ManualAdjustment       float64    `gorm:"type:real;not null;default:0" json:"manualAdjustment"`
-	FinalBalance           float64    `gorm:"type:real;not null;default:0" json:"finalBalance"` // Auto + Manual
+	AutoCalculatedBalance  Decimal    `gorm:"type:decimal(20,4);not null;default:0" json:"autoCalculatedBalance"`
+	ManualAdjustment       Decimal    `gorm:"type:decimal(20,4);not null;default:0" json:"manualAdjustment"`
+	FinalBalance           Decimal    `gorm:"type:decimal(20,4);not null;default:0" json:"finalBalance"` // Auto + Manual
 	LastCalculatedAt       time.Time  `gorm:"type:timestamp" json:"lastCalculatedAt"`
 	LastManualAdjustmentAt *time.Time `gorm:"type:timestamp" json:"lastManualAdjustmentAt"`
 	CreatedAt              time.Time  `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"createdAt"`
@@ -35,11 +35,11 @@ type CashAdjustment struct {
 	TenantID      uint      `gorm:"type:bigint;not null;index" json:"tenantId"`
 	BranchID      *uint     `gorm:"type:bigint;index" json:"branchId"`
 	Currency      string    `gorm:"type:varchar(10);not null" json:"currency"`
-	Amount        float64   `gorm:"type:real;not null" json:"amount"` // Positive or negative
+	Amount        Decimal   `gorm:"type:decimal(20,4);not null" json:"amount"` // Positive or negative
 	Reason        string    `gorm:"type:text;not null" json:"reason"`
 	AdjustedBy    uint      `gorm:"type:bigint;not null" json:"adjustedBy"`
-	BalanceBefore float64   `gorm:"type:real;not null" json:"balanceBefore"`
-	BalanceAfter  float64   `gorm:"type:real;not null" json:"balanceAfter"`
+	BalanceBefore Decimal   `gorm:"type:decimal(20,4);not null" json:"balanceBefore"`
+	BalanceAfter  Decimal   `gorm:"type:decimal(20,4);not null" json:"balanceAfter"`
 	CreatedAt     time.Time `gorm:"type:timestamp;default:CURRENT_TIMESTAMP" json:"createdAt"`
 
 	// Relations

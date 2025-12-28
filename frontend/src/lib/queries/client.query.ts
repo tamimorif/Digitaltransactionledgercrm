@@ -9,6 +9,7 @@ import type {
   CreateTransactionRequest,
   UpdateTransactionRequest,
 } from '../models/client.model';
+import type { Payment } from '../models/payment.model';
 
 // ==================== Client Queries ====================
 
@@ -191,7 +192,7 @@ export function useCreatePayment(transactionId: string) {
       const response = await axiosInstance.post(`/transactions/${transactionId}/payments`, data);
       return response.data;
     },
-    onSuccess: (_, __, context) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['payments', transactionId] });
     },
@@ -199,7 +200,7 @@ export function useCreatePayment(transactionId: string) {
 }
 
 export function useGetPayments(transactionId: string) {
-  return useQuery({
+  return useQuery<Payment[]>({
     queryKey: ['payments', transactionId],
     queryFn: async () => {
       const response = await axiosInstance.get(`/transactions/${transactionId}/payments`);

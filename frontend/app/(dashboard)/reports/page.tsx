@@ -66,10 +66,10 @@ export default function ReportsPage() {
         exportCSV.isPending || exportJSON.isPending || exportPDF.isPending;
 
     return (
-        <div className="container mx-auto p-6 space-y-6">
+        <div className="mx-auto w-full max-w-7xl px-6 py-6 space-y-6 font-[Inter]">
             <div>
-                <h1 className="text-3xl font-bold text-gray-900">Reports</h1>
-                <p className="text-gray-500 mt-1">
+                <h1 className="text-3xl font-bold">Reports</h1>
+                <p className="text-muted-foreground mt-1">
                     Generate and download detailed transaction reports.
                 </p>
             </div>
@@ -77,9 +77,9 @@ export default function ReportsPage() {
             <div className="grid gap-6 md:grid-cols-2">
                 {/* Configuration Card */}
                 <Card className="border-2">
-                    <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
+                    <CardHeader className="bg-muted/40">
                         <CardTitle className="flex items-center gap-2">
-                            <FileText className="h-5 w-5 text-purple-600" />
+                            <FileText className="h-5 w-5 text-primary" />
                             Report Configuration
                         </CardTitle>
                         <CardDescription>
@@ -95,7 +95,7 @@ export default function ReportsPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">All Branches</SelectItem>
-                                    {branches?.map((branch: any) => (
+                                    {branches?.map((branch) => (
                                         <SelectItem key={branch.id} value={String(branch.id)}>
                                             {branch.name}
                                         </SelectItem>
@@ -129,9 +129,9 @@ export default function ReportsPage() {
 
                 {/* Download Options Card */}
                 <Card className="border-2">
-                    <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50">
+                    <CardHeader className="bg-muted/40">
                         <CardTitle className="flex items-center gap-2">
-                            <Download className="h-5 w-5 text-green-600" />
+                            <Download className="h-5 w-5 text-primary" />
                             Download Options
                         </CardTitle>
                         <CardDescription>
@@ -141,7 +141,7 @@ export default function ReportsPage() {
                     <CardContent className="grid gap-3 pt-6">
                         <Button
                             variant="outline"
-                            className="h-auto py-4 justify-start px-6 border-2 hover:border-red-300 hover:bg-red-50"
+                            className="h-auto py-4 justify-start px-6 border-2 hover:border-border hover:bg-muted/40"
                             onClick={() => handleExport('pdf')}
                             disabled={isExporting}
                         >
@@ -159,7 +159,7 @@ export default function ReportsPage() {
 
                         <Button
                             variant="outline"
-                            className="h-auto py-4 justify-start px-6 border-2 hover:border-green-300 hover:bg-green-50"
+                            className="h-auto py-4 justify-start px-6 border-2 hover:border-border hover:bg-muted/40"
                             onClick={() => handleExport('csv')}
                             disabled={isExporting}
                         >
@@ -177,7 +177,7 @@ export default function ReportsPage() {
 
                         <Button
                             variant="outline"
-                            className="h-auto py-4 justify-start px-6 border-2 hover:border-yellow-300 hover:bg-yellow-50"
+                            className="h-auto py-4 justify-start px-6 border-2 hover:border-border hover:bg-muted/40"
                             onClick={() => handleExport('json')}
                             disabled={isExporting}
                         >

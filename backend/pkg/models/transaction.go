@@ -12,24 +12,24 @@ type Transaction struct {
 	ClientID           string  `gorm:"column:client_id;type:text;not null;index" json:"clientId" validate:"required"`
 	PaymentMethod      string  `gorm:"column:payment_method;type:text;not null" json:"paymentMethod" validate:"required"` // "CASH", "BANK_TRANSFER", etc.
 	SendCurrency       string  `gorm:"column:send_currency;type:text;not null" json:"sendCurrency" validate:"required,len=3"`
-	SendAmount         float64 `gorm:"column:send_amount;type:real;not null" json:"sendAmount" validate:"required,gt=0"`
+	SendAmount         Decimal `gorm:"column:send_amount;type:decimal(20,4);not null" json:"sendAmount" validate:"required"`
 	ReceiveCurrency    string  `gorm:"column:receive_currency;type:text;not null" json:"receiveCurrency" validate:"required,len=3"`
-	ReceiveAmount      float64 `gorm:"column:receive_amount;type:real;not null" json:"receiveAmount" validate:"required,gt=0"`
-	RateApplied        float64 `gorm:"column:rate_applied;type:real;not null" json:"rateApplied" validate:"required,gt=0"`
-	FeeCharged         float64 `gorm:"column:fee_charged;type:real;default:0" json:"feeCharged" validate:"gte=0"`
+	ReceiveAmount      Decimal `gorm:"column:receive_amount;type:decimal(20,4);not null" json:"receiveAmount" validate:"required"`
+	RateApplied        Decimal `gorm:"column:rate_applied;type:decimal(20,4);not null" json:"rateApplied" validate:"required"`
+	FeeCharged         Decimal `gorm:"column:fee_charged;type:decimal(20,4);default:0" json:"feeCharged"`
 	BeneficiaryName    *string `gorm:"column:beneficiary_name;type:text" json:"beneficiaryName"`
 	BeneficiaryDetails *string `gorm:"column:beneficiary_details;type:text" json:"beneficiaryDetails"`
 	UserNotes          *string `gorm:"column:user_notes;type:text" json:"userNotes"`
 	// Profit & Loss Tracking (NEW)
-	StandardRate            float64 `gorm:"column:standard_rate;type:real;default:0" json:"standardRate"`                            // Market/Base rate at time of transaction
-	Profit                  float64 `gorm:"column:profit;type:real;default:0" json:"profit"`                                         // Calculated profit (in Send Currency)
+	StandardRate            Decimal `gorm:"column:standard_rate;type:decimal(20,4);default:0" json:"standardRate"` // Market/Base rate at time of transaction
+	Profit                  Decimal `gorm:"column:profit;type:decimal(20,4);default:0" json:"profit"`             // Calculated profit (in Send Currency)
 	ProfitCalculationStatus string  `gorm:"column:profit_calc_status;type:varchar(20);default:'CALCULATED'" json:"profitCalcStatus"` // CALCULATED, PENDING, FAILED
 
 	// Multi-Payment Support (NEW)
-	TotalReceived       float64    `gorm:"column:total_received;type:real" json:"totalReceived"`                               // Total amount client gave us
+	TotalReceived       Decimal    `gorm:"column:total_received;type:decimal(20,4)" json:"totalReceived"`                      // Total amount client gave us
 	ReceivedCurrency    string     `gorm:"column:received_currency;type:varchar(10)" json:"receivedCurrency"`                  // Currency of total received
-	TotalPaid           float64    `gorm:"column:total_paid;type:real;default:0" json:"totalPaid"`                             // Sum of all payments made
-	RemainingBalance    float64    `gorm:"column:remaining_balance;type:real;default:0" json:"remainingBalance"`               // Total - Paid
+	TotalPaid           Decimal    `gorm:"column:total_paid;type:decimal(20,4);default:0" json:"totalPaid"`                    // Sum of all payments made
+	RemainingBalance    Decimal    `gorm:"column:remaining_balance;type:decimal(20,4);default:0" json:"remainingBalance"`      // Total - Paid
 	PaymentStatus       string     `gorm:"column:payment_status;type:varchar(50);default:'SINGLE'" json:"paymentStatus"`       // SINGLE, OPEN, PARTIAL, COMPLETED
 	AllowPartialPayment bool       `gorm:"column:allow_partial_payment;type:boolean;default:false" json:"allowPartialPayment"` // Enable multi-payment mode
 	IsEdited            bool       `gorm:"column:is_edited;type:boolean;default:false" json:"isEdited"`

@@ -9,6 +9,8 @@ import { Loader2, Key } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '@/src/lib/api-client';
 import { useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
+import { getErrorMessage } from '@/src/lib/error';
 
 interface SetBranchCredentialsDialogProps {
     open: boolean;
@@ -86,16 +88,17 @@ export function SetBranchCredentialsDialog({
                 password: '',
                 confirmPassword: '',
             });
-        } catch (error: any) {
+        } catch (error) {
             console.error('Failed to set credentials:', error);
 
             // Check if it's a 401 error (token expired) - but apiClient already redirected
-            if (error?.response?.status === 401) {
+            const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+            if (status === 401) {
                 toast.error('Your session has expired. Redirecting to login...');
                 return; // apiClient will handle the redirect
             }
 
-            toast.error(error?.response?.data?.error || 'Failed to set credentials');
+            toast.error(getErrorMessage(error, 'Failed to set credentials'));
         } finally {
             setIsSubmitting(false);
         }

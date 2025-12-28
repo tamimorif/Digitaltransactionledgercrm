@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { remittanceApi } from '@/src/lib/remittanceApi';
 import { OutgoingRemittance, IncomingRemittance } from '@/src/models/remittance';
+import { getErrorMessage } from '@/src/lib/error';
 
 export default function SettlementInterface() {
     const router = useRouter();
@@ -17,11 +18,7 @@ export default function SettlementInterface() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         try {
             setLoading(true);
             const [outgoingData, incomingData] = await Promise.all([
@@ -30,12 +27,16 @@ export default function SettlementInterface() {
             ]);
             setOutgoing(outgoingData);
             setIncoming(incomingData);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load remittances');
+        } catch (err) {
+            setError(getErrorMessage(err, 'Failed to load remittances'));
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     // Calculate max settlement amount
     const getMaxSettlementAmount = () => {
@@ -116,8 +117,8 @@ export default function SettlementInterface() {
 
             // Clear success message after 5 seconds
             setTimeout(() => setSuccess(null), 5000);
-        } catch (err: any) {
-            setError(err.message || 'Failed to create settlement');
+        } catch (err) {
+            setError(getErrorMessage(err, 'Failed to create settlement'));
         } finally {
             setSettling(false);
         }

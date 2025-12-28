@@ -8,14 +8,7 @@ import { Toaster } from './components/ui/sonner';
 import { Card, CardContent } from './components/ui/card';
 import { toast } from 'sonner';
 import { Building2, TrendingUp } from 'lucide-react';
-
-interface Client {
-  id: string | number;
-  name: string;
-  phoneNumber: string;
-  email: string;
-  joinDate: string;
-}
+import type { Client } from './lib/models/client.model';
 
 export default function App() {
   const [clients, setClients] = useState<Client[]>([]);

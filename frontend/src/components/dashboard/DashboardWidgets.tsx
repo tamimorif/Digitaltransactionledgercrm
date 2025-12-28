@@ -5,8 +5,6 @@ import { Badge } from '@/src/components/ui/badge';
 import { Skeleton } from '@/src/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
 import {
-    TrendingUp,
-    TrendingDown,
     ArrowUpRight,
     ArrowDownRight,
     DollarSign,
@@ -16,7 +14,6 @@ import {
     AlertTriangle,
     AlertCircle,
     Info,
-    Loader2,
 } from 'lucide-react';
 import { useGetDashboardData } from '@/src/lib/queries/dashboard.query';
 import { formatNumber, formatCurrency } from '@/src/lib/format';
@@ -76,7 +73,7 @@ export function DashboardWidgets({ branchId }: DashboardWidgetsProps) {
                 {/* Today's Profit */}
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Today's Profit</CardTitle>
+                        <CardTitle className="text-sm font-medium">Today&apos;s Profit</CardTitle>
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>

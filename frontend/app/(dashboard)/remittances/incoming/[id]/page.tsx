@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { remittanceApi } from '@/src/lib/remittanceApi';
 import { IncomingRemittance } from '@/src/models/remittance';
 import { PAYMENT_METHOD_LABELS } from '@/src/models/remittance';
 import Link from 'next/link';
+import { getErrorMessage } from '@/src/lib/error';
 
 export default function IncomingRemittanceDetails() {
     const router = useRouter();
@@ -16,23 +17,22 @@ export default function IncomingRemittanceDetails() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (id) {
-            loadRemittance();
-        }
-    }, [id]);
-
-    const loadRemittance = async () => {
+    const loadRemittance = useCallback(async () => {
+        if (!id) return;
         try {
             setLoading(true);
             const data = await remittanceApi.getIncomingDetails(id);
             setRemittance(data);
-        } catch (err: any) {
-            setError(err.message || 'Failed to load remittance details');
+        } catch (err) {
+            setError(getErrorMessage(err, 'Failed to load remittance details'));
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
+
+    useEffect(() => {
+        loadRemittance();
+    }, [loadRemittance]);
 
     if (loading) {
         return (

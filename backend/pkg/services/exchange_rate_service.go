@@ -61,7 +61,7 @@ func (s *ExchangeRateService) FetchRatesFromAPI(tenantID uint, baseCurrency stri
 			TenantID:       tenantID,
 			BaseCurrency:   baseCurrency,
 			TargetCurrency: targetCurrency,
-			Rate:           rate,
+			Rate:           models.NewDecimal(rate),
 			Source:         models.RateSourceAPI,
 		}
 
@@ -84,7 +84,7 @@ func (s *ExchangeRateService) UpdateRate(tenantID uint, baseCurrency, targetCurr
 		TenantID:       tenantID,
 		BaseCurrency:   baseCurrency,
 		TargetCurrency: targetCurrency,
-		Rate:           rate,
+		Rate:           models.NewDecimal(rate),
 		Source:         models.RateSourceManual,
 	}
 

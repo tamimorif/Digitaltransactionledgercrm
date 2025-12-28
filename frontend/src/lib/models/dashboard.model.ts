@@ -41,6 +41,12 @@ export interface DailyProfit {
     profit: number;
 }
 
+export interface DailyVolume {
+    date: string;
+    income: number;
+    outgoing: number;
+}
+
 export interface DashboardAlert {
     type: 'warning' | 'error' | 'info';
     title: string;
@@ -59,6 +65,7 @@ export interface DashboardData {
     debtAging: DebtAging[];
     rateTrends: RateTrend[];
     dailyProfit: DailyProfit[];
+    dailyVolumes: DailyVolume[];
     alerts: DashboardAlert[];
     totalClientsCount: number;
     activeRemittancesCount: number;
@@ -151,4 +158,33 @@ export interface ProfitFilters {
     endDate?: string;
     branchId?: number;
     groupBy?: 'day' | 'week' | 'month';
+}
+
+// Dashboard Summary Models (Compact Endpoint)
+
+export interface DashboardSummaryKpis {
+    totalVolumeToday: number;
+    profitToday: number;
+    pendingRemittances: number;
+    incomingPending: number;
+}
+
+export interface DashboardSummaryCashFlowPoint {
+    date: string;
+    in: number;
+    out: number;
+}
+
+export interface DashboardSummaryRecentTransaction {
+    id: string;
+    client: string;
+    amount: number;
+    currency: string;
+    createdAt: string;
+}
+
+export interface DashboardSummary {
+    kpis: DashboardSummaryKpis;
+    cashFlow: DashboardSummaryCashFlowPoint[];
+    recentTransactions: DashboardSummaryRecentTransaction[];
 }

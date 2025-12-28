@@ -25,9 +25,7 @@ import {
 } from '../ui/select';
 import {
     Loader2,
-    DollarSign,
     CheckCircle2,
-    AlertCircle,
     ArrowRight,
     Layers
 } from 'lucide-react';
@@ -62,7 +60,14 @@ interface BatchPaymentDialogProps {
         strategy: string;
         notes: string;
     }) => Promise<void>;
-    onPreview?: (data: any) => Promise<BatchPaymentAllocation[]>;
+    onPreview?: (data: {
+        transactionIds: string[];
+        totalAmount: number;
+        currency: string;
+        exchangeRate: number;
+        paymentMethod: string;
+        strategy: string;
+    }) => Promise<BatchPaymentAllocation[]>;
     isLoading?: boolean;
 }
 
@@ -76,11 +81,11 @@ export function BatchPaymentDialog({
 }: BatchPaymentDialogProps) {
     const [selectedTransactions, setSelectedTransactions] = useState<string[]>([]);
     const [totalAmount, setTotalAmount] = useState<string>('');
-    const [currency, setCurrency] = useState<string>('CAD');
-    const [exchangeRate, setExchangeRate] = useState<string>('1');
+    const [currency] = useState<string>('CAD');
+    const [exchangeRate] = useState<string>('1');
     const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
     const [strategy, setStrategy] = useState<string>('FIFO');
-    const [notes, setNotes] = useState<string>('');
+    const [notes] = useState<string>('');
     const [preview, setPreview] = useState<BatchPaymentAllocation[] | null>(null);
     const [showPreview, setShowPreview] = useState(false);
 

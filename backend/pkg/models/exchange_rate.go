@@ -10,7 +10,7 @@ type ExchangeRate struct {
 	TenantID       uint      `gorm:"type:bigint;not null;index" json:"tenantId"`
 	BaseCurrency   string    `gorm:"type:varchar(10);not null" json:"baseCurrency"`
 	TargetCurrency string    `gorm:"type:varchar(10);not null" json:"targetCurrency"`
-	Rate           float64   `gorm:"type:real;not null" json:"rate"`
+	Rate           Decimal   `gorm:"type:decimal(20,6);not null" json:"rate"`
 	Source         string    `gorm:"type:varchar(20);not null" json:"source"` // "API" or "MANUAL"
 	CreatedAt      time.Time `gorm:"type:timestamp;default:CURRENT_TIMESTAMP;autoCreateTime" json:"createdAt"`
 	UpdatedAt      time.Time `gorm:"type:timestamp;autoUpdateTime" json:"updatedAt"`

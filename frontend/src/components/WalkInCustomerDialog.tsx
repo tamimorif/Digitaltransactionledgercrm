@@ -35,6 +35,7 @@ import { Label } from '@/src/components/ui/label';
 import { Loader2, DollarSign, ArrowRightLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '@/src/lib/api-client';
+import { getErrorMessage } from '@/src/lib/error';
 
 const walkInCustomerSchema = z.object({
     // Customer Information
@@ -119,35 +120,36 @@ export function WalkInCustomerDialog({
 
             const customer = customerResponse.data;
 
-            // Create transaction based on type
-            if (data.transactionType === 'transfer') {
-                // Create a transfer (could be pickup or regular transaction)
-                await apiClient.post('/transactions', {
-                    clientId: customer.id,
-                    amount: parseFloat(data.amount),
-                    currency: data.fromCurrency,
-                    type: 'credit', // or 'debit' based on your logic
-                    description: `Walk-in transfer - ${data.notes || 'No notes'}`,
-                });
-            } else {
-                // Cash exchange transaction
-                await apiClient.post('/transactions', {
-                    clientId: customer.id,
-                    amount: parseFloat(data.amount),
-                    currency: data.fromCurrency,
-                    type: 'exchange',
-                    description: `Cash exchange: ${data.amount} ${data.fromCurrency} → ${calculatedAmount} ${data.toCurrency} @ rate ${data.exchangeRate} - ${data.notes || ''}`,
-                    exchangeRate: parseFloat(data.exchangeRate || '1'),
-                    fees: parseFloat(data.fees || '0'),
-                });
-            }
+            // Create transaction with correct schema matching backend Transaction model
+            const sendAmount = parseFloat(data.amount);
+            const rate = parseFloat(data.exchangeRate || '1');
+            const fee = parseFloat(data.fees || '0');
+            const receiveAmount = data.transactionType === 'cash_exchange'
+                ? (sendAmount - fee) * rate
+                : sendAmount;
+
+            await apiClient.post('/transactions', {
+                clientId: customer.id,
+                paymentMethod: 'WALK_IN_CUSTOMER',
+                sendCurrency: data.fromCurrency,
+                sendAmount: sendAmount,
+                receiveCurrency: data.transactionType === 'cash_exchange' ? data.toCurrency : data.fromCurrency,
+                receiveAmount: receiveAmount,
+                rateApplied: rate,
+                feeCharged: fee,
+                beneficiaryName: data.name,
+                beneficiaryDetails: data.phone,
+                userNotes: data.transactionType === 'transfer'
+                    ? `Walk-in transfer - ${data.notes || 'No notes'}`
+                    : `Cash exchange: ${data.amount} ${data.fromCurrency} → ${receiveAmount.toFixed(2)} ${data.toCurrency} @ rate ${rate} - ${data.notes || ''}`,
+            });
 
             toast.success('Walk-in transaction created successfully!');
             form.reset();
             onOpenChange(false);
             onTransactionCreated?.();
-        } catch (error: any) {
-            toast.error(error?.response?.data?.error || 'Failed to create transaction');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to create transaction'));
         } finally {
             setIsSubmitting(false);
         }
@@ -242,13 +244,13 @@ export function WalkInCustomerDialog({
                                                         <SelectValue placeholder="Select ID type" />
                                                     </SelectTrigger>
                                                 </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="passport">Passport</SelectItem>
-                                                    <SelectItem value="national_id">National ID</SelectItem>
-                                                    <SelectItem value="drivers_license">Driver's License</SelectItem>
-                                                    <SelectItem value="other">Other</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                                    <SelectContent>
+                                                        <SelectItem value="passport">Passport</SelectItem>
+                                                        <SelectItem value="national_id">National ID</SelectItem>
+                                                        <SelectItem value="drivers_license">Driver&apos;s License</SelectItem>
+                                                        <SelectItem value="other">Other</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
                                             <FormMessage />
                                         </FormItem>
                                     )}

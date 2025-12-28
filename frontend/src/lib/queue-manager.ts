@@ -1,15 +1,28 @@
 import { saveRequestToQueue, getQueuedRequests, removeRequestFromQueue } from './offline-storage';
 import { toast } from 'sonner';
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { apiClient } from './api-client';
+
+const normalizeHeaders = (headers: InternalAxiosRequestConfig['headers']): Record<string, string> => {
+    if (!headers) return {};
+    const entries = Object.entries(headers as Record<string, unknown>);
+    return entries.reduce<Record<string, string>>((acc, [key, value]) => {
+        acc[key] = typeof value === 'string' ? value : String(value ?? '');
+        return acc;
+    }, {});
+};
 
 export class QueueManager {
     private static isProcessing = false;
 
-    static async enqueueRequest(config: any) {
+    static async enqueueRequest(config: InternalAxiosRequestConfig) {
         try {
             // Don't queue GET requests
             if (config.method?.toLowerCase() === 'get') {
+                return;
+            }
+
+            if (!config.method || !config.url) {
                 return;
             }
 
@@ -17,7 +30,7 @@ export class QueueManager {
                 method: config.method,
                 url: config.url,
                 data: config.data,
-                headers: config.headers,
+                headers: normalizeHeaders(config.headers),
             };
 
             await saveRequestToQueue(requestData);

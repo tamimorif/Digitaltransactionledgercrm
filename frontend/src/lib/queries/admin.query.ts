@@ -26,7 +26,7 @@ export const useGetAllLicenses = () => {
 export const useGenerateLicense = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: Record<string, unknown>) => {
       const response = await api.post('/admin/licenses/generate', data);
       return response.data;
     },

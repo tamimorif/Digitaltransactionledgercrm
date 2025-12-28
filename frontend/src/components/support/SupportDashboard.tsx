@@ -32,7 +32,7 @@ export function SupportDashboard({ currentUserId }: SupportDashboardProps) {
     const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
     const [filter, setFilter] = useState<{ status?: TicketStatus; priority?: TicketPriority }>({});
 
-    const { data: stats, isLoading: statsLoading } = useTicketStats();
+    const { data: stats } = useTicketStats();
     const { data: ticketData, isLoading: ticketsLoading, refetch: refetchTickets } = useTickets({
         ...filter,
         limit: 20,

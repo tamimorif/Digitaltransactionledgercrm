@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/src/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
-import { Shield, FileText, History, Clock, LayoutDashboard, Phone, BadgeCheck, Calculator, Globe } from 'lucide-react';
+import { FileText, History, Clock, LayoutDashboard, Phone, BadgeCheck, Calculator, Globe } from 'lucide-react';
 import { ThemeToggle } from '@/src/components/ThemeToggle';
 import type { Metadata } from 'next';
 

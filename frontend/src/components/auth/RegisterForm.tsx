@@ -19,6 +19,7 @@ import { Input } from '@/src/components/ui/input';
 import { useRegister } from '@/src/queries/auth.query';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { getErrorMessage } from '@/src/lib/error';
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -73,9 +74,9 @@ export function RegisterForm() {
       // Store email for verify page
       localStorage.setItem('pending_verification_email', data.email);
       router.push('/verify-email');
-    } catch (error: any) {
+    } catch (error) {
       toast.error('Registration Error', {
-        description: error?.response?.data?.error || error?.message || 'Please try again',
+        description: getErrorMessage(error, 'Please try again'),
       });
     } finally {
       setIsLoading(false);

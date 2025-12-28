@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src
 import { toast } from 'sonner';
 import axiosInstance from '@/src/lib/axios-config';
 import { useAuth } from '@/src/components/providers/auth-provider';
+import { getErrorMessage } from '@/src/lib/error';
 
 export default function MigrationFixPage() {
     const { user } = useAuth();
@@ -31,9 +32,9 @@ export default function MigrationFixPage() {
                 toast.info(response.data.message || 'Already fixed!');
                 setFixed(true);
             }
-        } catch (error: any) {
+        } catch (error) {
             console.error('Migration error:', error);
-            toast.error(error.response?.data?.error || 'Failed to create Head Office branch');
+            toast.error(getErrorMessage(error, 'Failed to create Head Office branch'));
         } finally {
             setIsFixing(false);
         }

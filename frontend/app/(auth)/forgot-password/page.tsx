@@ -20,6 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { Loader2, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
 import apiClient from '@/src/lib/api-client';
+import { getErrorMessage } from '@/src/lib/error';
 
 const forgotPasswordSchema = z.object({
     emailOrPhone: z.string().min(1, 'Email or phone number is required'),
@@ -55,9 +56,8 @@ export default function ForgotPasswordPage() {
             setTimeout(() => {
                 router.push('/reset-password?email=' + encodeURIComponent(data.emailOrPhone));
             }, 2000);
-        } catch (error: any) {
-            const errorMessage = error?.response?.data?.error || 'Failed to send reset code';
-            setError(errorMessage);
+        } catch (error) {
+            setError(getErrorMessage(error, 'Failed to send reset code'));
         } finally {
             setIsLoading(false);
         }

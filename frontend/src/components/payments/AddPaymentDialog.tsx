@@ -33,7 +33,7 @@ import {
     SelectValue,
 } from '../ui/select';
 import { Textarea } from '../ui/textarea';
-import { PAYMENT_METHODS } from '@/src/lib/models/payment.model';
+import { PAYMENT_METHODS, CreatePaymentRequest } from '@/src/lib/models/payment.model';
 import { Transaction } from '@/src/lib/models/client.model';
 import { Loader2 } from 'lucide-react';
 
@@ -58,7 +58,7 @@ interface AddPaymentDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     transaction: Transaction;
-    onSubmit: (data: any) => Promise<void>;
+    onSubmit: (data: CreatePaymentRequest) => Promise<void>;
     isLoading?: boolean;
     prefillAmount?: number | null;
 }
@@ -110,6 +110,7 @@ export function AddPaymentDialog({
 
     const handleSubmit = async (data: PaymentFormData) => {
         await onSubmit({
+            transactionId: transaction.id,
             amount: parseFloat(data.amount),
             currency: data.currency,
             exchangeRate: parseFloat(data.exchangeRate),
@@ -132,14 +133,6 @@ export function AddPaymentDialog({
             // So Amount = AmountInBase / Rate
             // Here 'remaining' is in Base Currency.
             const amountToPay = remaining / rate;
-            form.setValue('amount', amountToPay.toFixed(2));
-        }
-    };
-
-    const handleQuickPercent = (percent: number) => {
-        const rate = parseFloat(form.getValues('exchangeRate') || '1');
-        if (rate > 0) {
-            const amountToPay = (remaining * percent) / rate;
             form.setValue('amount', amountToPay.toFixed(2));
         }
     };

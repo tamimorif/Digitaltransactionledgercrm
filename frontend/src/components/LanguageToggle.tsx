@@ -12,7 +12,7 @@ import {
 import { Languages } from 'lucide-react';
 
 export function LanguageToggle() {
-    const { i18n, t } = useTranslation();
+    const { i18n } = useTranslation();
 
     useEffect(() => {
         // Set document direction based on language

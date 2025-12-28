@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/components/providers/auth-provider';
 import { Loader2, Settings, User, Mail, LogOut, ChevronDown, LayoutDashboard, Send, Search, Clock, FileText, TrendingUp, Calculator, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { ThemeToggle } from '@/src/components/ThemeToggle';
-import { LanguageSwitcher } from '@/src/components/LanguageSwitcher';
 import { KeyboardShortcuts } from '@/src/components/KeyboardShortcuts';
 import { Button } from '@/src/components/ui/button';
 import {
@@ -20,7 +19,6 @@ import {
 import { Badge } from '@/src/components/ui/badge';
 import { RateLimitNotification } from '@/src/components/RateLimitNotification';
 import { useTranslation } from '@/src/contexts/TranslationContext';
-import { GlobalSearch } from '@/src/components/GlobalSearch';
 import { useWebSocket } from '@/src/hooks/useWebSocket';
 
 export default function DashboardLayout({
@@ -31,7 +29,6 @@ export default function DashboardLayout({
   const { isAuthenticated, isLoading, user, logout } = useAuth();
   const router = useRouter();
   const { t } = useTranslation();
-  const [mounted, setMounted] = useState(false);
 
   // Initialize WebSocket connection
   useWebSocket();
@@ -55,9 +52,9 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Navigation Header */}
-      <header className="bg-white border-b sticky top-0 z-50 w-full">
+      <header className="bg-card border-b border-border sticky top-0 z-50 w-full">
         <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-3 lg:gap-4 h-16">
 

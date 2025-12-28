@@ -2,6 +2,7 @@ package services
 
 import (
 	"api/pkg/models"
+	"sort"
 	"time"
 
 	"gorm.io/gorm"
@@ -13,6 +14,70 @@ type ReconciliationService struct {
 
 func NewReconciliationService(db *gorm.DB) *ReconciliationService {
 	return &ReconciliationService{DB: db}
+}
+
+// ExpectedBalanceBreakdown represents the system's expected state
+type ExpectedBalanceBreakdown struct {
+	Currency string  `json:"currency"`
+	Cash     float64 `json:"cash"` // From CashBalance
+	Bank     float64 `json:"bank"` // Calculated from Bank transactions? Or 0 if not tracked.
+	Total    float64 `json:"total"`
+}
+
+// GetSystemState returns the expected balances by currency for a branch
+func (s *ReconciliationService) GetSystemState(tenantID, branchID uint) ([]ExpectedBalanceBreakdown, error) {
+	breakdowns := make(map[string]*ExpectedBalanceBreakdown)
+
+	// 1. Get Cash Balances (The "System" count for physical cash)
+	var cashBalances []models.CashBalance
+	if err := s.DB.Where("branch_id = ? AND tenant_id = ?", branchID, tenantID).Find(&cashBalances).Error; err != nil {
+		return nil, err
+	}
+
+	for _, cb := range cashBalances {
+		entry := breakdowns[cb.Currency]
+		if entry == nil {
+			entry = &ExpectedBalanceBreakdown{Currency: cb.Currency}
+			breakdowns[cb.Currency] = entry
+		}
+		entry.Cash = cb.FinalBalance.Float64()
+	}
+
+	// 2. Estimate Bank balances from non-cash payments
+	var bankTotals []struct {
+		Currency string
+		Total    float64
+	}
+
+	if err := s.DB.Model(&models.Payment{}).
+		Select("currency, COALESCE(SUM(amount), 0) as total").
+		Where("tenant_id = ? AND branch_id = ? AND status = ? AND payment_method != ?",
+			tenantID, branchID, models.PaymentStatusCompleted, models.PaymentMethodCash).
+		Group("currency").
+		Scan(&bankTotals).Error; err != nil {
+		return nil, err
+	}
+
+	for _, bank := range bankTotals {
+		entry := breakdowns[bank.Currency]
+		if entry == nil {
+			entry = &ExpectedBalanceBreakdown{Currency: bank.Currency}
+			breakdowns[bank.Currency] = entry
+		}
+		entry.Bank = bank.Total
+	}
+
+	results := make([]ExpectedBalanceBreakdown, 0, len(breakdowns))
+	for _, entry := range breakdowns {
+		entry.Total = entry.Cash + entry.Bank
+		results = append(results, *entry)
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Currency < results[j].Currency
+	})
+
+	return results, nil
 }
 
 // CreateReconciliation creates a new daily reconciliation record

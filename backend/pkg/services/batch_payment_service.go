@@ -4,7 +4,6 @@ import (
 	"api/pkg/models"
 	"errors"
 	"fmt"
-	"math"
 	"time"
 
 	"gorm.io/gorm"
@@ -134,9 +133,9 @@ func (s *BatchPaymentService) ProcessBatchPayment(tenantID uint, userID uint, re
 			payment := &models.Payment{
 				TenantID:      tenantID,
 				TransactionID: allocation.TransactionID,
-				Amount:        allocation.AllocatedAmount,
+				Amount:        models.NewDecimal(allocation.AllocatedAmount),
 				Currency:      request.Currency,
-				ExchangeRate:  request.ExchangeRate,
+				ExchangeRate:  models.NewDecimal(request.ExchangeRate),
 				PaymentMethod: request.PaymentMethod,
 				Status:        models.PaymentStatusCompleted,
 				PaidAt:        time.Now(),
@@ -174,52 +173,76 @@ func (s *BatchPaymentService) calculateAllocations(
 	strategy string,
 ) []BatchPaymentAllocation {
 	allocations := make([]BatchPaymentAllocation, len(transactions))
+	totalAmountDec := models.NewDecimal(totalAmount)
 
 	switch strategy {
 	case "FIFO":
 		// Sort by created_at (oldest first) - already sorted by DB
-		remaining := totalAmount
+		remaining := totalAmountDec
 		for i, t := range transactions {
 			allocations[i] = BatchPaymentAllocation{
 				TransactionID:    t.ID,
 				ClientName:       t.Client.Name,
-				RemainingBalance: t.RemainingBalance,
+				RemainingBalance: t.RemainingBalance.Float64(),
 				Currency:         t.ReceivedCurrency,
 			}
 
-			if remaining <= 0 {
+			if remaining.IsZero() || remaining.IsNegative() {
 				allocations[i].AllocatedAmount = 0
 				continue
 			}
 
 			// Allocate up to remaining balance
-			toAllocate := math.Min(remaining, t.RemainingBalance)
-			allocations[i].AllocatedAmount = toAllocate
-			allocations[i].IsFullPayment = toAllocate >= t.RemainingBalance*0.99 // 99% threshold
+			// toAllocate := math.Min(remaining, t.RemainingBalance)
+			var toAllocate models.Decimal
+			if remaining.LessThan(t.RemainingBalance) {
+				toAllocate = remaining
+			} else {
+				toAllocate = t.RemainingBalance
+			}
+			
+			allocations[i].AllocatedAmount = toAllocate.Float64()
+			// allocations[i].IsFullPayment = toAllocate >= t.RemainingBalance*0.99 // 99% threshold
+			threshold := t.RemainingBalance.Mul(models.NewDecimal(0.99))
+			allocations[i].IsFullPayment = toAllocate.GreaterThanOrEqual(threshold)
 
-			remaining -= toAllocate
+			remaining = remaining.Sub(toAllocate)
 		}
 
 	case "PROPORTIONAL":
 		// Allocate proportionally based on remaining balances
-		totalRemaining := 0.0
+		totalRemaining := models.Zero()
 		for _, t := range transactions {
-			totalRemaining += t.RemainingBalance
+			totalRemaining = totalRemaining.Add(t.RemainingBalance)
 		}
 
 		for i, t := range transactions {
-			proportion := t.RemainingBalance / totalRemaining
-			allocated := math.Min(totalAmount*proportion, t.RemainingBalance)
+			// proportion := t.RemainingBalance / totalRemaining
+			var proportion models.Decimal
+			if totalRemaining.IsPositive() {
+				proportion = t.RemainingBalance.Div(totalRemaining)
+			} else {
+				proportion = models.Zero()
+			}
+			
+			// allocated := math.Min(totalAmount*proportion, t.RemainingBalance)
+			allocated := totalAmountDec.Mul(proportion)
+			if allocated.GreaterThan(t.RemainingBalance) {
+				allocated = t.RemainingBalance
+			}
+			
 			// Round to 2 decimal places
-			allocated = math.Round(allocated*100) / 100
+			// allocated = math.Round(allocated*100) / 100
+			allocated = allocated.Round(2)
 
 			allocations[i] = BatchPaymentAllocation{
 				TransactionID:    t.ID,
 				ClientName:       t.Client.Name,
-				RemainingBalance: t.RemainingBalance,
-				AllocatedAmount:  allocated,
+				RemainingBalance: t.RemainingBalance.Float64(),
+				AllocatedAmount:  allocated.Float64(),
 				Currency:         t.ReceivedCurrency,
-				IsFullPayment:    allocated >= t.RemainingBalance*0.99,
+				// IsFullPayment:    allocated >= t.RemainingBalance*0.99,
+				IsFullPayment:    allocated.GreaterThanOrEqual(t.RemainingBalance.Mul(models.NewDecimal(0.99))),
 			}
 		}
 

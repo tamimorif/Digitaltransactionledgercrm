@@ -16,7 +16,9 @@ import { Textarea } from '@/src/components/ui/textarea';
 import { useSearchPickupByCode, useMarkAsPickedUp, useCancelPickupTransaction } from '@/src/lib/queries/pickup.query';
 import { PickupTransaction } from '@/src/lib/models/pickup.model';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/src/lib/error';
 import TransactionPaymentsSection from '@/src/components/payments/TransactionPaymentsSection';
+import { toPaymentTransaction } from '@/src/lib/transaction-adapter';
 
 export default function PickupSearchPage() {
     const router = useRouter();
@@ -49,7 +51,7 @@ export default function PickupSearchPage() {
         currency: 'ALL',
     });
 
-    const { data: pickup, isLoading, error, refetch } = useSearchPickupByCode(activeCode);
+    const { data: pickup, isLoading, error } = useSearchPickupByCode(activeCode);
     const markAsPickedUpMutation = useMarkAsPickedUp();
     const cancelPickupMutation = useCancelPickupTransaction();
 
@@ -95,27 +97,27 @@ export default function PickupSearchPage() {
                 },
             });
             if (response.ok) {
-                const data = await response.json();
+                const data = (await response.json()) as PickupTransaction[];
                 // Apply client-side filtering as fallback
                 let filtered = data;
                 if (filters.amountMin) {
-                    filtered = filtered.filter((p: any) => p.amount >= parseFloat(filters.amountMin));
+                    filtered = filtered.filter((p) => p.amount >= parseFloat(filters.amountMin));
                 }
                 if (filters.amountMax) {
-                    filtered = filtered.filter((p: any) => p.amount <= parseFloat(filters.amountMax));
+                    filtered = filtered.filter((p) => p.amount <= parseFloat(filters.amountMax));
                 }
                 if (filters.status !== 'ALL') {
-                    filtered = filtered.filter((p: any) => p.status === filters.status);
+                    filtered = filtered.filter((p) => p.status === filters.status);
                 }
                 if (filters.currency !== 'ALL') {
-                    filtered = filtered.filter((p: any) => p.currency === filters.currency);
+                    filtered = filtered.filter((p) => p.currency === filters.currency);
                 }
                 setQueryResults(filtered);
                 toast.success(`Found ${filtered.length} results`);
             } else {
                 toast.error('Failed to search pickups');
             }
-        } catch (error) {
+        } catch {
             toast.error('Error searching pickups');
         }
     };
@@ -142,8 +144,8 @@ export default function PickupSearchPage() {
             setSelectedPickup(null);
             setSearchCode('');
             setActiveCode('');
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Failed to mark pickup as completed');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to mark pickup as completed'));
         }
     };
 
@@ -168,8 +170,8 @@ export default function PickupSearchPage() {
             setCancelReason('');
             setSearchCode('');
             setActiveCode('');
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Failed to cancel pickup');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to cancel pickup'));
         }
     };
 
@@ -507,7 +509,7 @@ export default function PickupSearchPage() {
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-2 text-yellow-700">
                             <Search className="h-5 w-5" />
-                            <p className="font-medium">No pending pickups found matching "{activeQuery}"</p>
+                            <p className="font-medium">No pending pickups found matching &quot;{activeQuery}&quot;</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -696,16 +698,7 @@ export default function PickupSearchPage() {
                                     </Badge>
                                 </div>
                                 <TransactionPaymentsSection 
-                                    transaction={{
-                                        id: pickup.id,
-                                        totalReceived: pickup.totalReceived || 0,
-                                        receivedCurrency: pickup.receivedCurrency || pickup.receiverCurrency || pickup.currency,
-                                        totalPaid: pickup.totalPaid || 0,
-                                        remainingBalance: pickup.remainingBalance || 0,
-                                        paymentStatus: pickup.paymentStatus || 'OPEN',
-                                        allowPartialPayment: true,
-                                        payments: pickup.payments || []
-                                    } as any}
+                                    transaction={toPaymentTransaction(pickup)}
                                 />
                             </div>
                         )}
@@ -744,7 +737,7 @@ export default function PickupSearchPage() {
                         <AlertDialogTitle>Verify Identity & Complete Pickup</AlertDialogTitle>
                         <AlertDialogDescription asChild>
                             <div className="space-y-4 pt-2">
-                                <p>Please verify the following information matches the recipient's ID:</p>
+                                <p>Please verify the following information matches the recipient&apos;s ID:</p>
                                 <div className="bg-muted p-4 rounded-lg space-y-2">
                                     <div>
                                         <Label className="text-xs font-semibold">Pickup Code</Label>
@@ -766,7 +759,7 @@ export default function PickupSearchPage() {
                                     </div>
                                 </div>
                                 <p className="text-sm text-muted-foreground">
-                                    ⚠️ Ensure you have verified the recipient's government-issued ID before proceeding.
+                                    ⚠️ Ensure you have verified the recipient&apos;s government-issued ID before proceeding.
                                 </p>
                             </div>
                         </AlertDialogDescription>

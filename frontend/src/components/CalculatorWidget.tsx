@@ -3,15 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Calculator, ArrowRight } from 'lucide-react';
+import { cn } from './ui/utils';
 import { handleNumberInput, parseFormattedNumber, formatCurrency } from '@/src/lib/format';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'IRR', 'AED', 'TRY'];
 
 interface CalculatorWidgetProps {
     onRateCalculated?: (from: string, to: string, rate: number) => void;
+    sticky?: boolean;
+    className?: string;
 }
 
-export function CalculatorWidget({ onRateCalculated }: CalculatorWidgetProps) {
+export function CalculatorWidget({ onRateCalculated, sticky = true, className }: CalculatorWidgetProps) {
     const [amount, setAmount] = useState('1000');
     const [fromCurrency, setFromCurrency] = useState('USD');
     const [toCurrency, setToCurrency] = useState('CAD');
@@ -37,7 +40,7 @@ export function CalculatorWidget({ onRateCalculated }: CalculatorWidgetProps) {
     };
 
     return (
-        <Card className="sticky top-4">
+        <Card className={cn(sticky ? 'sticky top-4' : '', className)}>
             <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                     <Calculator className="h-5 w-5" />

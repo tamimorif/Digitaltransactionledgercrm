@@ -28,6 +28,7 @@ import { Badge } from '@/src/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
 import { Loader2, Key, Copy, Check, Download, Package } from 'lucide-react';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/src/lib/error';
 
 interface GeneratedLicense {
     licenseKey: string;
@@ -35,11 +36,49 @@ interface GeneratedLicense {
     userLimit: number;
 }
 
+type LicenseType = 'trial' | 'starter' | 'professional' | 'business' | 'enterprise' | 'custom';
+type DurationType = 'monthly' | 'yearly' | 'lifetime' | 'custom_days';
+
 export default function BulkLicenseGenerator() {
     const router = useRouter();
     const { user, isLoading: authLoading } = useAuth();
     const generateLicense = useGenerateLicense();
     const [activeTab, setActiveTab] = useState('single');
+
+    // State must be declared before any conditional returns.
+    const [singleFormData, setSingleFormData] = useState<{
+        licenseType: LicenseType;
+        durationType: DurationType;
+        userLimit: string;
+        durationValue: string;
+        notes: string;
+    }>({
+        licenseType: 'starter',
+        durationType: 'yearly',
+        userLimit: '5',
+        durationValue: '',
+        notes: '',
+    });
+    const [generatedLicense, setGeneratedLicense] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
+
+    // Bulk generation state
+    const [bulkConfig, setBulkConfig] = useState<{
+        licenseType: LicenseType;
+        durationType: DurationType;
+        userLimit: string;
+        quantity: string;
+        notes: string;
+    }>({
+        licenseType: 'starter',
+        durationType: 'yearly',
+        userLimit: '5',
+        quantity: '10',
+        notes: '',
+    });
+    const [bulkGenerating, setBulkGenerating] = useState(false);
+    const [generatedLicenses, setGeneratedLicenses] = useState<GeneratedLicense[]>([]);
+    const [showBulkResults, setShowBulkResults] = useState(false);
 
     // Check authentication and role
     useEffect(() => {
@@ -51,21 +90,6 @@ export default function BulkLicenseGenerator() {
         }
     }, [user, authLoading, router]);
 
-    // Single license state - must be before any conditional returns
-    const [singleFormData, setSingleFormData] = useState<{
-        licenseType: 'starter' | 'professional' | 'enterprise' | 'custom';
-        durationType: 'monthly' | 'yearly' | 'lifetime' | 'custom_days';
-        userLimit: string;
-        durationValue: string;
-        notes: string;
-    }>({
-        licenseType: 'starter',
-        durationType: 'yearly',
-        userLimit: '5',
-        durationValue: '',
-        notes: '',
-    });
-
     // Show loading state while checking auth
     if (authLoading || user?.role !== 'superadmin') {
         return (
@@ -74,20 +98,6 @@ export default function BulkLicenseGenerator() {
             </div>
         );
     }
-    const [generatedLicense, setGeneratedLicense] = useState<string | null>(null);
-    const [copied, setCopied] = useState(false);
-
-    // Bulk generation state
-    const [bulkConfig, setBulkConfig] = useState({
-        licenseType: 'starter' as any,
-        durationType: 'yearly' as any,
-        userLimit: '5',
-        quantity: '10',
-        notes: '',
-    });
-    const [bulkGenerating, setBulkGenerating] = useState(false);
-    const [generatedLicenses, setGeneratedLicenses] = useState<GeneratedLicense[]>([]);
-    const [showBulkResults, setShowBulkResults] = useState(false);
 
     // Single License Generation
     const handleSingleSubmit = async (e: React.FormEvent) => {
@@ -103,9 +113,9 @@ export default function BulkLicenseGenerator() {
 
             setGeneratedLicense(response.licenseKey);
             toast.success('License generated successfully');
-        } catch (error: any) {
+        } catch (error) {
             toast.error('Failed to generate license', {
-                description: error?.response?.data?.error || 'Please try again',
+                description: getErrorMessage(error, 'Please try again'),
             });
         }
     };
@@ -138,9 +148,9 @@ export default function BulkLicenseGenerator() {
             setGeneratedLicenses(licenses);
             setShowBulkResults(true);
             toast.success(`Successfully generated ${quantity} licenses`);
-        } catch (error: any) {
+        } catch (error) {
             toast.error('Bulk generation failed', {
-                description: error?.response?.data?.error || 'Please try again',
+                description: getErrorMessage(error, 'Please try again'),
             });
         } finally {
             setBulkGenerating(false);
@@ -220,7 +230,7 @@ export default function BulkLicenseGenerator() {
                                         <Select
                                             value={singleFormData.licenseType}
                                             onValueChange={(value) =>
-                                                setSingleFormData({ ...singleFormData, licenseType: value as any })
+                                                setSingleFormData({ ...singleFormData, licenseType: value as LicenseType })
                                             }
                                         >
                                             <SelectTrigger>
@@ -242,7 +252,7 @@ export default function BulkLicenseGenerator() {
                                         <Select
                                             value={singleFormData.durationType}
                                             onValueChange={(value) =>
-                                                setSingleFormData({ ...singleFormData, durationType: value as any })
+                                                setSingleFormData({ ...singleFormData, durationType: value as DurationType })
                                             }
                                         >
                                             <SelectTrigger>
@@ -352,7 +362,7 @@ export default function BulkLicenseGenerator() {
                                     <Select
                                         value={bulkConfig.licenseType}
                                         onValueChange={(value) =>
-                                            setBulkConfig({ ...bulkConfig, licenseType: value as any })
+                                            setBulkConfig({ ...bulkConfig, licenseType: value as LicenseType })
                                         }
                                     >
                                         <SelectTrigger>

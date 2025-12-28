@@ -21,6 +21,7 @@ import {
     useGetAdjustmentHistory,
 } from '@/src/lib/queries/cash-balance.query';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/src/lib/error';
 
 export default function CashBalancePage() {
     const [showAdjustDialog, setShowAdjustDialog] = useState(false);
@@ -41,8 +42,8 @@ export default function CashBalancePage() {
             await refreshAllMutation.mutateAsync();
             toast.success('All balances refreshed successfully');
             refetchBalances();
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Failed to refresh balances');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to refresh balances'));
         }
     };
 
@@ -76,8 +77,8 @@ export default function CashBalancePage() {
             setAdjustAmount('');
             setAdjustReason('');
             refetchBalances();
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Failed to create adjustment');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to create adjustment'));
         }
     };
 
@@ -188,14 +189,14 @@ export default function CashBalancePage() {
                     ) : (
                         <Card>
                             <CardContent className="py-12">
-                                <div className="text-center text-muted-foreground">
-                                    <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                                    <p className="text-lg font-medium">No cash balances yet</p>
-                                    <p className="text-sm mb-4">Click "Add/Adjust Cash" above to set your opening balance or add cash to the system</p>
-                                    <Button onClick={handleOpenAdjustDialog} size="sm">
-                                        <Plus className="mr-2 h-4 w-4" />
-                                        Add Opening Balance
-                                    </Button>
+                                    <div className="text-center text-muted-foreground">
+                                        <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                                        <p className="text-lg font-medium">No cash balances yet</p>
+                                        <p className="text-sm mb-4">Click &quot;Add/Adjust Cash&quot; above to set your opening balance or add cash to the system</p>
+                                        <Button onClick={handleOpenAdjustDialog} size="sm">
+                                            <Plus className="mr-2 h-4 w-4" />
+                                            Add Opening Balance
+                                        </Button>
                                 </div>
                             </CardContent>
                         </Card>

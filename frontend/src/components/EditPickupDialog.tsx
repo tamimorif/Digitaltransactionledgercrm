@@ -13,6 +13,7 @@ import { PickupTransaction } from '@/src/lib/models/pickup.model';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { handleNumberInput, parseFormattedNumber, formatNumberWithCommas } from '@/src/lib/format';
 import { calculateReceivedAmount } from '@/src/lib/transaction-helpers';
+import { getErrorMessage } from '@/src/lib/error';
 
 interface EditPickupDialogProps {
     transaction: PickupTransaction | null;
@@ -111,8 +112,8 @@ export function EditPickupDialog({ transaction, open, onOpenChange, onSuccess }:
             toast.success('Transaction edited successfully');
             onOpenChange(false);
             if (onSuccess) onSuccess();
-        } catch (error: any) {
-            toast.error(error.message || 'Failed to edit transaction');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to edit transaction'));
         } finally {
             setIsLoading(false);
         }

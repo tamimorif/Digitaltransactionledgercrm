@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Globe } from 'lucide-react';
 import {
     DropdownMenu,
@@ -18,7 +18,6 @@ const languages = [
 
 export function LanguageSwitcher() {
     const router = useRouter();
-    const pathname = usePathname();
     const [locale, setLocale] = useState<string>('en');
 
     useEffect(() => {
@@ -53,8 +52,6 @@ export function LanguageSwitcher() {
         // Reload page to apply translations
         router.refresh();
     };
-
-    const currentLang = languages.find(lang => lang.code === locale);
 
     return (
         <DropdownMenu>

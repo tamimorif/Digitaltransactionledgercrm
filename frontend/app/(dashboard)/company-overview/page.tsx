@@ -8,7 +8,7 @@ import { Input } from '@/src/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { useGetStatistics, useExportToCSV, useExportToJSON } from '@/src/lib/queries/statistics.query';
 import { useGetUserBranches } from '@/src/lib/queries/branch.query';
-import { Download, FileSpreadsheet, FileJson, Calendar, TrendingUp, DollarSign, Activity } from 'lucide-react';
+import { FileSpreadsheet, FileJson, Calendar, TrendingUp, DollarSign, Activity } from 'lucide-react';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
 
 export default function CompanyOverviewPage() {

@@ -12,6 +12,7 @@ import {
     ProfitPeriod,
     CustomerProfit,
     ProfitFilters,
+    DashboardSummary,
 } from './models/dashboard.model';
 
 // ============ Dashboard API ============
@@ -23,6 +24,73 @@ export const getDashboardData = async (branchId?: number): Promise<DashboardData
     const params = branchId ? `?branchId=${branchId}` : '';
     const response = await apiClient.get<DashboardData>(`/dashboard${params}`);
     return response.data;
+};
+
+type DashboardSummaryApi = {
+    kpis: {
+        total_volume_today: number;
+        profit_today: number;
+        pending_remittances: number;
+        incoming_pending: number;
+    };
+    cash_flow: { date: string; in: number; out: number }[];
+    recent_transactions: {
+        id: string;
+        client: string;
+        amount: number;
+        currency: string;
+        created_at: string;
+    }[];
+};
+
+const mapSummaryApi = (data: DashboardSummaryApi): DashboardSummary => ({
+    kpis: {
+        totalVolumeToday: data.kpis.total_volume_today,
+        profitToday: data.kpis.profit_today,
+        pendingRemittances: data.kpis.pending_remittances,
+        incomingPending: data.kpis.incoming_pending,
+    },
+    cashFlow: (data.cash_flow ?? []).map((point) => ({
+        date: point.date,
+        in: point.in,
+        out: point.out,
+    })),
+    recentTransactions: (data.recent_transactions ?? []).map((tx) => ({
+        id: tx.id,
+        client: tx.client,
+        amount: tx.amount,
+        currency: tx.currency,
+        createdAt: tx.created_at,
+    })),
+});
+
+const mapSummaryFromDashboardData = (data: DashboardData): DashboardSummary => ({
+    kpis: {
+        totalVolumeToday: data.todayMetrics?.transactionVolume ?? 0,
+        profitToday: data.todayMetrics?.profitCad ?? 0,
+        pendingRemittances: data.outgoingSummary?.pendingCount ?? 0,
+        incomingPending: data.incomingSummary?.pendingCount ?? 0,
+    },
+    cashFlow: (data.dailyVolumes ?? []).map((point) => ({
+        date: point.date,
+        in: point.income,
+        out: point.outgoing,
+    })),
+    recentTransactions: [],
+});
+
+/**
+ * Get compact dashboard summary data
+ */
+export const getDashboardSummary = async (branchId?: number): Promise<DashboardSummary> => {
+    const params = branchId ? `?branchId=${branchId}` : '';
+    try {
+        const response = await apiClient.get<DashboardSummaryApi>(`/dashboard/stats${params}`);
+        return mapSummaryApi(response.data);
+    } catch {
+        const response = await apiClient.get<DashboardData>(`/dashboard${params}`);
+        return mapSummaryFromDashboardData(response.data);
+    }
 };
 
 /**

@@ -63,13 +63,16 @@ func (s *PaymentService) CreatePaymentWithTx(tx *gorm.DB, payment *models.Paymen
 	}
 
 	// 5. Convert payment amount to transaction's base currency
-	payment.AmountInBase = payment.Amount * payment.ExchangeRate
+	// payment.AmountInBase = payment.Amount * payment.ExchangeRate
+	payment.AmountInBase = payment.Amount.Mul(payment.ExchangeRate)
 
 	// 5. Validate not exceeding total
-	newTotalPaid := transaction.TotalPaid + payment.AmountInBase
-	if newTotalPaid > transaction.TotalReceived {
-		return fmt.Errorf("payment exceeds remaining balance. Remaining: %.2f %s",
-			transaction.RemainingBalance, transaction.ReceivedCurrency)
+	// newTotalPaid := transaction.TotalPaid + payment.AmountInBase
+	newTotalPaid := transaction.TotalPaid.Add(payment.AmountInBase)
+	// if newTotalPaid > transaction.TotalReceived {
+	if newTotalPaid.GreaterThan(transaction.TotalReceived) {
+		return fmt.Errorf("payment exceeds remaining balance. Remaining: %s %s",
+			transaction.RemainingBalance.String(), transaction.ReceivedCurrency)
 	}
 
 	// 6. Set default values
@@ -88,13 +91,15 @@ func (s *PaymentService) CreatePaymentWithTx(tx *gorm.DB, payment *models.Paymen
 
 	// 8. Update transaction totals
 	transaction.TotalPaid = newTotalPaid
-	transaction.RemainingBalance = transaction.TotalReceived - newTotalPaid
+	// transaction.RemainingBalance = transaction.TotalReceived - newTotalPaid
+	transaction.RemainingBalance = transaction.TotalReceived.Sub(newTotalPaid)
 
 	// 9. Update payment status (using currency-aware tolerance for IRR, JPY, etc.)
-	tolerance := utils.GetPaymentTolerance(transaction.ReceivedCurrency)
-	if transaction.RemainingBalance <= tolerance {
+	tolerance := models.NewDecimal(utils.GetPaymentTolerance(transaction.ReceivedCurrency))
+	// if transaction.RemainingBalance <= tolerance {
+	if transaction.RemainingBalance.LessThanOrEqual(tolerance) {
 		transaction.PaymentStatus = models.PaymentStatusFullyPaid
-	} else if transaction.TotalPaid > 0 {
+	} else if transaction.TotalPaid.IsPositive() {
 		transaction.PaymentStatus = models.PaymentStatusPartial
 	}
 
@@ -125,7 +130,7 @@ func (s *PaymentService) CreatePaymentWithTx(tx *gorm.DB, payment *models.Paymen
 	// 12. Update Cash Balance (Increase Cash)
 	// Only if payment method is CASH
 	if payment.PaymentMethod == models.PaymentMethodCash {
-		err := s.cashBalanceService.UpdateCashBalance(tx, payment.TenantID, payment.BranchID, payment.Currency, payment.Amount, fmt.Sprintf("Payment for Transaction #%s", transaction.ID), userID)
+		err := s.cashBalanceService.UpdateCashBalance(tx, payment.TenantID, payment.BranchID, payment.Currency, payment.Amount.Float64(), fmt.Sprintf("Payment for Transaction #%s", transaction.ID), userID)
 		if err != nil {
 			return fmt.Errorf("failed to update cash balance: %w", err)
 		}
@@ -185,13 +190,13 @@ func (s *PaymentService) UpdatePayment(paymentID uint, tenantID uint, updates ma
 
 		// 3. Apply updates
 		if amount, ok := updates["amount"].(float64); ok {
-			payment.Amount = amount
+			payment.Amount = models.NewDecimal(amount)
 		}
 		if currency, ok := updates["currency"].(string); ok {
 			payment.Currency = currency
 		}
 		if rate, ok := updates["exchangeRate"].(float64); ok {
-			payment.ExchangeRate = rate
+			payment.ExchangeRate = models.NewDecimal(rate)
 		}
 		if method, ok := updates["paymentMethod"].(string); ok {
 			payment.PaymentMethod = method
@@ -204,7 +209,7 @@ func (s *PaymentService) UpdatePayment(paymentID uint, tenantID uint, updates ma
 		}
 
 		// 4. Recalculate amount in base currency
-		payment.AmountInBase = payment.Amount * payment.ExchangeRate
+		payment.AmountInBase = payment.Amount.Mul(payment.ExchangeRate)
 
 		// 5. Set edit tracking
 		now := time.Now()
@@ -224,21 +229,21 @@ func (s *PaymentService) UpdatePayment(paymentID uint, tenantID uint, updates ma
 		}
 
 		// 7. Recalculate transaction totals
-		amountDifferenceInBase := payment.AmountInBase - oldAmountInBase
-		transaction.TotalPaid += amountDifferenceInBase
-		transaction.RemainingBalance = transaction.TotalReceived - transaction.TotalPaid
+		amountDifferenceInBase := payment.AmountInBase.Sub(oldAmountInBase)
+		transaction.TotalPaid = transaction.TotalPaid.Add(amountDifferenceInBase)
+		transaction.RemainingBalance = transaction.TotalReceived.Sub(transaction.TotalPaid)
 
 		// 8. Validate not exceeding total
-		if transaction.TotalPaid > transaction.TotalReceived {
-			return fmt.Errorf("updated payment exceeds total. Remaining: %.2f %s",
-				transaction.RemainingBalance, transaction.ReceivedCurrency)
+		if transaction.TotalPaid.GreaterThan(transaction.TotalReceived) {
+			return fmt.Errorf("updated payment exceeds total. Remaining: %s %s",
+				transaction.RemainingBalance.String(), transaction.ReceivedCurrency)
 		}
 
 		// 9. Update payment status (using currency-aware tolerance)
-		tolerance := utils.GetPaymentTolerance(transaction.ReceivedCurrency)
-		if transaction.RemainingBalance <= tolerance {
+		tolerance := models.NewDecimal(utils.GetPaymentTolerance(transaction.ReceivedCurrency))
+		if transaction.RemainingBalance.LessThanOrEqual(tolerance) {
 			transaction.PaymentStatus = models.PaymentStatusFullyPaid
-		} else if transaction.TotalPaid > 0 {
+		} else if transaction.TotalPaid.IsPositive() {
 			transaction.PaymentStatus = models.PaymentStatusPartial
 		} else {
 			transaction.PaymentStatus = models.PaymentStatusOpen
@@ -255,11 +260,11 @@ func (s *PaymentService) UpdatePayment(paymentID uint, tenantID uint, updates ma
 		// 11. Handle Ledger and Cash Balance Adjustments
 		// Case A: Amount Changed (Same Currency)
 		if payment.Currency == oldCurrency {
-			amountDifference := payment.Amount - oldAmount
-			if amountDifference != 0 {
+			amountDifference := payment.Amount.Sub(oldAmount)
+			if !amountDifference.IsZero() {
 				// Create Ledger Entry for the difference
 				ledgerType := models.LedgerTypeDeposit
-				if amountDifference < 0 {
+				if amountDifference.IsNegative() {
 					ledgerType = models.LedgerTypeWithdrawal // Correction (Debit)
 				}
 
@@ -280,11 +285,39 @@ func (s *PaymentService) UpdatePayment(paymentID uint, tenantID uint, updates ma
 					return fmt.Errorf("failed to create ledger adjustment: %w", err)
 				}
 
-				// Update Cash Balance if method is Cash
+				// --- FIXED CASH BALANCE LOGIC ---
+				// 1. If stayed Cash: Adjust by difference
 				if payment.PaymentMethod == models.PaymentMethodCash && oldPaymentMethod == models.PaymentMethodCash {
-					err := s.cashBalanceService.UpdateCashBalance(tx, payment.TenantID, payment.BranchID, payment.Currency, amountDifference, fmt.Sprintf("Adjustment for Payment #%d (Update): %s", payment.ID, reason), userID)
+					err := s.cashBalanceService.UpdateCashBalance(tx, payment.TenantID, payment.BranchID, payment.Currency, amountDifference.Float64(), fmt.Sprintf("Adjustment for Payment #%d (Update): %s", payment.ID, reason), userID)
 					if err != nil {
 						return fmt.Errorf("failed to update cash balance: %w", err)
+					}
+				} else if oldPaymentMethod == models.PaymentMethodCash && payment.PaymentMethod != models.PaymentMethodCash {
+					// 2. Was Cash, became Non-Cash: Reverse OLD amount (remove from cash)
+					err := s.cashBalanceService.UpdateCashBalance(tx, payment.TenantID, payment.BranchID, payment.Currency, -oldAmount.Float64(), fmt.Sprintf("Adjustment (Method Change) for Payment #%d: %s", payment.ID, reason), userID)
+					if err != nil {
+						return fmt.Errorf("failed to reverse old cash balance: %w", err)
+					}
+				} else if oldPaymentMethod != models.PaymentMethodCash && payment.PaymentMethod == models.PaymentMethodCash {
+					// 3. Was Non-Cash, became Cash: Add NEW amount (add to cash)
+					err := s.cashBalanceService.UpdateCashBalance(tx, payment.TenantID, payment.BranchID, payment.Currency, payment.Amount.Float64(), fmt.Sprintf("Adjustment (Method Change) for Payment #%d: %s", payment.ID, reason), userID)
+					if err != nil {
+						return fmt.Errorf("failed to add new cash balance: %w", err)
+					}
+				}
+			} else {
+				// Amount didn't change, but Method might have
+				if oldPaymentMethod == models.PaymentMethodCash && payment.PaymentMethod != models.PaymentMethodCash {
+					// Remove old amount
+					err := s.cashBalanceService.UpdateCashBalance(tx, payment.TenantID, payment.BranchID, payment.Currency, -oldAmount.Float64(), fmt.Sprintf("Method Change (Cash->%s) Payment #%d", payment.PaymentMethod, payment.ID), userID)
+					if err != nil {
+						return err
+					}
+				} else if oldPaymentMethod != models.PaymentMethodCash && payment.PaymentMethod == models.PaymentMethodCash {
+					// Add new amount (same as old amount)
+					err := s.cashBalanceService.UpdateCashBalance(tx, payment.TenantID, payment.BranchID, payment.Currency, payment.Amount.Float64(), fmt.Sprintf("Method Change (%s->Cash) Payment #%d", oldPaymentMethod, payment.ID), userID)
+					if err != nil {
+						return err
 					}
 				}
 			}
@@ -304,7 +337,7 @@ func (s *PaymentService) UpdatePayment(paymentID uint, tenantID uint, updates ma
 				TransactionID: &transaction.ID,
 				Type:          models.LedgerTypeWithdrawal,
 				Currency:      oldCurrency,
-				Amount:        -oldAmount,
+				Amount:        oldAmount.Neg(),
 				Description:   fmt.Sprintf("Reversal (Currency Change) for Payment #%d: %s", payment.ID, reason),
 				CreatedBy:     userID,
 				CreatedAt:     time.Now(),
@@ -315,7 +348,7 @@ func (s *PaymentService) UpdatePayment(paymentID uint, tenantID uint, updates ma
 
 			if oldPaymentMethod == models.PaymentMethodCash {
 				// Decrease Cash for old currency
-				err := s.cashBalanceService.UpdateCashBalance(tx, payment.TenantID, payment.BranchID, oldCurrency, -oldAmount, fmt.Sprintf("Currency change reversal for Payment #%d: %s", payment.ID, reason), userID)
+				err := s.cashBalanceService.UpdateCashBalance(tx, payment.TenantID, payment.BranchID, oldCurrency, -oldAmount.Float64(), fmt.Sprintf("Currency change reversal for Payment #%d: %s", payment.ID, reason), userID)
 				if err != nil {
 					return fmt.Errorf("failed to update old currency cash balance: %w", err)
 				}
@@ -341,7 +374,7 @@ func (s *PaymentService) UpdatePayment(paymentID uint, tenantID uint, updates ma
 
 			if payment.PaymentMethod == models.PaymentMethodCash {
 				// Increase Cash for new currency
-				err := s.cashBalanceService.UpdateCashBalance(tx, payment.TenantID, payment.BranchID, payment.Currency, payment.Amount, fmt.Sprintf("Currency change credit for Payment #%d: %s", payment.ID, reason), userID)
+				err := s.cashBalanceService.UpdateCashBalance(tx, payment.TenantID, payment.BranchID, payment.Currency, payment.Amount.Float64(), fmt.Sprintf("Currency change credit for Payment #%d: %s", payment.ID, reason), userID)
 				if err != nil {
 					return fmt.Errorf("failed to update new currency cash balance: %w", err)
 				}
@@ -370,14 +403,17 @@ func (s *PaymentService) DeletePayment(paymentID uint, tenantID uint, userID uin
 		}
 
 		// 3. Update transaction totals
-		transaction.TotalPaid -= payment.AmountInBase
-		transaction.RemainingBalance = transaction.TotalReceived - transaction.TotalPaid
+		// transaction.TotalPaid -= payment.AmountInBase
+		transaction.TotalPaid = transaction.TotalPaid.Sub(payment.AmountInBase)
+		// transaction.RemainingBalance = transaction.TotalReceived - transaction.TotalPaid
+		transaction.RemainingBalance = transaction.TotalReceived.Sub(transaction.TotalPaid)
 
 		// 4. Update payment status (using currency-aware tolerance)
-		tolerance := utils.GetPaymentTolerance(transaction.ReceivedCurrency)
-		if transaction.TotalPaid <= 0 {
+		tolerance := models.NewDecimal(utils.GetPaymentTolerance(transaction.ReceivedCurrency))
+		// if transaction.TotalPaid <= 0 {
+		if transaction.TotalPaid.IsZero() || transaction.TotalPaid.IsNegative() {
 			transaction.PaymentStatus = models.PaymentStatusOpen
-		} else if transaction.RemainingBalance > tolerance {
+		} else if transaction.RemainingBalance.GreaterThan(tolerance) {
 			transaction.PaymentStatus = models.PaymentStatusPartial
 		}
 
@@ -399,7 +435,7 @@ func (s *PaymentService) DeletePayment(paymentID uint, tenantID uint, userID uin
 			TransactionID: &transaction.ID,
 			Type:          models.LedgerTypeWithdrawal,
 			Currency:      payment.Currency,
-			Amount:        -payment.Amount,
+			Amount:        payment.Amount.Neg(),
 			Description:   fmt.Sprintf("Reversal (Deletion) of Payment #%d", payment.ID),
 			ExchangeRate:  &payment.ExchangeRate,
 			CreatedBy:     userID,
@@ -411,7 +447,7 @@ func (s *PaymentService) DeletePayment(paymentID uint, tenantID uint, userID uin
 
 		// 8. Update Cash Balance (Decrease Cash - Reversal)
 		if payment.PaymentMethod == models.PaymentMethodCash {
-			err := s.cashBalanceService.UpdateCashBalance(tx, payment.TenantID, payment.BranchID, payment.Currency, -payment.Amount, fmt.Sprintf("Reversal (Deletion) of Payment #%d", payment.ID), userID)
+			err := s.cashBalanceService.UpdateCashBalance(tx, payment.TenantID, payment.BranchID, payment.Currency, -payment.Amount.Float64(), fmt.Sprintf("Reversal (Deletion) of Payment #%d", payment.ID), userID)
 			if err != nil {
 				return fmt.Errorf("failed to update cash balance reversal: %w", err)
 			}
@@ -450,14 +486,17 @@ func (s *PaymentService) CancelPayment(paymentID uint, tenantID uint, userID uin
 		payment.CancelReason = &reason
 
 		// 4. Update transaction totals (subtract cancelled payment)
-		transaction.TotalPaid -= payment.AmountInBase
-		transaction.RemainingBalance = transaction.TotalReceived - transaction.TotalPaid
+		// transaction.TotalPaid -= payment.AmountInBase
+		transaction.TotalPaid = transaction.TotalPaid.Sub(payment.AmountInBase)
+		// transaction.RemainingBalance = transaction.TotalReceived - transaction.TotalPaid
+		transaction.RemainingBalance = transaction.TotalReceived.Sub(transaction.TotalPaid)
 
 		// 5. Update payment status (using currency-aware tolerance)
-		tolerance := utils.GetPaymentTolerance(transaction.ReceivedCurrency)
-		if transaction.TotalPaid <= 0 {
+		tolerance := models.NewDecimal(utils.GetPaymentTolerance(transaction.ReceivedCurrency))
+		// if transaction.TotalPaid <= 0 {
+		if transaction.TotalPaid.IsZero() || transaction.TotalPaid.IsNegative() {
 			transaction.PaymentStatus = models.PaymentStatusOpen
-		} else if transaction.RemainingBalance > tolerance {
+		} else if transaction.RemainingBalance.GreaterThan(tolerance) {
 			transaction.PaymentStatus = models.PaymentStatusPartial
 		}
 
@@ -478,7 +517,7 @@ func (s *PaymentService) CancelPayment(paymentID uint, tenantID uint, userID uin
 			TransactionID: &transaction.ID,
 			Type:          models.LedgerTypeWithdrawal, // Or a specific REVERSAL type
 			Currency:      payment.Currency,
-			Amount:        -payment.Amount, // Negative amount to reverse the deposit
+			Amount:        payment.Amount.Neg(), // Negative amount to reverse the deposit
 			Description:   fmt.Sprintf("Reversal of Payment #%d for Transaction #%s: %s", payment.ID, transaction.ID, reason),
 			ExchangeRate:  &payment.ExchangeRate,
 			CreatedBy:     userID,
@@ -490,7 +529,7 @@ func (s *PaymentService) CancelPayment(paymentID uint, tenantID uint, userID uin
 
 		// 8. Update Cash Balance (Decrease Cash - Reversal)
 		if payment.PaymentMethod == models.PaymentMethodCash {
-			err := s.cashBalanceService.UpdateCashBalance(tx, payment.TenantID, payment.BranchID, payment.Currency, -payment.Amount, fmt.Sprintf("Reversal of Payment #%d: %s", payment.ID, reason), userID)
+			err := s.cashBalanceService.UpdateCashBalance(tx, payment.TenantID, payment.BranchID, payment.Currency, -payment.Amount.Float64(), fmt.Sprintf("Reversal of Payment #%d: %s", payment.ID, reason), userID)
 			if err != nil {
 				return fmt.Errorf("failed to update cash balance reversal: %w", err)
 			}
@@ -510,16 +549,19 @@ func (s *PaymentService) CompleteTransaction(transactionID string, tenantID uint
 		}
 
 		// Allow completion if remaining is small (using currency-aware tolerance)
-		tolerance := utils.GetPaymentTolerance(transaction.ReceivedCurrency)
+		tolerance := models.NewDecimal(utils.GetPaymentTolerance(transaction.ReceivedCurrency))
 		// Also allow 1% tolerance for larger transactions
-		percentTolerance := transaction.TotalReceived * 0.01
-		if percentTolerance > tolerance {
+		// percentTolerance := transaction.TotalReceived * 0.01
+		percentTolerance := transaction.TotalReceived.Mul(models.NewDecimal(0.01))
+
+		if percentTolerance.GreaterThan(tolerance) {
 			tolerance = percentTolerance
 		}
 
-		if transaction.RemainingBalance > tolerance {
-			return fmt.Errorf("cannot complete transaction with remaining balance: %.2f %s",
-				transaction.RemainingBalance, transaction.ReceivedCurrency)
+		// if transaction.RemainingBalance > tolerance {
+		if transaction.RemainingBalance.GreaterThan(tolerance) {
+			return fmt.Errorf("cannot complete transaction with remaining balance: %s %s",
+				transaction.RemainingBalance.String(), transaction.ReceivedCurrency)
 		}
 
 		transaction.PaymentStatus = models.PaymentStatusFullyPaid

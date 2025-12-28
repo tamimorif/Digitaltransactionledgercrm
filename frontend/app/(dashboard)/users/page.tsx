@@ -21,6 +21,9 @@ import { User } from '@/src/lib/user-api';
 import { toast } from 'sonner';
 import { CreateUserDialog } from '@/src/components/users/CreateUserDialog';
 import { EditUserDialog } from '@/src/components/users/EditUserDialog';
+import { getErrorMessage } from '@/src/lib/error';
+
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'destructive';
 
 export default function UsersPage() {
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -37,13 +40,13 @@ export default function UsersPage() {
             await deleteUserMutation.mutateAsync(deletingUser.id);
             toast.success('User deleted successfully');
             setDeletingUser(null);
-        } catch (error: any) {
-            toast.error(error?.response?.data?.error || 'Failed to delete user');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to delete user'));
         }
     };
 
     const getRoleBadge = (role: string) => {
-        const roleConfig: Record<string, { variant: any; label: string }> = {
+        const roleConfig: Record<string, { variant: BadgeVariant; label: string }> = {
             tenant_owner: { variant: 'default', label: 'Owner' },
             tenant_admin: { variant: 'secondary', label: 'Admin' },
             tenant_user: { variant: 'outline', label: 'User' },

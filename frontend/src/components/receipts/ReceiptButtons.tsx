@@ -4,6 +4,7 @@ import { Button } from '@/src/components/ui/button';
 import { toast } from 'sonner';
 import { useDownloadOutgoingReceipt, useDownloadIncomingReceipt } from '@/src/lib/queries/dashboard.query';
 import { FileDown, Loader2, Printer } from 'lucide-react';
+import { getErrorMessage } from '@/src/lib/error';
 
 interface ReceiptButtonProps {
     remittanceId: number | string;
@@ -30,8 +31,8 @@ export function ReceiptDownloadButton({
         try {
             await mutation.mutateAsync(remittanceId);
             toast.success('Receipt downloaded successfully');
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Failed to download receipt');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to download receipt'));
         }
     };
 
@@ -98,8 +99,8 @@ export function PrintReceiptButton({
 
             // Clean up
             setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-        } catch (error: any) {
-            toast.error(error.response?.data?.error || 'Failed to print receipt');
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to print receipt'));
         }
     };
 

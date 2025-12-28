@@ -41,7 +41,7 @@ export function TransferList() {
         try {
             await acceptMutation.mutateAsync(id);
             toast.success('Transfer accepted');
-        } catch (error) {
+        } catch {
             toast.error('Failed to accept transfer');
         }
     };
@@ -50,7 +50,7 @@ export function TransferList() {
         try {
             await cancelMutation.mutateAsync(id);
             toast.success('Transfer cancelled');
-        } catch (error) {
+        } catch {
             toast.error('Failed to cancel transfer');
         }
     };
