@@ -22,6 +22,7 @@ export interface BranchSummary {
     branchId: number;
     branchName: string;
     txCount: number;
+    volume: number;
     revenue: number;
 }
 

@@ -6,31 +6,9 @@ import {
   useCreateReconciliation,
   useGetReconciliationHistory,
   useGetSystemState,
-  useGetVarianceReport,
 } from '@/src/lib/queries/reconciliation.query';
 import { useGetActiveCurrencies } from '@/src/lib/queries/cash-balance.query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
-import { Button } from '@/src/components/ui/button';
-import { Input } from '@/src/components/ui/input';
-import { Label } from '@/src/components/ui/label';
-import { Textarea } from '@/src/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/src/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/src/components/ui/table';
-import { Badge } from '@/src/components/ui/badge';
-import { AlertCircle, CheckCircle2, Calculator, Loader2 } from 'lucide-react';
+import { Calculator, CheckCircle2, AlertTriangle, Loader2, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function ReconciliationPage() {
@@ -43,8 +21,7 @@ export default function ReconciliationPage() {
   const branchId = selectedBranch ? Number(selectedBranch) : undefined;
 
   const { data: branches } = useGetBranches();
-  const { data: reconciliations, isLoading } = useGetReconciliationHistory();
-  const { data: varianceReport } = useGetVarianceReport();
+  const { data: reconciliations, isLoading: historyLoading } = useGetReconciliationHistory();
   const { data: systemState, isLoading: systemStateLoading } = useGetSystemState(branchId);
   const { data: activeCurrencies } = useGetActiveCurrencies(branchId);
   const createReconciliation = useCreateReconciliation();
@@ -134,380 +111,325 @@ export default function ReconciliationPage() {
     );
   };
 
+  const formatNumber = (value: number) =>
+    value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   return (
-    <div className="mx-auto w-full max-w-7xl px-6 py-6 space-y-6 font-[Inter]">
-      <div>
-        <h1 className="text-3xl font-bold">Daily Reconciliation</h1>
-        <p className="text-muted-foreground mt-1">Ledger-style cash count with live system state</p>
+    <div className="mx-auto w-full max-w-[1200px] px-6 py-10 lg:px-10">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-[28px] font-extrabold tracking-tight text-foreground">
+          Daily Reconciliation
+        </h1>
+        <p className="mt-1 text-[15px] text-muted-foreground">
+          Ledger-style cash count with live system state verification.
+        </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-        {/* Ledger Sheet */}
-        <Card className="border-border/60">
-          <CardHeader className="border-b">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Calculator className="h-5 w-5 text-primary" />
-                  Reconciliation Ledger
-                </CardTitle>
-                <CardDescription>Compare expected vs actual balances by currency</CardDescription>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Branch</Label>
-                  <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches?.map((branch) => (
-                        <SelectItem key={branch.id} value={String(branch.id)}>
-                          {branch.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+      {/* Main Grid: 2fr (form) | 1fr (sidebar) */}
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr] items-stretch">
+        {/* ─────────────────────────────────────────────────────────────────────
+            LEFT COLUMN: LEDGER FORM
+        ───────────────────────────────────────────────────────────────────── */}
+        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+          {/* Card Header */}
+          <div className="flex items-center justify-between border-b border-border bg-card px-6 py-5">
+            <div className="flex items-center gap-2 text-base font-bold">
+              <Calculator className="h-[18px] w-[18px] text-primary" />
+              Reconciliation Ledger
+            </div>
+          </div>
+
+          {/* Card Body */}
+          <div className="p-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Row 1: Branch + Date */}
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <label className="text-[13px] font-semibold text-muted-foreground">Branch</label>
+                  <select
+                    value={selectedBranch}
+                    onChange={(e) => setSelectedBranch(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  >
+                    <option value="">Select branch...</option>
+                    {branches?.map((branch) => (
+                      <option key={branch.id} value={String(branch.id)}>
+                        {branch.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="date">Date</Label>
-                  <Input
-                    id="date"
+                <div className="flex flex-col gap-2">
+                  <label className="text-[13px] font-semibold text-muted-foreground">Date</label>
+                  <input
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
                   />
                 </div>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-5 pt-5">
-            <form className="space-y-5" onSubmit={handleSubmit}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="opening">Opening Balance</Label>
-                <Input
-                  id="opening"
-                  type="number"
-                  step="0.01"
-                  value={openingBalance}
-                  onChange={(e) => setOpeningBalance(e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Closing Balance (Actual)</Label>
-                <div className="h-10 rounded-md border border-border bg-muted/40 px-3 flex items-center text-sm font-semibold">
-                  {actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+
+              {/* Row 2: Opening Balance + Closing Balance (Calculated) */}
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <label className="text-[13px] font-semibold text-muted-foreground">
+                    Opening Balance
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={openingBalance}
+                    onChange={(e) => setOpeningBalance(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-[13px] font-semibold text-muted-foreground">
+                    Closing Balance (Actual)
+                  </label>
+                  <div className="flex h-10 items-center rounded-lg border border-border bg-muted/40 px-3 text-sm font-semibold text-muted-foreground">
+                    {systemStateLoading ? 'Calculating...' : formatNumber(actualTotal)}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-              <TableHeader className="bg-muted/40">
-                <TableRow>
-                  <TableHead className="text-[11px] uppercase tracking-wide text-muted-foreground">Currency</TableHead>
-                  <TableHead className="text-right text-[11px] uppercase tracking-wide text-muted-foreground">System Cash</TableHead>
-                  <TableHead className="text-right text-[11px] uppercase tracking-wide text-muted-foreground">System Bank</TableHead>
-                  <TableHead className="text-right text-[11px] uppercase tracking-wide text-muted-foreground">System Total</TableHead>
-                  <TableHead className="text-right text-[11px] uppercase tracking-wide text-muted-foreground">Actual</TableHead>
-                  <TableHead className="text-right text-[11px] uppercase tracking-wide text-muted-foreground">Variance</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                  {systemStateLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                        Loading system state...
-                      </TableCell>
-                    </TableRow>
-                  ) : currencies.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                        Select a branch to load currencies.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    currencies.map((currency, index) => {
-                      const expected = systemStateMap.get(currency);
-                      const expectedCash = expected?.cash ?? 0;
-                      const expectedBank = expected?.bank ?? 0;
-                      const expectedTotalCurrency = expected?.total ?? 0;
-                      const actualValue = parseFloat(currencyBreakdown[currency]) || 0;
-                      const variance = actualValue - expectedTotalCurrency;
+              {/* Data Table */}
+              <div className="overflow-hidden rounded-lg border border-border">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr className="bg-muted/50">
+                      <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Currency
+                      </th>
+                      <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Sys Cash
+                      </th>
+                      <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Sys Bank
+                      </th>
+                      <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Sys Total
+                      </th>
+                      <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Actual (Count)
+                      </th>
+                      <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Variance
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {systemStateLoading ? (
+                      <tr>
+                        <td colSpan={6} className="py-10 text-center text-muted-foreground">
+                          <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+                          <span className="mt-2 block text-sm">Loading system state...</span>
+                        </td>
+                      </tr>
+                    ) : currencies.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-10 text-center text-muted-foreground">
+                          Select a branch to load currencies.
+                        </td>
+                      </tr>
+                    ) : (
+                      currencies.map((currency) => {
+                        const expected = systemStateMap.get(currency);
+                        const expectedCash = expected?.cash ?? 0;
+                        const expectedBank = expected?.bank ?? 0;
+                        const expectedTotalCurrency = expected?.total ?? 0;
+                        const actualValue = parseFloat(currencyBreakdown[currency]) || 0;
+                        const variance = actualValue - expectedTotalCurrency;
+                        const isNeg = variance < -0.005;
+                        const isPos = variance > 0.005;
 
-                      return (
-                        <TableRow
-                          key={currency}
-                          className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}
-                        >
-                          <TableCell className="py-2 text-xs font-medium">{currency}</TableCell>
-                          <TableCell className="py-2 text-right text-xs font-mono">
-                            {expectedCash.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </TableCell>
-                          <TableCell className="py-2 text-right text-xs font-mono">
-                            {expectedBank.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </TableCell>
-                          <TableCell className="py-2 text-right text-xs font-mono">
-                            {expectedTotalCurrency.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </TableCell>
-                          <TableCell className="py-2 text-right">
-                            <Input
-                              type="number"
-                              step="0.01"
-                              className="h-8 text-right text-xs"
-                              value={currencyBreakdown[currency] ?? ''}
-                              onChange={(e) =>
-                                setCurrencyBreakdown((prev) => ({
-                                  ...prev,
-                                  [currency]: e.target.value,
-                                }))
-                              }
-                            />
-                          </TableCell>
-                          <TableCell className="py-2 text-right">
-                            <Badge
-                              variant={Math.abs(variance) < 0.01 ? 'outline' : 'destructive'}
-                              className={
-                                Math.abs(variance) < 0.01
-                                  ? 'rounded-full border-emerald-200 px-2 text-[11px] text-emerald-600 dark:border-emerald-500/30 dark:text-emerald-400'
-                                  : 'rounded-full border-rose-200 px-2 text-[11px] text-rose-600 dark:border-rose-500/30 dark:text-rose-400'
-                              }
+                        return (
+                          <tr key={currency} className="border-t border-border">
+                            <td className="px-4 py-3 font-semibold">{currency}</td>
+                            <td className="px-4 py-3 text-right font-mono">
+                              {formatNumber(expectedCash)}
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono">
+                              {formatNumber(expectedBank)}
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono">
+                              {formatNumber(expectedTotalCurrency)}
+                            </td>
+                            <td className="w-[120px] px-2 py-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={currencyBreakdown[currency] ?? ''}
+                                onChange={(e) =>
+                                  setCurrencyBreakdown((prev) => ({
+                                    ...prev,
+                                    [currency]: e.target.value,
+                                  }))
+                                }
+                                className="h-8 w-full rounded border border-border bg-background px-2 text-right text-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
+                              />
+                            </td>
+                            <td
+                              className={`px-4 py-3 text-right font-mono font-semibold ${isNeg
+                                ? 'text-destructive'
+                                : isPos
+                                  ? 'text-emerald-600 dark:text-emerald-400'
+                                  : ''
+                                }`}
                             >
-                              {variance > 0 ? '+' : ''}
-                              {variance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-
-                  {currencies.length > 0 && !systemStateLoading && (
-                    <TableRow className="bg-muted/40 font-semibold">
-                      <TableCell className="py-2 text-xs">Total</TableCell>
-                      <TableCell className="py-2 text-right text-xs">—</TableCell>
-                      <TableCell className="py-2 text-right text-xs">—</TableCell>
-                      <TableCell className="py-2 text-right text-xs">
-                        {expectedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell className="py-2 text-right text-xs">
-                        {actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell className="py-2 text-right text-xs">
-                        <Badge
-                          variant={isBalanced ? 'outline' : 'destructive'}
-                          className={
-                            isBalanced
-                              ? 'rounded-full border-emerald-200 px-2 text-[11px] text-emerald-600 dark:border-emerald-500/30 dark:text-emerald-400'
-                              : 'rounded-full border-rose-200 px-2 text-[11px] text-rose-600 dark:border-rose-500/30 dark:text-rose-400'
-                          }
-                        >
-                          {varianceTotal > 0 ? '+' : ''}
-                          {varianceTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes (Optional)</Label>
-              <Textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Document any discrepancies or explanations..."
-              />
-            </div>
-
-            <Button type="submit" className="w-full" disabled={createReconciliation.isPending}>
-              {createReconciliation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Calculator className="h-4 w-4 mr-2" />
-              )}
-              Submit Reconciliation
-            </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* Sticky Summary */}
-        <div className="space-y-6">
-          <Card className="border-border/60 sticky top-24">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                {isBalanced ? (
-                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                ) : (
-                  <AlertCircle className="h-5 w-5 text-amber-500" />
-                )}
-                System Summary
-              </CardTitle>
-              <CardDescription className="text-xs">Expected vs actual totals</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Expected Total</span>
-                <span className="font-semibold">
-                  {expectedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                              {isPos ? '+' : ''}
+                              {formatNumber(variance)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
-              <div className="flex items-center justify-between">
+
+              {/* Notes */}
+              <div className="flex flex-col gap-2">
+                <label className="text-[13px] font-semibold text-muted-foreground">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Document any discrepancies or explanations here..."
+                  className="min-h-[80px] w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                />
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={createReconciliation.isPending}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+              >
+                {createReconciliation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                Submit Reconciliation
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* ─────────────────────────────────────────────────────────────────────
+            RIGHT COLUMN: SUMMARY + HISTORY
+        ───────────────────────────────────────────────────────────────────── */}
+        <div className="flex flex-col gap-6 h-full">
+          {/* System Summary Card */}
+          <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2 border-b border-border px-5 py-4">
+              {isBalanced ? (
+                <CheckCircle2 className="h-[18px] w-[18px] text-emerald-500" />
+              ) : (
+                <AlertTriangle className="h-[18px] w-[18px] text-amber-500" />
+              )}
+              <span className="text-base font-bold">System Summary</span>
+            </div>
+            <div className="p-5 space-y-3 text-sm">
+              <div className="flex items-center justify-between border-b border-muted/60 pb-3">
+                <span className="text-muted-foreground">Expected Total</span>
+                <span className="font-semibold">{formatNumber(expectedTotal)}</span>
+              </div>
+              <div className="flex items-center justify-between border-b border-muted/60 pb-3">
                 <span className="text-muted-foreground">Actual Total</span>
-                <span className="font-semibold">
-                  {actualTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                <span className="font-semibold">{formatNumber(actualTotal)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Variance</span>
-                <span className={isBalanced ? 'text-emerald-600 font-semibold' : 'text-rose-600 font-semibold'}>
+                <span
+                  className={`font-semibold ${isBalanced
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-destructive'
+                    }`}
+                >
                   {varianceTotal > 0 ? '+' : ''}
-                  {varianceTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {formatNumber(varianceTotal)}
                 </span>
               </div>
-              <div className={`rounded-lg px-3 py-2 text-xs font-medium ${isBalanced ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'}`}>
-                {isBalanced ? 'Balances match. Ready to submit.' : 'Variance detected. Double-check counts.'}
+
+              {/* Status Box */}
+              <div
+                className={`mt-4 rounded-lg border px-3 py-2.5 text-center text-[13px] font-semibold ${isBalanced
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400'
+                  : 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-400'
+                  }`}
+              >
+                {isBalanced ? 'Balances Match — Ready to Submit' : 'Discrepancy Detected'}
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/60">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                <AlertCircle className="h-5 w-5 text-amber-500" />
-                Variance Report
-              </CardTitle>
-              <CardDescription className="text-xs">Branches with cash discrepancies (Last 30 days)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {varianceReport && varianceReport.length > 0 ? (
-                <div className="space-y-2">
-                  {varianceReport.slice(0, 5).map((rec) => (
-                    <div
-                      key={rec.id}
-                      className="flex items-center justify-between rounded-lg border border-amber-200/70 bg-amber-50/70 px-3 py-2 dark:border-amber-500/30 dark:bg-amber-500/10"
-                    >
-                      <div>
-                        <p className="text-xs font-medium">{rec.branch?.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(rec.date).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <Badge variant="outline" className="border-amber-300 text-[11px] font-mono text-amber-700 dark:border-amber-500/40 dark:text-amber-400">
-                        {rec.variance > 0 ? '+' : ''}
-                        {rec.variance.toFixed(2)}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <CheckCircle2 className="h-10 w-10 text-emerald-500 mb-2" />
-                  <p className="text-sm font-medium">All branches balanced!</p>
-                  <p className="text-xs text-muted-foreground">No discrepancies found</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* History Table */}
-      <Card className="border-border/60">
-        <CardHeader className="border-b">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-xl font-bold">Reconciliation History</CardTitle>
-              <CardDescription>Comprehensive record of past reconciliations</CardDescription>
             </div>
-            <Badge variant="outline" className="hidden md:inline-flex">
-              Last 10 Records
-            </Badge>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center h-64 gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-primary/60" />
-              <p className="text-sm text-muted-foreground animate-pulse">Loading history...</p>
+
+          {/* History Card */}
+          <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden flex flex-col flex-1 min-h-0">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <span className="text-base font-bold">History</span>
+              <span className="rounded bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                Last 10
+              </span>
             </div>
-          ) : reconciliations && reconciliations.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-muted/40">
-                  <TableRow>
-                    <TableHead className="w-[140px] text-[11px] uppercase tracking-wide text-muted-foreground">Date</TableHead>
-                    <TableHead className="text-[11px] uppercase tracking-wide text-muted-foreground">Branch</TableHead>
-                    <TableHead className="text-right text-[11px] uppercase tracking-wide text-muted-foreground">Opening</TableHead>
-                    <TableHead className="text-right text-[11px] uppercase tracking-wide text-muted-foreground">Closing</TableHead>
-                    <TableHead className="text-right text-[11px] uppercase tracking-wide text-muted-foreground">Expected</TableHead>
-                    <TableHead className="text-right text-[11px] uppercase tracking-wide text-muted-foreground">Variance</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {reconciliations.slice(0, 10).map((rec, index) => (
-                    <TableRow
-                      key={rec.id}
-                      className={index % 2 === 0 ? 'bg-background' : 'bg-muted/20'}
-                    >
-                      <TableCell className="py-2 text-xs font-medium">
-                        {new Date(rec.date).toLocaleDateString(undefined, {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })}
-                      </TableCell>
-                      <TableCell className="py-2 text-xs">
-                        <div className="flex flex-col">
-                          <span className="font-medium">{rec.branch?.name}</span>
-                          <span className="text-xs text-muted-foreground">ID: {rec.branch?.id}</span>
+            <div className="flex-1 p-5 overflow-hidden flex flex-col">
+              {historyLoading ? (
+                <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <span className="mt-2 text-sm">Loading...</span>
+                </div>
+              ) : reconciliations && reconciliations.length > 0 ? (
+                <div className="space-y-2 overflow-y-auto pr-1 flex-1">
+                  {reconciliations.slice(0, 10).map((rec) => {
+                    const hasVariance = Math.abs(rec.variance) > 0.005;
+                    return (
+                      <div
+                        key={rec.id}
+                        className={`flex items-center justify-between rounded-lg border px-3 py-2.5 text-sm ${hasVariance
+                          ? 'border-amber-200/70 bg-amber-50/70 dark:border-amber-500/30 dark:bg-amber-500/10'
+                          : 'border-border bg-muted/30'
+                          }`}
+                      >
+                        <div>
+                          <p className="font-medium">{rec.branch?.name ?? 'Branch'}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(rec.date).toLocaleDateString(undefined, {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </p>
                         </div>
-                      </TableCell>
-                      <TableCell className="py-2 text-right text-xs font-mono">
-                        {rec.openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell className="py-2 text-right text-xs font-mono">
-                        {rec.closingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell className="py-2 text-right text-xs font-mono">
-                        {rec.expectedBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell className="py-2 text-right text-xs">
-                        <Badge
-                          variant={rec.variance === 0 ? 'outline' : 'destructive'}
-                          className={
-                            rec.variance === 0
-                              ? 'rounded-full border-emerald-200 px-2 text-[11px] text-emerald-700 dark:border-emerald-500/30 dark:text-emerald-400'
-                              : 'rounded-full border-rose-200 px-2 text-[11px] text-rose-700 dark:border-rose-500/30 dark:text-rose-400'
-                          }
+                        <span
+                          className={`font-mono text-xs font-semibold ${hasVariance
+                            ? 'text-amber-700 dark:text-amber-400'
+                            : 'text-emerald-600 dark:text-emerald-400'
+                            }`}
                         >
                           {rec.variance > 0 ? '+' : ''}
-                          {rec.variance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                          {formatNumber(rec.variance)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
+                  <Clock className="mb-2 h-8 w-8" />
+                  <p className="text-[13px] font-medium">No history yet</p>
+                  <p className="text-xs">Complete your first reconciliation.</p>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="bg-muted/50 p-4 rounded-full mb-4">
-                <Calculator className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold">No History Yet</h3>
-              <p className="text-sm text-muted-foreground max-w-xs mt-1">
-                Complete your first daily reconciliation to see the history records here.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

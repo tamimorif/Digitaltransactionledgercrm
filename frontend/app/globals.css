@@ -1,4 +1,4 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import './rtl.css';
@@ -7,8 +7,17 @@
 @custom-variant dark (&:is(.dark *));
 @custom-variant hover (&:hover);
 
+html {
+  scrollbar-gutter: stable;
+}
+
+body {
+  overflow-x: hidden;
+}
+
 :root {
   --font-size: 16px;
+  --font-numbers: "Space Grotesk", "Inter", sans-serif;
   --background: #ffffff;
   --foreground: oklch(0.145 0 0);
   --card: #ffffff;
@@ -148,4 +157,11 @@
 
 .animate-marquee:hover {
   animation-play-state: paused;
+}
+
+@layer utilities {
+  .font-numbers {
+    font-family: var(--font-numbers);
+    font-variant-numeric: tabular-nums;
+  }
 }

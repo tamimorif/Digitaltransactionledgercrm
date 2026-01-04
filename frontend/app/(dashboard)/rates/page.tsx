@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     useGetRates,
     useRefreshRates,
@@ -10,13 +10,12 @@ import {
     useGetNavasanRates,
     type ExchangeRate,
     type ScrapedRate,
-    type NavasanRate,
-    type NavasanResponse,
 } from '@/src/lib/queries/exchange-rate.query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Label } from '@/src/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/src/components/ui/table';
 import {
     Dialog,
     DialogContent,
@@ -113,9 +112,11 @@ export default function RatesPage() {
     const [targetCurrency, setTargetCurrency] = useState('IRR');
     const [customBuyRate, setCustomBuyRate] = useState('');
     const [customSellRate, setCustomSellRate] = useState('');
+    const [navasanFilter, setNavasanFilter] = useState('');
 
     const { data: rates, isLoading } = useGetRates();
     const { data: scrapedRatesData, isLoading: isLoadingScraped, error: scrapedError } = useGetScrapedRates();
+    const { data: navasanRates, isLoading: isLoadingNavasan } = useGetNavasanRates();
     const refreshRates = useRefreshRates();
     const refreshScrapedRates = useRefreshScrapedRates();
     const setCustomRateMutation = useSetCustomRate();
@@ -167,6 +168,29 @@ export default function RatesPage() {
                 },
             }
         );
+    };
+
+    const navasanItems = useMemo(() => {
+        const items = navasanRates?.items ?? [];
+        const needle = navasanFilter.trim().toLowerCase();
+        if (!needle) {
+            return items;
+        }
+
+        return items.filter((item) => {
+            const itemKey = item.item?.toLowerCase() ?? '';
+            const fa = item.currency_fa?.toLowerCase() ?? '';
+            return itemKey.includes(needle) || fa.includes(needle);
+        });
+    }, [navasanFilter, navasanRates?.items]);
+
+    const formatRawValue = (value: string) => {
+        const cleaned = value.replace(/,/g, '');
+        const numeric = Number.parseFloat(cleaned);
+        if (!Number.isFinite(numeric)) {
+            return value;
+        }
+        return numeric.toLocaleString();
     };
 
     // Filter rates to only show relevant currencies
@@ -348,6 +372,73 @@ export default function RatesPage() {
                                 {OTHER_FIAT_CAD_PEGGED.map(currency => renderRateCard(currency, 'CROSS_CAD'))}
                                 {CRYPTO_USD_PEGGED.map(currency => renderRateCard(currency, 'CROSS_USD'))}
                             </div>
+                        </section>
+
+                        <section>
+                            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
+                                <div>
+                                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                                        <Clock className="h-5 w-5" /> All Navasan Items
+                                    </h2>
+                                    <p className="text-sm text-muted-foreground">
+                                        Full list from the API guide (live market values).
+                                    </p>
+                                </div>
+                                <Input
+                                    value={navasanFilter}
+                                    onChange={(event) => setNavasanFilter(event.target.value)}
+                                    placeholder="Search item or name..."
+                                    className="h-9 md:w-72"
+                                />
+                            </div>
+                            <Card>
+                                <CardContent className="p-0">
+                                    <div className="max-h-[420px] overflow-y-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="w-[180px]">Item</TableHead>
+                                                    <TableHead>Name</TableHead>
+                                                    <TableHead className="text-right">Value</TableHead>
+                                                    <TableHead className="text-right">Change</TableHead>
+                                                    <TableHead className="text-right">Date</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {isLoadingNavasan ? (
+                                                    <TableRow>
+                                                        <TableCell colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
+                                                            Loading Navasan items...
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ) : navasanItems.length === 0 ? (
+                                                    <TableRow>
+                                                        <TableCell colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
+                                                            No items found.
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ) : (
+                                                    navasanItems.map((item) => (
+                                                        <TableRow key={item.item}>
+                                                            <TableCell className="font-mono text-xs">{item.item}</TableCell>
+                                                            <TableCell className="text-sm">{item.currency_fa || '—'}</TableCell>
+                                                            <TableCell className="text-right font-mono text-xs">
+                                                                {formatRawValue(item.value)}
+                                                            </TableCell>
+                                                            <TableCell className="text-right text-xs">
+                                                                {item.change}
+                                                            </TableCell>
+                                                            <TableCell className="text-right text-xs text-muted-foreground">
+                                                                {String(item.date ?? '—')}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </section>
                     </>
                 )

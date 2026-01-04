@@ -1,0 +1,1099 @@
+'use client';
+
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
+import '@/src/lib/i18n/config';
+import { useAuth } from '@/src/components/providers/auth-provider';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
+import { Input } from '@/src/components/ui/input';
+import { Label } from '@/src/components/ui/label';
+import { Button } from '@/src/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
+import { Textarea } from '@/src/components/ui/textarea';
+import { toast } from 'sonner';
+import { Loader2, Send, CheckCircle, Search, User, Phone, Check, AlertCircle, Star, Clock } from 'lucide-react';
+import { useCreatePickupTransaction, useGetPickupTransactions } from '@/src/lib/queries/pickup.query';
+import { useGetBranches } from '@/src/lib/queries/branch.query';
+import { useSearchCustomers, useFindOrCreateCustomer } from '@/src/lib/queries/customer.query';
+import { Alert, AlertDescription } from '@/src/components/ui/alert';
+import { Badge } from '@/src/components/ui/badge';
+import { handleNumberInput, parseFormattedNumber, formatCurrency, formatNumberWithCommas } from '@/src/lib/format';
+import { TransactionPreviewDialog } from '@/src/components/TransactionPreviewDialog';
+import { CalculatorWidget } from '@/src/components/CalculatorWidget';
+import { LanguageToggle } from '@/src/components/LanguageToggle';
+import { CashBalanceWidget } from '@/src/components/CashBalanceWidget';
+import { TransactionSummaryDashboard } from '@/src/components/TransactionSummaryDashboard';
+import { QuickAmountButtons } from '@/src/components/QuickAmountButtons';
+
+import { calculateReceivedAmount, saveRateToHistory, getLastRate, findDuplicateTransaction, formatTimeAgo, type DuplicateCheckableTransaction } from '@/src/lib/transaction-helpers';
+import { getErrorMessage } from '@/src/lib/error';
+
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'IRR', 'AED', 'TRY'];
+
+interface Customer {
+    id: number;
+    phone: string;
+    fullName: string;
+    email?: string;
+}
+
+interface RecentRecipient {
+    name: string;
+    phone: string;
+    lastUsed: string;
+}
+
+type TransactionType = 'CASH_PICKUP' | 'CASH_EXCHANGE' | 'BANK_TRANSFER' | 'CARD_SWAP_IRR' | 'INCOMING_FUNDS';
+type IdType = 'passport' | 'national_id' | 'drivers_license' | 'other';
+
+type FormData = {
+    senderName: string;
+    senderPhone: string;
+    recipientName: string;
+    recipientPhone: string;
+    recipientIban: string;
+    transactionType: TransactionType;
+    receiverBranchId: string;
+    amount: string;
+    senderCurrency: string;
+    receiverCurrency: string;
+    exchangeRate: string;
+    fees: string;
+    notes: string;
+    idType: IdType;
+    idNumber: string;
+    allowPartialPayment: boolean;
+};
+
+export default function SendMoneyPickupPage() {
+    const router = useRouter();
+    const { user } = useAuth();
+    const { t } = useTranslation();
+
+    // Redirect SuperAdmin to admin dashboard
+    useEffect(() => {
+        if (user?.role === 'superadmin') {
+            router.push('/admin');
+        }
+    }, [user, router]);
+
+    const [formData, setFormData] = useState<FormData>({
+        senderName: '',
+        senderPhone: '',
+        recipientName: '',
+        recipientPhone: '',
+        recipientIban: '',
+        transactionType: 'CASH_PICKUP',
+        receiverBranchId: '',
+        amount: '',
+        senderCurrency: '',
+        receiverCurrency: '',
+        exchangeRate: '1',
+        fees: '',
+        notes: '',
+        idType: 'passport',
+        idNumber: '',
+        allowPartialPayment: false,
+    });
+
+    // Search states
+    const [senderSearchQuery, setSenderSearchQuery] = useState('');
+    const [recipientSearchQuery, setRecipientSearchQuery] = useState('');
+    const [showSenderResults, setShowSenderResults] = useState(false);
+    const [showRecipientResults, setShowRecipientResults] = useState(false);
+    const [senderExists, setSenderExists] = useState<boolean | null>(null);
+    const [recipientExists, setRecipientExists] = useState<boolean | null>(null);
+
+    // Refs for click outside and auto-focus
+    const senderSearchRef = useRef<HTMLDivElement>(null);
+    const recipientSearchRef = useRef<HTMLDivElement>(null);
+    const amountInputRef = useRef<HTMLInputElement>(null);
+    const exchangeRateInputRef = useRef<HTMLInputElement>(null);
+
+    const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+    const [recentRecipients, setRecentRecipients] = useState<RecentRecipient[]>([]);
+    const [favorites, setFavorites] = useState<string[]>([]); // Store phone numbers of favorites
+    const [showPreview, setShowPreview] = useState(false);
+    const [duplicateWarning, setDuplicateWarning] = useState<DuplicateCheckableTransaction | null>(null);
+
+    const { data: branches } = useGetBranches();
+    const createPickupMutation = useCreatePickupTransaction();
+    const findOrCreateMutation = useFindOrCreateCustomer();
+
+    // Search customers for sender
+    const { data: senderSearchResults } = useSearchCustomers(senderSearchQuery);
+    // Search customers for recipient
+    const { data: recipientSearchResults } = useSearchCustomers(recipientSearchQuery);
+
+    // Get recent pickups to extract recent recipients
+    const { data: recentPickups } = useGetPickupTransactions(
+        user?.primaryBranchId || undefined,
+        'PICKED_UP',
+        1,
+        10
+    );
+
+    // Auto-save draft to localStorage
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (formData.senderName || formData.amount || formData.recipientName) {
+                localStorage.setItem('transaction_draft', JSON.stringify(formData));
+            }
+        }, 1000); // Save after 1 second of inactivity
+
+        return () => clearTimeout(timer);
+    }, [formData]);
+
+    // Restore draft on mount (only if it has meaningful data)
+    useEffect(() => {
+        const draft = localStorage.getItem('transaction_draft');
+        if (draft) {
+            try {
+                const parsedDraft = JSON.parse(draft);
+                // Only restore if draft has actual transaction data (not just default values)
+                const hasData = parsedDraft.senderName ||
+                    parsedDraft.senderPhone?.length > 3 ||
+                    parsedDraft.amount ||
+                    parsedDraft.recipientName;
+
+                if (hasData) {
+                    // Silently restore draft - no annoying popup!
+                    setFormData(parsedDraft);
+                    toast.info('Draft restored', { duration: 2000 });
+                } else {
+                    // Clean up empty drafts
+                    localStorage.removeItem('transaction_draft');
+                }
+            } catch {
+                localStorage.removeItem('transaction_draft');
+            }
+        }
+    }, []);
+
+    // Extract recent recipients from pickups
+    useEffect(() => {
+        if (recentPickups?.data) {
+            const recipients = recentPickups.data
+                .filter(pickup => pickup.recipientPhone) // Only show recipients with phone numbers
+                .slice(0, 5)
+                .map(pickup => ({
+                    name: pickup.recipientName,
+                    phone: pickup.recipientPhone!,
+                    lastUsed: pickup.createdAt
+                }));
+            setRecentRecipients(recipients);
+        }
+    }, [recentPickups]);
+
+    // Load favorites from localStorage
+    useEffect(() => {
+        const savedFavorites = localStorage.getItem('favoriteRecipients');
+        if (savedFavorites) {
+            setFavorites(JSON.parse(savedFavorites));
+        }
+    }, []);
+
+    // Auto-set Card Currency to IRR for Card Swap transactions
+    useEffect(() => {
+        if (formData.transactionType === 'CARD_SWAP_IRR' && formData.senderCurrency !== 'IRR') {
+            setFormData(prev => ({
+                ...prev,
+                senderCurrency: 'IRR',
+            }));
+        }
+    }, [formData.transactionType, formData.senderCurrency]);
+
+    // Auto-load last used rate for Card Swap
+    useEffect(() => {
+        if (formData.transactionType === 'CARD_SWAP_IRR' && formData.receiverCurrency && formData.receiverCurrency !== 'IRR') {
+            const lastRate = getLastRate('IRR', formData.receiverCurrency);
+            if (lastRate && !formData.exchangeRate) {
+                setFormData(prev => ({ ...prev, exchangeRate: lastRate }));
+            }
+        }
+    }, [formData.transactionType, formData.receiverCurrency, formData.exchangeRate]);
+
+    // Handle click outside to close search results
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (senderSearchRef.current && !senderSearchRef.current.contains(event.target as Node)) {
+                setShowSenderResults(false);
+            }
+            if (recipientSearchRef.current && !recipientSearchRef.current.contains(event.target as Node)) {
+                setShowRecipientResults(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Check if customer exists when typing
+    useEffect(() => {
+        if (formData.senderPhone.length >= 10) {
+            const exists = senderSearchResults?.some(c => c.phone === formData.senderPhone);
+            setSenderExists(exists || false);
+        } else {
+            setSenderExists(null);
+        }
+    }, [formData.senderPhone, senderSearchResults]);
+
+    useEffect(() => {
+        if (formData.recipientPhone.length >= 10) {
+            const exists = recipientSearchResults?.some(c => c.phone === formData.recipientPhone);
+            setRecipientExists(exists || false);
+        } else {
+            setRecipientExists(null);
+        }
+    }, [formData.recipientPhone, recipientSearchResults]);
+
+    // Auto-set IRR for Card Swap transactions
+    useEffect(() => {
+        if (formData.transactionType === 'CARD_SWAP_IRR') {
+            setFormData(prev => ({
+                ...prev,
+                senderCurrency: 'IRR',
+                recipientName: prev.senderName, // Same person
+                recipientPhone: prev.senderPhone,
+            }));
+        }
+    }, [formData.transactionType, formData.senderName, formData.senderPhone]);
+
+    // Auto-load last used rate for Card Swap
+    useEffect(() => {
+        if (formData.transactionType === 'CARD_SWAP_IRR' && formData.receiverCurrency && formData.receiverCurrency !== 'IRR') {
+            const lastRate = getLastRate('IRR', formData.receiverCurrency);
+            if (lastRate) {
+                setFormData(prev => ({ ...prev, exchangeRate: lastRate }));
+            }
+        }
+    }, [formData.transactionType, formData.receiverCurrency]);
+
+    // Auto-set receiver currency for CASH_EXCHANGE (transfer - same currency)
+    useEffect(() => {
+        if (formData.transactionType === 'CASH_EXCHANGE' && formData.senderCurrency) {
+            setFormData(prev => ({
+                ...prev,
+                receiverCurrency: prev.senderCurrency,
+                exchangeRate: '1'
+            }));
+        }
+    }, [formData.transactionType, formData.senderCurrency]);
+
+    // Auto-set IRR currency for CARD_SWAP_IRR
+    useEffect(() => {
+        if (formData.transactionType === 'CARD_SWAP_IRR') {
+            setFormData(prev => ({
+                ...prev,
+                senderCurrency: 'IRR'
+            }));
+        }
+    }, [formData.transactionType]);
+
+    // Auto-load last used rate for currency pair
+    useEffect(() => {
+        if (formData.senderCurrency && formData.receiverCurrency && formData.senderCurrency !== formData.receiverCurrency) {
+            const lastRate = getLastRate(formData.senderCurrency, formData.receiverCurrency);
+            if (lastRate && (!formData.exchangeRate || formData.exchangeRate === '1')) {
+                setFormData(prev => ({ ...prev, exchangeRate: lastRate || '1' }));
+            }
+        }
+    }, [formData.senderCurrency, formData.receiverCurrency, formData.exchangeRate]);
+
+    // Duplicate detection
+    useEffect(() => {
+        if (formData.senderName && formData.amount && formData.senderCurrency && recentPickups?.data) {
+            const duplicate = findDuplicateTransaction(
+                formData.senderName,
+                formData.amount,
+                formData.senderCurrency,
+                recentPickups.data,
+                10 // 10 minutes
+            );
+            setDuplicateWarning(duplicate ?? null);
+        } else {
+            setDuplicateWarning(null);
+        }
+    }, [formData.senderName, formData.amount, formData.senderCurrency, recentPickups]);
+
+    // Format phone number as user types
+    const formatPhoneNumber = (value: string) => {
+        const cleaned = value.replace(/\D/g, '');
+        return cleaned;
+    };
+
+    // Handle sender search (search by name - show results after 2 characters)
+    const handleSenderSearch = (value: string) => {
+        setSenderSearchQuery(value);
+        setFormData({ ...formData, senderName: value });
+        setShowSenderResults(value.length >= 2);
+    };
+
+    const handleSenderPhoneSearch = (value: string) => {
+        const formatted = formatPhoneNumber(value);
+        setSenderSearchQuery(formatted);
+        setFormData({ ...formData, senderPhone: formatted });
+        setShowSenderResults(formatted.length >= 3);
+    };
+
+    const selectSenderCustomer = (customer: Customer) => {
+        setFormData({
+            ...formData,
+            senderName: customer.fullName,
+            senderPhone: customer.phone
+        });
+        setSenderExists(true);
+        setShowSenderResults(false);
+        toast.success('Sender information filled from system');
+        // Auto-focus amount field for Card Swap
+        setTimeout(() => {
+            if (formData.transactionType === 'CARD_SWAP_IRR') {
+                amountInputRef.current?.focus();
+            }
+        }, 100);
+    };
+
+    // Handle recipient search (search by name - show results after 2 characters)
+    const handleRecipientSearch = (value: string) => {
+        setRecipientSearchQuery(value);
+        setFormData({ ...formData, recipientName: value });
+        setShowRecipientResults(value.length >= 2);
+    };
+
+    const handleRecipientPhoneSearch = (value: string) => {
+        const formatted = formatPhoneNumber(value);
+        setRecipientSearchQuery(formatted);
+        setFormData({ ...formData, recipientPhone: formatted });
+        setShowRecipientResults(formatted.length >= 3);
+    };
+
+    const selectRecipientCustomer = (customer: Customer) => {
+        setFormData({
+            ...formData,
+            recipientName: customer.fullName,
+            recipientPhone: customer.phone
+        });
+        setRecipientExists(true);
+        setShowRecipientResults(false);
+        toast.success('Recipient information filled from system');
+    };
+
+    // Quick select recent recipient
+    const selectRecentRecipient = (recipient: RecentRecipient) => {
+        setFormData({
+            ...formData,
+            recipientName: recipient.name,
+            recipientPhone: recipient.phone
+        });
+        setRecipientExists(true);
+        toast.success('Recent recipient selected');
+    };
+
+    // Toggle favorite
+    const toggleFavorite = (phone: string) => {
+        const newFavorites = favorites.includes(phone)
+            ? favorites.filter(f => f !== phone)
+            : [...favorites, phone];
+        setFavorites(newFavorites);
+        localStorage.setItem('favoriteRecipients', JSON.stringify(newFavorites));
+        toast.success(favorites.includes(phone) ? 'Removed from favorites' : 'Added to favorites');
+    };
+
+    const clearForm = useCallback(() => {
+        setFormData({
+            senderName: '',
+            senderPhone: '',
+            recipientName: '',
+            recipientPhone: '',
+            recipientIban: '',
+            transactionType: 'CASH_PICKUP',
+            receiverBranchId: '',
+            amount: '',
+            senderCurrency: '',
+            receiverCurrency: '',
+            exchangeRate: '1',
+            fees: '0',
+            notes: '',
+            idType: 'passport',
+            idNumber: '',
+            allowPartialPayment: false,
+        });
+        setSenderExists(null);
+        setRecipientExists(null);
+        setDuplicateWarning(null);
+        localStorage.removeItem('transaction_draft');
+        toast.success(t('transaction.validation.fillRequired'));
+    }, [t]);
+
+    // Keyboard shortcuts
+    useEffect(() => {
+        const handleKeyboard = (e: KeyboardEvent) => {
+            // Ctrl+S or Cmd+S to submit
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                setShowPreview(true);
+            }
+            // Escape to clear
+            if (e.key === 'Escape' && !showPreview) {
+                if (confirm('Clear the form?')) {
+                    clearForm();
+                }
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyboard);
+        return () => document.removeEventListener('keydown', handleKeyboard);
+    }, [showPreview, clearForm]);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setShowPreview(true);
+    };
+
+    const handleConfirmTransaction = async () => {
+        // Basic validation
+        if (!formData.senderName || !formData.senderPhone ||
+            !formData.amount || !formData.senderCurrency || !formData.receiverCurrency || !formData.fees) {
+            toast.error('Please fill in all required fields');
+            return;
+        }
+
+        // Recipient name required for transfers (CASH_EXCHANGE, BANK_TRANSFER) - optional for in-person (CASH_PICKUP, CARD_SWAP_IRR, INCOMING_FUNDS)
+        if ((formData.transactionType === 'CASH_EXCHANGE' || formData.transactionType === 'BANK_TRANSFER') && !formData.recipientName) {
+            toast.error('Please enter recipient name');
+            return;
+        }
+
+        // Receiver branch required only for BANK_TRANSFER (other types use same branch)
+        if (formData.transactionType === 'BANK_TRANSFER' && !formData.receiverBranchId) {
+            toast.error('Please select a receiving branch');
+            return;
+        }
+
+        // Validate phone numbers
+        if (formData.senderPhone.length < 10) {
+            toast.error('Please enter a valid sender phone number');
+            return;
+        }
+
+        // Recipient phone required only for CASH_EXCHANGE (transfers between branches)
+        if (formData.transactionType === 'CASH_EXCHANGE' && (!formData.recipientPhone || formData.recipientPhone.length < 10)) {
+            toast.error('Please enter a valid recipient phone number for branch transfer');
+            return;
+        }
+
+        // IBAN required for BANK_TRANSFER
+        if (formData.transactionType === 'BANK_TRANSFER') {
+            if (!formData.recipientIban || formData.recipientIban.length !== 26) {
+                toast.error('Please enter a valid 26-character Iranian IBAN');
+                return;
+            }
+            if (!formData.recipientIban.startsWith('IR')) {
+                toast.error('IBAN must start with IR');
+                return;
+            }
+        }
+
+        // For branch users, use their primary branch. For owners, use their primary branch (Head Office)
+        let senderBranchId = user?.primaryBranchId;
+
+        // Fallback: If no primaryBranchId (for existing users), use the first available branch
+        if (!senderBranchId && branches && branches.length > 0) {
+            senderBranchId = branches[0].id;
+        }
+
+        if (!senderBranchId) {
+            toast.error('No branches available. Please create your Head Office branch first.');
+            return;
+        }
+
+        // For in-person exchanges (CASH_PICKUP, INCOMING_FUNDS) and Card Swap (CARD_SWAP_IRR), and CASH_EXCHANGE use same branch (sender = receiver)
+        // For other types (BANK_TRANSFER), ensure branches are different
+        let receiverBranchId: number;
+        if (formData.transactionType === 'CASH_PICKUP' || formData.transactionType === 'CARD_SWAP_IRR' || formData.transactionType === 'CASH_EXCHANGE' || formData.transactionType === 'INCOMING_FUNDS') {
+            receiverBranchId = senderBranchId;
+        } else {
+            receiverBranchId = parseInt(formData.receiverBranchId);
+            if (senderBranchId === receiverBranchId) {
+                toast.error('Cannot send money to the same branch. Please select a different receiving branch.');
+                return;
+            }
+        }
+
+        // Calculate receiver amount based on exchange rate
+        const senderAmount = parseFloat(formData.amount);
+        const exchangeRate = parseFloat(formData.exchangeRate);
+        const isCardSwap = formData.transactionType === 'CARD_SWAP_IRR';
+        const receiverAmount = calculateReceivedAmount(senderAmount, exchangeRate, isCardSwap, formData.senderCurrency);
+
+        try {
+            // Auto-create sender if doesn't exist
+            if (!senderExists) {
+                toast.info('Creating new customer for sender...');
+                await findOrCreateMutation.mutateAsync({
+                    phone: formData.senderPhone,
+                    fullName: formData.senderName,
+                });
+            }
+
+            // Auto-create recipient if doesn't exist and phone is provided
+            if (!recipientExists && formData.recipientPhone && formData.recipientPhone.length >= 10) {
+                toast.info('Creating new customer for recipient...');
+                await findOrCreateMutation.mutateAsync({
+                    phone: formData.recipientPhone,
+                    fullName: formData.recipientName,
+                });
+            }
+
+            // Create pickup transaction
+            const response = await createPickupMutation.mutateAsync({
+                senderName: formData.senderName,
+                senderPhone: formData.senderPhone,
+                senderBranchId: senderBranchId,
+                recipientName: formData.recipientName || formData.senderName, // Use sender name for in-person exchanges
+                recipientPhone: formData.recipientPhone || undefined,
+                recipientIban: formData.recipientIban || undefined,
+                transactionType: formData.transactionType,
+                receiverBranchId: receiverBranchId, // Use the calculated variable
+                amount: senderAmount,
+                currency: formData.senderCurrency,
+                receiverCurrency: formData.receiverCurrency,
+                exchangeRate: exchangeRate,
+                receiverAmount: receiverAmount,
+                fees: parseFloat(formData.fees),
+                notes: formData.notes || undefined,
+                allowPartialPayment: formData.allowPartialPayment,
+                totalReceived: formData.allowPartialPayment ? receiverAmount : undefined,
+                receivedCurrency: formData.allowPartialPayment ? formData.receiverCurrency : undefined,
+            });
+
+            // Save rate to history for future reuse
+            if (formData.senderCurrency && formData.receiverCurrency && formData.exchangeRate) {
+                saveRateToHistory(formData.senderCurrency, formData.receiverCurrency, formData.exchangeRate);
+            }
+
+            setGeneratedCode(response.pickupCode);
+            setShowPreview(false);
+            localStorage.removeItem('transaction_draft');
+            toast.success(t(`transaction.success.${formData.transactionType}`));
+
+            // Reset form and states
+            clearForm();
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to create money transfer'));
+        }
+    };
+
+    const handleCreateAnother = () => {
+        setGeneratedCode(null);
+    };
+
+    // Don't render for SuperAdmin
+    if (user?.role === 'superadmin') {
+        return null;
+    }
+
+    if (generatedCode) {
+        return (
+            <div className="container max-w-2xl mx-auto py-8 space-y-6">
+                <Card className="border-green-200 bg-green-50">
+                    <CardHeader className="text-center">
+                        <div className="flex justify-center mb-4">
+                            <CheckCircle className="h-16 w-16 text-green-600" />
+                        </div>
+                        <CardTitle className="text-2xl text-green-900">{t(`transaction.success.${formData.transactionType}`)}</CardTitle>
+                        <CardDescription className="text-green-700">
+                            {t('transaction.success.description')}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="bg-white border-2 border-green-300 rounded-lg p-8 text-center">
+                            <p className="text-sm text-muted-foreground mb-2">Pickup Code</p>
+                            <p className="text-5xl font-bold text-green-600 tracking-widest">{generatedCode}</p>
+                        </div>
+
+                        <Alert>
+                            <AlertDescription>
+                                The recipient can use this code at the receiving branch to collect the money.
+                                They will need to provide this code and verify their phone number.
+                            </AlertDescription>
+                        </Alert>
+
+                        <Button onClick={handleCreateAnother} className="w-full">
+                            {t('transaction.buttons.createAnother')}
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    return (
+        <div className="mx-auto w-full max-w-4xl px-4 py-6 space-y-6">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold">
+                        {t(`transaction.types.${formData.transactionType}`)}
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                        {t(`transaction.descriptions.${formData.transactionType}`)}
+                    </p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <LanguageToggle />
+                </div>
+            </div>
+
+            {/* Top Widgets Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-[1.4fr_0.6fr] gap-4 mb-6">
+                <div className="bg-gray-50/50 border border-gray-100 rounded-xl p-5 shadow-sm h-full flex flex-col justify-center">
+                    <CashBalanceWidget />
+                </div>
+                <div className="bg-gray-50/50 border border-gray-100 rounded-xl p-5 shadow-sm h-full">
+                    <CalculatorWidget
+                        onRateCalculated={(from, to, rate) => {
+                            setFormData({
+                                ...formData,
+                                senderCurrency: from,
+                                receiverCurrency: to,
+                                exchangeRate: rate.toString(),
+                            });
+                            toast.success(`Rate applied: 1 ${from} = ${rate} ${to}`);
+                        }}
+                    />
+                </div>
+            </div>
+
+            <div className="space-y-6">
+                <form onSubmit={handleSubmit}>
+                    <Card className="overflow-visible shadow-sm">
+                        <CardHeader className="pb-2 pt-4 px-4">
+                            <CardTitle className="text-lg">
+                                Transaction Details
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4 overflow-visible p-5">
+                            
+                            {/* Alerts & Notices */}
+                            {duplicateWarning && (
+                                <Alert variant="destructive" className="bg-yellow-50 border-yellow-300">
+                                    <AlertCircle className="h-4 w-4 text-yellow-600" />
+                                    <AlertDescription className="text-yellow-800 text-xs">
+                                        <strong>{t('transaction.notices.duplicateWarning')}</strong>: {t('transaction.notices.duplicateDesc', {
+                                            name: duplicateWarning.senderName,
+                                            amount: formatCurrency(duplicateWarning.amount),
+                                            currency: duplicateWarning.currency,
+                                            time: formatTimeAgo(duplicateWarning.createdAt)
+                                        })}
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+
+                            {formData.transactionType === 'CARD_SWAP_IRR' && formData.amount && parseFloat(formData.amount) > 100000000 && (
+                                <Alert className="bg-orange-50 border-orange-300">
+                                    <AlertCircle className="h-4 w-4 text-orange-600" />
+                                    <AlertDescription className="text-orange-800 text-xs">
+                                        <strong>High Amount Alert</strong>: Transaction &gt; 100M Toman. Verify identity.
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+
+                            {formData.transactionType === 'CASH_PICKUP' && (
+                                <div className="bg-green-50 dark:bg-green-950 p-2 rounded-md border border-green-200 dark:border-green-800">
+                                    <p className="text-xs font-medium text-green-900 dark:text-green-100 flex items-center gap-2">
+                                        <CheckCircle className="h-3 w-3" />
+                                        Walk-In Exchange: Customer exchanges currency in person
+                                    </p>
+                                </div>
+                            )}
+
+                            {formData.transactionType === 'CARD_SWAP_IRR' && (
+                                <div className="bg-purple-50 dark:bg-purple-950 p-2 rounded-md border border-purple-200 dark:border-purple-800">
+                                    <p className="text-xs font-medium text-purple-900 dark:text-purple-100 flex items-center gap-2">
+                                        <CheckCircle className="h-3 w-3" />
+                                        Card Cash-Out: Customer swipes Iranian card, receives cash
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Row 1: Sender Name & Phone */}
+                            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                                <div className="space-y-1 relative" ref={senderSearchRef}>
+                                    <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Sender Name</Label>
+                                    <div className="relative">
+                                        <Input
+                                            id="senderName"
+                                            value={formData.senderName}
+                                            onChange={(e) => handleSenderSearch(e.target.value)}
+                                            onFocus={() => setShowSenderResults(senderSearchQuery.length >= 2)}
+                                            placeholder="Search customer..."
+                                            className="h-9"
+                                            required
+                                        />
+                                        {senderExists !== null && (
+                                            <div className="absolute right-2 top-2.5">
+                                                {senderExists ? <Check className="h-4 w-4 text-green-600" /> : <AlertCircle className="h-4 w-4 text-amber-600" />}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {showSenderResults && senderSearchResults && senderSearchResults.length > 0 && (
+                                        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                            {senderSearchResults.map((customer) => (
+                                                <div
+                                                    key={customer.id}
+                                                    className="p-2 hover:bg-muted cursor-pointer text-sm flex justify-between items-center"
+                                                    onClick={() => selectSenderCustomer(customer)}
+                                                >
+                                                    <span>{customer.fullName}</span>
+                                                    <span className="text-xs text-muted-foreground">{customer.phone}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Sender Phone</Label>
+                                    <Input
+                                        id="senderPhone"
+                                        value={formData.senderPhone}
+                                        onChange={(e) => handleSenderPhoneSearch(e.target.value)}
+                                        placeholder="+1..."
+                                        className="h-9"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="h-px bg-gray-100 w-full" />
+
+                            {/* Row 2: Transaction Type & Receiving Branch */}
+                            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                                <div className="space-y-1 col-span-2 md:col-span-1">
+                                    <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Transaction Type</Label>
+                                    <Select
+                                        value={formData.transactionType}
+                                        onValueChange={(value) => setFormData({ ...formData, transactionType: value as TransactionType })}
+                                    >
+                                        <SelectTrigger className="h-9">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="CASH_PICKUP">💱 Walk-In Exchange</SelectItem>
+                                            <SelectItem value="CARD_SWAP_IRR">💳 Card Cash-Out (Iran)</SelectItem>
+                                            <SelectItem value="INCOMING_FUNDS">💵 Receive Money</SelectItem>
+                                            <SelectItem value="CASH_EXCHANGE">📤 Send to Branch</SelectItem>
+                                            <SelectItem value="BANK_TRANSFER">🏦 Bank Transfer (Iran)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                {formData.transactionType !== 'CASH_PICKUP' && formData.transactionType !== 'CARD_SWAP_IRR' && (
+                                    <div className="space-y-1 col-span-2 md:col-span-1">
+                                        <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Receiving Branch</Label>
+                                        <Select
+                                            value={formData.receiverBranchId}
+                                            onValueChange={(value) => setFormData({ ...formData, receiverBranchId: value })}
+                                        >
+                                            <SelectTrigger className="h-9">
+                                                <SelectValue placeholder="Select branch" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {branches?.map((branch) => (
+                                                    <SelectItem key={branch.id} value={branch.id.toString()}>
+                                                        {branch.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="h-px bg-gray-100 w-full" />
+
+                            {/* Row 3: Amount & Currency */}
+                            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                                <div className="space-y-1">
+                                    <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Amount</Label>
+                                    <Input
+                                        ref={amountInputRef}
+                                        id="amount"
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={handleNumberInput(formData.amount)}
+                                        onChange={(e) => setFormData({ ...formData, amount: parseFormattedNumber(e.target.value) })}
+                                        placeholder="0.00"
+                                        className="h-9 font-bold"
+                                        required
+                                    />
+                                </div>
+                                {formData.transactionType !== 'CARD_SWAP_IRR' && (
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Currency</Label>
+                                        <Select
+                                            value={formData.senderCurrency}
+                                            onValueChange={(value) => setFormData({ ...formData, senderCurrency: value })}
+                                        >
+                                            <SelectTrigger className="h-9">
+                                                <SelectValue placeholder="Select" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {CURRENCIES.map((curr) => (
+                                                    <SelectItem key={curr} value={curr}>{curr}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* ID Verification (Card Swap Only) */}
+                            {formData.transactionType === 'CARD_SWAP_IRR' && (
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-4 bg-muted/20 p-3 rounded-md border border-border/50">
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">ID Type</Label>
+                                        <Select
+                                            value={formData.idType}
+                                            onValueChange={(value) => setFormData({ ...formData, idType: value as IdType })}
+                                        >
+                                            <SelectTrigger className="h-9">
+                                                <SelectValue placeholder="Select ID" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="passport">{t('transaction.idTypes.passport')}</SelectItem>
+                                                <SelectItem value="national_id">{t('transaction.idTypes.national_id')}</SelectItem>
+                                                <SelectItem value="drivers_license">{t('transaction.idTypes.drivers_license')}</SelectItem>
+                                                <SelectItem value="other">{t('transaction.idTypes.other')}</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">ID Number</Label>
+                                        <Input
+                                            id="idNumber"
+                                            value={formData.idNumber}
+                                            onChange={(e) => setFormData({ ...formData, idNumber: e.target.value })}
+                                            placeholder="Optional..."
+                                            className="h-9"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Recipient Info Row (Conditional) */}
+                            {formData.transactionType !== 'CASH_PICKUP' && formData.transactionType !== 'CARD_SWAP_IRR' && (
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                                    <div className="space-y-1 relative" ref={recipientSearchRef}>
+                                        <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Recipient Name</Label>
+                                        <div className="relative">
+                                            <Input
+                                                id="recipientName"
+                                                value={formData.recipientName}
+                                                onChange={(e) => handleRecipientSearch(e.target.value)}
+                                                onFocus={() => setShowRecipientResults(recipientSearchQuery.length >= 2)}
+                                                placeholder="Recipient name..."
+                                                className="h-9"
+                                                required={formData.transactionType !== 'INCOMING_FUNDS'}
+                                            />
+                                        </div>
+                                        {showRecipientResults && recipientSearchResults && recipientSearchResults.length > 0 && (
+                                            <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                                {recipientSearchResults.map((customer) => (
+                                                    <div
+                                                        key={customer.id}
+                                                        className="p-2 hover:bg-muted cursor-pointer text-sm flex justify-between items-center"
+                                                        onClick={() => selectRecipientCustomer(customer)}
+                                                    >
+                                                        <span>{customer.fullName}</span>
+                                                        <span className="text-xs text-muted-foreground">{customer.phone}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Recipient Phone</Label>
+                                        <Input
+                                            id="recipientPhone"
+                                            value={formData.recipientPhone}
+                                            onChange={(e) => handleRecipientPhoneSearch(e.target.value)}
+                                            placeholder="+1..."
+                                            className="h-9"
+                                            required={formData.transactionType !== 'BANK_TRANSFER' && formData.transactionType !== 'INCOMING_FUNDS'}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Receiver Currency & Exchange Rate Row */}
+                            {formData.transactionType !== 'CASH_EXCHANGE' && (
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Receiver Currency</Label>
+                                        <Select
+                                            value={formData.receiverCurrency}
+                                            onValueChange={(value) => setFormData({ ...formData, receiverCurrency: value })}
+                                        >
+                                            <SelectTrigger className="h-9">
+                                                <SelectValue placeholder="Select" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {CURRENCIES.map((curr) => (
+                                                    <SelectItem key={curr} value={curr}>{curr}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Exchange Rate</Label>
+                                        <Input
+                                            ref={exchangeRateInputRef}
+                                            id="exchangeRate"
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={handleNumberInput(formData.exchangeRate)}
+                                            onChange={(e) => {
+                                                const newRate = parseFormattedNumber(e.target.value);
+                                                setFormData({ ...formData, exchangeRate: newRate });
+                                            }}
+                                            placeholder="1.0000"
+                                            className="h-9"
+                                            required
+                                        />
+                                        {/* Result Preview */}
+                                        <p className="text-[10px] text-muted-foreground text-right pt-1">
+                                            {formData.amount && formData.exchangeRate && (
+                                                <>
+                                                    = {formatCurrency(calculateReceivedAmount(
+                                                        formData.amount, 
+                                                        formData.exchangeRate, 
+                                                        formData.transactionType === 'CARD_SWAP_IRR', 
+                                                        formData.senderCurrency
+                                                    ))} {formData.receiverCurrency}
+                                                </>
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Extra Fields: Fees & Notes */}
+                            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                                <div className="space-y-1">
+                                    <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Fee</Label>
+                                    <Input
+                                        id="fees"
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={handleNumberInput(formData.fees)}
+                                        onChange={(e) => setFormData({ ...formData, fees: parseFormattedNumber(e.target.value) })}
+                                        placeholder="0.00"
+                                        className="h-9"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Notes</Label>
+                                    <Input
+                                        id="notes"
+                                        value={formData.notes}
+                                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                        placeholder="Optional..."
+                                        className="h-9"
+                                    />
+                                </div>
+                            </div>
+                            
+                            {formData.transactionType === 'BANK_TRANSFER' && (
+                                <div className="space-y-1">
+                                    <Label className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Recipient IBAN</Label>
+                                    <Input
+                                        value={formData.recipientIban}
+                                        onChange={(e) => setFormData({ ...formData, recipientIban: e.target.value.toUpperCase() })}
+                                        placeholder="IR..."
+                                        className="h-9"
+                                    />
+                                </div>
+                            )}
+
+                            {/* Payment Mode Selection */}
+                            <div className="flex items-start gap-3 pt-2">
+                                <input
+                                    type="checkbox"
+                                    id="allowPartialPayment"
+                                    checked={formData.allowPartialPayment}
+                                    onChange={(e) => setFormData({ ...formData, allowPartialPayment: e.target.checked })}
+                                    className="mt-1 h-3 w-3 rounded border-gray-300"
+                                />
+                                <div>
+                                    <Label htmlFor="allowPartialPayment" className="cursor-pointer text-sm font-medium">
+                                        Enable Multi-Payment Mode
+                                    </Label>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Allow paying this transaction in multiple installments or currencies later.
+                                    </p>
+                                </div>
+                            </div>
+
+                        </CardContent>
+                    </Card>
+
+                    <div className="flex gap-3 mt-6">
+                        <Button type="submit" disabled={createPickupMutation.isPending || findOrCreateMutation.isPending} className="flex-1 h-10">
+                            {(createPickupMutation.isPending || findOrCreateMutation.isPending) && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
+                            <Send className="mr-2 h-4 w-4" />
+                            Process Transaction
+                        </Button>
+                        <Button type="button" variant="outline" onClick={clearForm} className="h-10">
+                            Clear
+                        </Button>
+                    </div>
+                </form>
+
+                {recentPickups?.data && recentPickups.data.length > 0 && (
+                    <Card className="border-border/60 shadow-sm">
+                        <CardHeader className="pb-2 pt-4 px-4">
+                            <CardTitle className="text-sm font-semibold">Today's Activity</CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-0 px-4 pb-4">
+                            <TransactionSummaryDashboard transactions={recentPickups.data} compact />
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+
+            <TransactionPreviewDialog
+                open={showPreview}
+                onOpenChange={setShowPreview}
+                onConfirm={handleConfirmTransaction}
+                isSubmitting={createPickupMutation.isPending || findOrCreateMutation.isPending}
+                data={{
+                    transactionType: formData.transactionType,
+                    senderName: formData.senderName,
+                    senderPhone: formData.senderPhone,
+                    recipientName: formData.recipientName,
+                    recipientPhone: formData.recipientPhone,
+                    recipientIban: formData.recipientIban,
+                    amount: formData.amount,
+                    senderCurrency: formData.senderCurrency,
+                    receiverCurrency: formData.receiverCurrency,
+                    exchangeRate: formData.exchangeRate,
+                    receiverAmount: formData.exchangeRate && formData.amount
+                        ? calculateReceivedAmount(
+                            parseFloat(formData.amount),
+                            parseFloat(formData.exchangeRate),
+                            formData.transactionType === 'CARD_SWAP_IRR',
+                            formData.senderCurrency
+                        )
+                        : undefined,
+                    fees: formData.fees,
+                    notes: formData.notes,
+                    senderBranch: branches?.find((branch) => branch.id === user?.primaryBranchId)?.name,
+                    receiverBranch: branches?.find((branch) => branch.id === parseInt(formData.receiverBranchId))?.name,
+                    allowPartialPayment: formData.allowPartialPayment,
+                }}
+            />
+        </div >
+    );
+}

@@ -255,9 +255,21 @@ export interface NavasanRate {
     source: string;
 }
 
+export interface NavasanRawItem {
+    item: string;
+    currency: string;
+    currency_fa: string;
+    value: string;
+    change: number;
+    timestamp: number;
+    date: string | number;
+    source: string;
+}
+
 export interface NavasanResponse {
     success: boolean;
     data: NavasanRate[];
+    items?: NavasanRawItem[];
     source: string;
     message?: string;
 }

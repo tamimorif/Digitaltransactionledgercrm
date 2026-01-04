@@ -1,20 +1,18 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Calculator, ArrowRight } from 'lucide-react';
 import { cn } from './ui/utils';
 import { handleNumberInput, parseFormattedNumber, formatCurrency } from '@/src/lib/format';
+import { ArrowRight } from 'lucide-react';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'IRR', 'AED', 'TRY'];
 
 interface CalculatorWidgetProps {
     onRateCalculated?: (from: string, to: string, rate: number) => void;
-    sticky?: boolean;
     className?: string;
 }
 
-export function CalculatorWidget({ onRateCalculated, sticky = true, className }: CalculatorWidgetProps) {
+export function CalculatorWidget({ onRateCalculated, className }: CalculatorWidgetProps) {
     const [amount, setAmount] = useState('1000');
     const [fromCurrency, setFromCurrency] = useState('USD');
     const [toCurrency, setToCurrency] = useState('CAD');
@@ -40,102 +38,101 @@ export function CalculatorWidget({ onRateCalculated, sticky = true, className }:
     };
 
     return (
-        <Card className={cn(sticky ? 'sticky top-4' : '', className)}>
-            <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                    <Calculator className="h-5 w-5" />
-                    Quick Calculator
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-                {/* Amount Input */}
-                <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Amount</label>
+        <div className={cn('space-y-2', className)}>
+            <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Amount
+                    </label>
                     <Input
                         type="text"
                         inputMode="decimal"
                         value={handleNumberInput(amount)}
                         onChange={(e) => setAmount(parseFormattedNumber(e.target.value))}
                         placeholder="1,000.00"
+                        className="h-8 text-xs"
                     />
                 </div>
-
-                {/* From Currency */}
-                <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">From Currency</label>
-                    <Select value={fromCurrency} onValueChange={setFromCurrency}>
-                        <SelectTrigger>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {CURRENCIES.map((curr) => (
-                                <SelectItem key={curr} value={curr}>{curr}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                {/* Swap Button */}
-                <div className="flex justify-center">
-                    <button
-                        onClick={swapCurrencies}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-                        title="Swap currencies"
-                    >
-                        <ArrowRight className="h-4 w-4 rotate-90" />
-                    </button>
-                </div>
-
-                {/* To Currency */}
-                <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">To Currency</label>
-                    <Select value={toCurrency} onValueChange={setToCurrency}>
-                        <SelectTrigger>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {CURRENCIES.map((curr) => (
-                                <SelectItem key={curr} value={curr}>{curr}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                {/* Exchange Rate */}
-                <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Exchange Rate</label>
+                <div className="space-y-1">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Rate
+                    </label>
                     <Input
                         type="text"
                         inputMode="decimal"
                         value={handleNumberInput(rate)}
                         onChange={(e) => setRate(parseFormattedNumber(e.target.value))}
                         placeholder="1.0000"
+                        className="h-8 text-xs"
                     />
-                    <p className="text-xs text-muted-foreground mt-1">
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        From
+                    </label>
+                    <Select value={fromCurrency} onValueChange={setFromCurrency}>
+                        <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {CURRENCIES.map((curr) => (
+                                <SelectItem key={curr} value={curr}>{curr}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="space-y-1">
+                    <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        To
+                    </label>
+                    <Select value={toCurrency} onValueChange={setToCurrency}>
+                        <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {CURRENCIES.map((curr) => (
+                                <SelectItem key={curr} value={curr}>{curr}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
+            <div className="rounded-lg border bg-emerald-50/60 p-2 flex items-center justify-between">
+                <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Result</p>
+                    <p className="text-[10px] text-emerald-700/80">
                         1 {fromCurrency} = {rate} {toCurrency}
                     </p>
                 </div>
-
-                {/* Result */}
-                <div className="pt-3 border-t">
-                    <p className="text-xs text-muted-foreground mb-1">Result</p>
-                    <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg border border-green-200 dark:border-green-800">
-                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                            {calculateResult()} {toCurrency}
-                        </p>
-                    </div>
+                <div className="text-base font-bold text-emerald-700">
+                    {calculateResult()} {toCurrency}
                 </div>
+            </div>
 
-                {/* Use Rate Button */}
+            <div className="flex gap-2">
                 {onRateCalculated && (
                     <button
+                        type="button"
                         onClick={() => onRateCalculated(fromCurrency, toCurrency, parseFloat(parseFormattedNumber(rate)))}
-                        className="w-full text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium py-2"
+                        className="flex-1 rounded-md border border-emerald-200 bg-emerald-50 py-1.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100 uppercase tracking-wide"
                     >
-                        Use this rate in transaction →
+                        Use Rate
                     </button>
                 )}
-            </CardContent>
-        </Card>
+                <button
+                    type="button"
+                    onClick={swapCurrencies}
+                    className="h-full aspect-square rounded-md border bg-muted/50 text-muted-foreground hover:bg-muted transition-colors flex items-center justify-center min-w-[32px]"
+                    title="Swap currencies"
+                >
+                    <ArrowRight className="h-3 w-3" />
+                </button>
+            </div>
+        </div>
     );
 }

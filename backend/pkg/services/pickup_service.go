@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -13,6 +15,74 @@ import (
 
 type PickupService struct {
 	DB *gorm.DB
+}
+
+// PickupSearchFilters defines optional filters for pickup search.
+type PickupSearchFilters struct {
+	DateFrom  *time.Time
+	DateTo    *time.Time
+	AmountMin *float64
+	AmountMax *float64
+	Status    *string
+	Currency  *string
+}
+
+func (f PickupSearchFilters) IsEmpty() bool {
+	return f.DateFrom == nil &&
+		f.DateTo == nil &&
+		f.AmountMin == nil &&
+		f.AmountMax == nil &&
+		f.Status == nil &&
+		f.Currency == nil
+}
+
+func looksLikePickupCode(query string) bool {
+	if len(query) != 6 || query[1] != '-' {
+		return false
+	}
+	prefix := query[0]
+	if (prefix < 'A' || prefix > 'Z') && (prefix < 'a' || prefix > 'z') {
+		return false
+	}
+	for i := 2; i < 6; i++ {
+		if query[i] < '0' || query[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func parseAmountQuery(query string) (float64, bool) {
+	if query == "" {
+		return 0, false
+	}
+	if amount, err := strconv.ParseFloat(query, 64); err == nil {
+		return amount, true
+	}
+	if looksLikePickupCode(query) {
+		return 0, false
+	}
+	var cleaned strings.Builder
+	dotUsed := false
+	for _, r := range query {
+		if r >= '0' && r <= '9' {
+			cleaned.WriteRune(r)
+			continue
+		}
+		if r == '.' && !dotUsed {
+			cleaned.WriteRune(r)
+			dotUsed = true
+		}
+	}
+	cleanedQuery := cleaned.String()
+	if cleanedQuery == "" || cleanedQuery == "." {
+		return 0, false
+	}
+	amount, err := strconv.ParseFloat(cleanedQuery, 64)
+	if err != nil {
+		return 0, false
+	}
+	return amount, true
 }
 
 func NewPickupService(db *gorm.DB) *PickupService {
@@ -145,7 +215,7 @@ func (s *PickupService) CreatePickupTransaction(pickup *models.PickupTransaction
 }
 
 // GetPickupTransactions retrieves pickup transactions with optional filters
-func (s *PickupService) GetPickupTransactions(tenantID uint, branchID *uint, status *string, limit, offset int) ([]models.PickupTransaction, int64, error) {
+func (s *PickupService) GetPickupTransactions(tenantID uint, branchID *uint, status *string, dateFrom *time.Time, dateTo *time.Time, limit, offset int) ([]models.PickupTransaction, int64, error) {
 	var pickups []models.PickupTransaction
 	var total int64
 
@@ -158,7 +228,19 @@ func (s *PickupService) GetPickupTransactions(tenantID uint, branchID *uint, sta
 
 	// Filter by status
 	if status != nil && *status != "" {
-		query = query.Where("status = ?", *status)
+		if *status == models.PickupStatusPickedUp {
+			query = query.Where("status IN ?", []string{models.PickupStatusPickedUp, "COMPLETED", "DISBURSED"})
+		} else {
+			query = query.Where("status = ?", *status)
+		}
+	}
+
+	if dateFrom != nil {
+		query = query.Where("created_at >= ?", *dateFrom)
+	}
+
+	if dateTo != nil {
+		query = query.Where("created_at <= ?", *dateTo)
 	}
 
 	// Count total
@@ -230,15 +312,79 @@ func (s *PickupService) SearchPickupByCode(code string, tenantID uint) (*models.
 	return &pickup, nil
 }
 
-// SearchPickupsByQuery searches pickups by phone number or name
-func (s *PickupService) SearchPickupsByQuery(query string, tenantID uint) ([]models.PickupTransaction, error) {
+// SearchPickupsByQuery searches pickups by phone number, name, code, or amount.
+// Optional filters further narrow the search results.
+func (s *PickupService) SearchPickupsByQuery(query string, tenantID uint, filters PickupSearchFilters) ([]models.PickupTransaction, error) {
 	var pickups []models.PickupTransaction
+	db := s.DB.Where("tenant_id = ?", tenantID)
 
-	// Search by recipient phone, recipient name, sender phone, or sender name
-	searchPattern := "%" + query + "%"
-	err := s.DB.Where("tenant_id = ? AND (recipient_phone LIKE ? OR recipient_name LIKE ? OR sender_phone LIKE ? OR sender_name LIKE ?)",
-		tenantID, searchPattern, searchPattern, searchPattern, searchPattern).
-		Where("status = ?", models.PickupStatusPending).
+	if filters.Status != nil && *filters.Status != "ALL" {
+		db = db.Where("status = ?", *filters.Status)
+	}
+
+	if filters.Currency != nil && *filters.Currency != "ALL" {
+		db = db.Where("currency = ?", *filters.Currency)
+	}
+
+	if filters.DateFrom != nil {
+		db = db.Where("created_at >= ?", *filters.DateFrom)
+	}
+
+	if filters.DateTo != nil {
+		db = db.Where("created_at <= ?", *filters.DateTo)
+	}
+
+	if filters.AmountMin != nil {
+		db = db.Where("amount >= ?", *filters.AmountMin)
+	}
+
+	if filters.AmountMax != nil {
+		db = db.Where("amount <= ?", *filters.AmountMax)
+	}
+
+	if query != "" {
+		searchPattern := "%" + query + "%"
+		conditions := []string{
+			"recipient_phone LIKE ?",
+			"recipient_name LIKE ?",
+			"sender_phone LIKE ?",
+			"sender_name LIKE ?",
+			"pickup_code LIKE ?",
+		}
+		args := []interface{}{
+			searchPattern,
+			searchPattern,
+			searchPattern,
+			searchPattern,
+			searchPattern,
+		}
+
+		if amount, ok := parseAmountQuery(query); ok {
+			const tolerance = 0.01
+			minAmount := amount - tolerance
+			maxAmount := amount + tolerance
+			conditions = append(
+				conditions,
+				"(amount >= ? AND amount <= ?)",
+				"(receiver_amount >= ? AND receiver_amount <= ?)",
+				"(total_received >= ? AND total_received <= ?)",
+				"(total_paid >= ? AND total_paid <= ?)",
+				"(remaining_balance >= ? AND remaining_balance <= ?)",
+			)
+			args = append(
+				args,
+				minAmount, maxAmount,
+				minAmount, maxAmount,
+				minAmount, maxAmount,
+				minAmount, maxAmount,
+				minAmount, maxAmount,
+			)
+		}
+
+		db = db.Where("("+strings.Join(conditions, " OR ")+")", args...)
+	}
+
+	err := db.
 		Preload("SenderBranch").
 		Preload("ReceiverBranch").
 		Preload("EditedByBranch").

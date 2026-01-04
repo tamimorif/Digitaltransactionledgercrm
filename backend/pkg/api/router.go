@@ -252,6 +252,7 @@ func NewRouter(db *gorm.DB) http.Handler {
 			protected.HandleFunc("/receipts/outgoing/{id}", receiptHandler.GetOutgoingRemittanceReceiptHandler).Methods("GET")
 			protected.HandleFunc("/receipts/incoming/{id}", receiptHandler.GetIncomingRemittanceReceiptHandler).Methods("GET")
 			protected.HandleFunc("/receipts/transaction/{id}", receiptHandler.GetTransactionReceiptHandler).Methods("GET")
+			protected.HandleFunc("/receipts/pickup/{id}/pdf", receiptHandler.GetPickupReceiptPDFHandler).Methods("GET")
 
 			// Customer routes (protected)
 			protected.HandleFunc("/customers", customerHandler.GetCustomersForTenantHandler).Methods("GET")

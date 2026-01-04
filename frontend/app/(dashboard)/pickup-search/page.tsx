@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/components/providers/auth-provider';
-import { Search, Package, Phone, User, MapPin, Calendar, CheckCircle, XCircle, Wallet } from 'lucide-react';
+import { ArrowRight, Calendar, CheckCircle, MapPin, Package, Phone, Search, User, Wallet, XCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Input } from '@/src/components/ui/input';
 import { Button } from '@/src/components/ui/button';
@@ -13,10 +13,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Separator } from '@/src/components/ui/separator';
 import { Label } from '@/src/components/ui/label';
 import { Textarea } from '@/src/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { useSearchPickupByCode, useMarkAsPickedUp, useCancelPickupTransaction } from '@/src/lib/queries/pickup.query';
 import { PickupTransaction } from '@/src/lib/models/pickup.model';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/src/lib/error';
+import apiClient from '@/src/lib/api-client';
 import TransactionPaymentsSection from '@/src/components/payments/TransactionPaymentsSection';
 import { toPaymentTransaction } from '@/src/lib/transaction-adapter';
 
@@ -31,17 +33,15 @@ export default function PickupSearchPage() {
         }
     }, [user, router]);
 
-    const [searchMode, setSearchMode] = useState<'code' | 'query'>('code');
-    const [searchCode, setSearchCode] = useState('');
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchInput, setSearchInput] = useState('');
     const [activeCode, setActiveCode] = useState('');
     const [activeQuery, setActiveQuery] = useState('');
+    const [hasQuerySearch, setHasQuerySearch] = useState(false);
     const [showVerifyDialog, setShowVerifyDialog] = useState(false);
     const [showCancelDialog, setShowCancelDialog] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
     const [selectedPickup, setSelectedPickup] = useState<PickupTransaction | null>(null);
     const [queryResults, setQueryResults] = useState<PickupTransaction[]>([]);
-    const [showFilters, setShowFilters] = useState(false);
     const [filters, setFilters] = useState({
         dateFrom: '',
         dateTo: '',
@@ -56,48 +56,59 @@ export default function PickupSearchPage() {
     const cancelPickupMutation = useCancelPickupTransaction();
 
     const handleSearch = () => {
-        if (searchMode === 'code') {
-            // Updated to match new format: 1 letter + dash + 4 digits (e.g., A-1234)
-            if (searchCode.trim().length === 6 && /^[A-Z]-\d{4}$/i.test(searchCode.trim())) {
-                setActiveCode(searchCode.trim().toUpperCase());
-                setActiveQuery('');
-                setQueryResults([]);
-            } else {
-                toast.error('Please enter a valid code (e.g., A-1234)');
-            }
-        } else {
-            if (searchQuery.trim().length >= 3) {
-                setActiveQuery(searchQuery.trim());
-                setActiveCode('');
-                // Fetch query results
-                fetchPickupsByQuery(searchQuery.trim());
-            } else {
+        const trimmed = searchInput.trim();
+        const hasFilters = Boolean(
+            filters.dateFrom ||
+            filters.dateTo ||
+            filters.amountMin ||
+            filters.amountMax ||
+            filters.status !== 'ALL' ||
+            filters.currency !== 'ALL'
+        );
+
+        if (!trimmed && !hasFilters) {
+            toast.error('Please enter a code, phone, name, or amount');
+            return;
+        }
+
+        // Code format: 1 letter + dash + 4 digits (e.g., A-1234)
+        if (trimmed && trimmed.length === 6 && /^[A-Z]-\d{4}$/i.test(trimmed)) {
+            setActiveCode(trimmed.toUpperCase());
+            setActiveQuery('');
+            setQueryResults([]);
+            setHasQuerySearch(false);
+            return;
+        }
+
+        if (trimmed) {
+            const isNumeric = /^\d+(\.\d+)?$/.test(trimmed);
+            if (!isNumeric && trimmed.length < 3) {
                 toast.error('Please enter at least 3 characters');
+                return;
             }
         }
+
+        setActiveQuery(trimmed);
+        setActiveCode('');
+        setHasQuerySearch(true);
+        fetchPickupsByQuery(trimmed);
     };
 
     const fetchPickupsByQuery = async (query: string) => {
         try {
-            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-
             // Build query string with filters
-            const params = new URLSearchParams();
-            params.append('q', query);
-            if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
-            if (filters.dateTo) params.append('dateTo', filters.dateTo);
-            if (filters.amountMin) params.append('amountMin', filters.amountMin);
-            if (filters.amountMax) params.append('amountMax', filters.amountMax);
-            if (filters.status !== 'ALL') params.append('status', filters.status);
-            if (filters.currency !== 'ALL') params.append('currency', filters.currency);
+            const params: Record<string, string> = {};
+            if (query) params.q = query;
+            if (filters.dateFrom) params.dateFrom = filters.dateFrom;
+            if (filters.dateTo) params.dateTo = filters.dateTo;
+            if (filters.amountMin) params.amountMin = filters.amountMin;
+            if (filters.amountMax) params.amountMax = filters.amountMax;
+            if (filters.status !== 'ALL') params.status = filters.status;
+            if (filters.currency !== 'ALL') params.currency = filters.currency;
 
-            const response = await fetch(`${API_BASE_URL}/api/pickups/search?${params.toString()}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-                },
-            });
-            if (response.ok) {
-                const data = (await response.json()) as PickupTransaction[];
+            const response = await apiClient.get<PickupTransaction[]>('/pickups/search', { params });
+            if (response.status >= 200 && response.status < 300) {
+                const data = response.data;
                 // Apply client-side filtering as fallback
                 let filtered = data;
                 if (filters.amountMin) {
@@ -142,8 +153,11 @@ export default function PickupSearchPage() {
             toast.success('Pickup marked as completed successfully!');
             setShowVerifyDialog(false);
             setSelectedPickup(null);
-            setSearchCode('');
+            setSearchInput('');
             setActiveCode('');
+            setActiveQuery('');
+            setQueryResults([]);
+            setHasQuerySearch(false);
         } catch (error) {
             toast.error(getErrorMessage(error, 'Failed to mark pickup as completed'));
         }
@@ -168,8 +182,11 @@ export default function PickupSearchPage() {
             setShowCancelDialog(false);
             setSelectedPickup(null);
             setCancelReason('');
-            setSearchCode('');
+            setSearchInput('');
             setActiveCode('');
+            setActiveQuery('');
+            setQueryResults([]);
+            setHasQuerySearch(false);
         } catch (error) {
             toast.error(getErrorMessage(error, 'Failed to cancel pickup'));
         }
@@ -194,180 +211,172 @@ export default function PickupSearchPage() {
     }
 
     return (
-        <div className="container max-w-6xl mx-auto py-8 space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold">Receive Money</h1>
-                    <p className="text-muted-foreground">Search for pending money transfers by code</p>
+        <main className="w-full max-w-[900px] mx-auto py-10 px-4 md:px-0">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.05),0_4px_6px_-2px_rgba(0,0,0,0.025)] overflow-hidden">
+
+                {/* Header */}
+                <div className="p-8 border-b border-slate-200">
+                    <h1 className="text-2xl font-bold text-slate-900 mb-2">Receive Money</h1>
+                    <p className="text-[15px] text-slate-500 leading-normal">
+                        Enter the transaction details provided by the sender to track or claim funds.
+                    </p>
+                </div>
+
+                <div className="p-8">
+                    {/* Primary Search Section */}
+                    <div className="flex flex-col md:flex-row gap-3 mb-8">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5 pointer-events-none" />
+                            <input
+                                type="text"
+                                className="w-full pl-10 pr-4 py-2 text-base border-2 border-slate-200 rounded-[10px] outline-none focus:border-blue-600 transition-colors placeholder:text-slate-400"
+                                placeholder="Search by transaction code (e.g. A-1234), phone, or name..."
+                                value={searchInput}
+                                onChange={(e) => setSearchInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                            />
+                        </div>
+                        <button
+                            onClick={handleSearch}
+                            disabled={isLoading}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-[10px] border-none cursor-pointer text-[15px] flex items-center justify-center gap-2 transition-colors whitespace-nowrap md:w-auto w-full disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                            <span>{isLoading ? 'Searching...' : 'Find Transaction'}</span>
+                            {!isLoading && <ArrowRight className="w-[18px] h-[18px]" />}
+                        </button>
+                    </div>
+
+                    {/* Filters Container */}
+                    <div className="bg-slate-50 border border-slate-200 rounded-[10px] p-6">
+                        <div className="flex justify-between items-center mb-5">
+                            <span className="text-[13px] font-bold uppercase text-slate-400 tracking-wide">Advanced Filters</span>
+                            <button
+                                onClick={() => setFilters({
+                                    dateFrom: '',
+                                    dateTo: '',
+                                    amountMin: '',
+                                    amountMax: '',
+                                    status: 'ALL',
+                                    currency: 'ALL',
+                                })}
+                                className="bg-none border-none text-slate-500 text-[13px] font-medium cursor-pointer underline decoration-transparent hover:text-blue-600 hover:decoration-blue-600 transition-all"
+                            >
+                                Clear all filters
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            {/* Status */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[13px] font-semibold text-slate-900">Status</label>
+                                <div className="relative">
+                                    <CheckCircle className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
+                                    <select
+                                        className="w-full pl-9 pr-10 py-2.5 text-sm border border-slate-200 rounded-lg outline-none bg-white text-slate-900 focus:border-blue-600 transition-colors appearance-none cursor-pointer"
+                                        style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}
+                                        value={filters.status}
+                                        onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                                    >
+                                        <option value="ALL">All Statuses</option>
+                                        <option value="PENDING">Pending</option>
+                                        <option value="PICKED_UP">Completed</option>
+                                        <option value="CANCELLED">Cancelled</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* From Date */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[13px] font-semibold text-slate-900">From Date</label>
+                                <div className="relative">
+                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
+                                    <input
+                                        type="date"
+                                        className="w-full pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-lg outline-none bg-white text-slate-900 focus:border-blue-600 transition-colors text-slate-500"
+                                        value={filters.dateFrom}
+                                        onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* To Date */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[13px] font-semibold text-slate-900">To Date</label>
+                                <div className="relative">
+                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
+                                    <input
+                                        type="date"
+                                        className="w-full pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-lg outline-none bg-white text-slate-900 focus:border-blue-600 transition-colors text-slate-500"
+                                        value={filters.dateTo}
+                                        onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Currency */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[13px] font-semibold text-slate-900">Currency</label>
+                                <div className="relative">
+                                    <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
+                                    <select
+                                        className="w-full pl-9 pr-10 py-2.5 text-sm border border-slate-200 rounded-lg outline-none bg-white text-slate-900 focus:border-blue-600 transition-colors appearance-none cursor-pointer"
+                                        style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}
+                                        value={filters.currency}
+                                        onChange={(e) => setFilters({ ...filters, currency: e.target.value })}
+                                    >
+                                        <option value="ALL">All Currencies</option>
+                                        <option value="USD">USD</option>
+                                        <option value="CAD">CAD</option>
+                                        <option value="EUR">EUR</option>
+                                        <option value="GBP">GBP</option>
+                                        <option value="IRR">IRR</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Min Amount */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[13px] font-semibold text-slate-900">Min Amount</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">$</span>
+                                    <input
+                                        type="number"
+                                        placeholder="0.00"
+                                        className="w-full pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-lg outline-none bg-white text-slate-900 focus:border-blue-600 transition-colors placeholder:text-slate-400"
+                                        value={filters.amountMin}
+                                        onChange={(e) => setFilters({ ...filters, amountMin: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Max Amount */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[13px] font-semibold text-slate-900">Max Amount</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold pointer-events-none">$</span>
+                                    <input
+                                        type="number"
+                                        placeholder="999,999.00"
+                                        className="w-full pl-9 pr-3 py-2.5 text-sm border border-slate-200 rounded-lg outline-none bg-white text-slate-900 focus:border-blue-600 transition-colors placeholder:text-slate-400"
+                                        value={filters.amountMax}
+                                        onChange={(e) => setFilters({ ...filters, amountMax: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Search Box */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Search Money Transfer</CardTitle>
-                    <CardDescription>Search by code, phone number, or recipient name</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        {/* Search Mode Tabs */}
-                        <div className="flex gap-2 border-b">
-                            <Button
-                                variant={searchMode === 'code' ? 'default' : 'ghost'}
-                                onClick={() => setSearchMode('code')}
-                                className="rounded-b-none"
-                            >
-                                By Code
-                            </Button>
-                            <Button
-                                variant={searchMode === 'query' ? 'default' : 'ghost'}
-                                onClick={() => setSearchMode('query')}
-                                className="rounded-b-none"
-                            >
-                                By Phone/Name
-                            </Button>
-                            {searchMode === 'query' && (
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setShowFilters(!showFilters)}
-                                    className="rounded-b-none ml-auto"
-                                    size="sm"
-                                >
-                                    {showFilters ? 'Hide' : 'Show'} Filters
-                                </Button>
-                            )}
-                        </div>
-
-                        {/* Advanced Filters */}
-                        {showFilters && searchMode === 'query' && (
-                            <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border space-y-4">
-                                <p className="text-sm font-medium">Advanced Filters</p>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <Label htmlFor="dateFrom" className="text-xs">Date From</Label>
-                                        <Input
-                                            id="dateFrom"
-                                            type="date"
-                                            value={filters.dateFrom}
-                                            onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="dateTo" className="text-xs">Date To</Label>
-                                        <Input
-                                            id="dateTo"
-                                            type="date"
-                                            value={filters.dateTo}
-                                            onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="status" className="text-xs">Status</Label>
-                                        <select
-                                            id="status"
-                                            value={filters.status}
-                                            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                                            className="w-full p-2 border rounded-md text-sm"
-                                        >
-                                            <option value="ALL">All Statuses</option>
-                                            <option value="PENDING">Pending</option>
-                                            <option value="PICKED_UP">Completed</option>
-                                            <option value="CANCELLED">Cancelled</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="amountMin" className="text-xs">Min Amount</Label>
-                                        <Input
-                                            id="amountMin"
-                                            type="number"
-                                            value={filters.amountMin}
-                                            onChange={(e) => setFilters({ ...filters, amountMin: e.target.value })}
-                                            placeholder="0"
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="amountMax" className="text-xs">Max Amount</Label>
-                                        <Input
-                                            id="amountMax"
-                                            type="number"
-                                            value={filters.amountMax}
-                                            onChange={(e) => setFilters({ ...filters, amountMax: e.target.value })}
-                                            placeholder="999999"
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label htmlFor="currency" className="text-xs">Currency</Label>
-                                        <select
-                                            id="currency"
-                                            value={filters.currency}
-                                            onChange={(e) => setFilters({ ...filters, currency: e.target.value })}
-                                            className="w-full p-2 border rounded-md text-sm"
-                                        >
-                                            <option value="ALL">All Currencies</option>
-                                            <option value="USD">USD</option>
-                                            <option value="CAD">CAD</option>
-                                            <option value="EUR">EUR</option>
-                                            <option value="GBP">GBP</option>
-                                            <option value="IRR">IRR</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setFilters({
-                                        dateFrom: '',
-                                        dateTo: '',
-                                        amountMin: '',
-                                        amountMax: '',
-                                        status: 'ALL',
-                                        currency: 'ALL',
-                                    })}
-                                >
-                                    Clear Filters
-                                </Button>
-                            </div>
-                        )}
-
-                        {/* Search Input */}
-                        <div className="flex gap-2">
-                            <div className="relative flex-1">
-                                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                {searchMode === 'code' ? (
-                                    <Input
-                                        type="text"
-                                        placeholder="Enter 6-digit code (e.g., 123456)"
-                                        value={searchCode}
-                                        onChange={(e) => setSearchCode(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                        className="pl-10"
-                                        maxLength={6}
-                                    />
-                                ) : (
-                                    <Input
-                                        type="text"
-                                        placeholder="Search by phone number or recipient name"
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                        className="pl-10"
-                                    />
-                                )}
-                            </div>
-                            <Button onClick={handleSearch} disabled={isLoading}>
-                                {isLoading ? 'Searching...' : 'Search'}
-                            </Button>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+            {/* SPACER for Results */}
+            <div className="h-8"></div>
 
             {/* Query Results (Multiple Pickups) - Enhanced with Full Details */}
-            {activeQuery && queryResults.length > 0 && (
+            {hasQuerySearch && queryResults.length > 0 && (
                 <Card>
                     <CardHeader>
                         <CardTitle>Search Results ({queryResults.length})</CardTitle>
-                        <CardDescription>All transfer orders matching your search</CardDescription>
+                        <CardDescription>All transfer orders matching your search or filters</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
@@ -504,12 +513,16 @@ export default function PickupSearchPage() {
             )}
 
             {/* No Results for Query */}
-            {activeQuery && queryResults.length === 0 && !isLoading && (
+            {hasQuerySearch && queryResults.length === 0 && !isLoading && (
                 <Card className="border-yellow-200 bg-yellow-50">
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-2 text-yellow-700">
                             <Search className="h-5 w-5" />
-                            <p className="font-medium">No pending pickups found matching &quot;{activeQuery}&quot;</p>
+                            <p className="font-medium">
+                                {activeQuery
+                                    ? `No pending pickups found matching "${activeQuery}"`
+                                    : 'No pending pickups found for the current filters.'}
+                            </p>
                         </div>
                     </CardContent>
                 </Card>
@@ -697,7 +710,7 @@ export default function PickupSearchPage() {
                                         Multi-Payment Mode
                                     </Badge>
                                 </div>
-                                <TransactionPaymentsSection 
+                                <TransactionPaymentsSection
                                     transaction={toPaymentTransaction(pickup)}
                                 />
                             </div>
@@ -812,6 +825,6 @@ export default function PickupSearchPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </main>
     );
 }

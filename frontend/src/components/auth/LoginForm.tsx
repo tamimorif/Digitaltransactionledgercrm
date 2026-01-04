@@ -68,8 +68,14 @@ export function LoginForm() {
       } else {
         router.push('/dashboard');
       }
-    } catch (error) {
-      setError(getErrorMessage(error, 'Invalid email or password'));
+    } catch (error: any) {
+      // Check specifically for 401 Unauthorized
+      if (error?.response?.status === 401) {
+        setError('Incorrect email or password. Please try again.');
+      } else {
+        // Fallback to the existing error helper for other issues
+        setError(getErrorMessage(error, 'Invalid email or password'));
+      }
     } finally {
       setIsLoading(false);
     }

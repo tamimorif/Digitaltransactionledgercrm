@@ -107,13 +107,13 @@ export default function DashboardLayout({
                         <DropdownMenuItem asChild>
                           <Link href="/pickup-search" className="cursor-pointer">
                             <Search className="h-4 w-4 mr-2" />
-                            Disbursement Lookup
+                            Receive Money
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                           <Link href="/pending-pickups" className="cursor-pointer">
                             <Clock className="h-4 w-4 mr-2" />
-                            Pending Payouts
+                            Orders
                           </Link>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -138,7 +138,7 @@ export default function DashboardLayout({
                         <DropdownMenuItem asChild>
                           <Link href="/reconciliation" className="cursor-pointer">
                             <Calculator className="h-4 w-4 mr-2" />
-                            Position Reconciliation
+                            Daily Reconciliation
                           </Link>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -163,7 +163,7 @@ export default function DashboardLayout({
                         <DropdownMenuItem asChild>
                           <Link href="/reports-dashboard" className="cursor-pointer">
                             <LayoutDashboard className="h-4 w-4 mr-2" />
-                            Reports Dashboard
+                            Profit Report
                           </Link>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -183,7 +183,7 @@ export default function DashboardLayout({
                           <DropdownMenuItem asChild>
                             <Link href="/admin/branches" className="cursor-pointer">
                               <Building2 className="h-4 w-4 mr-2" />
-                              Branches
+                              Branch Management
                             </Link>
                           </DropdownMenuItem>
                         </DropdownMenuContent>

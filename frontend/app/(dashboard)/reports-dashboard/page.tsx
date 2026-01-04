@@ -1,368 +1,349 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useGetBranches } from '@/src/lib/queries/branch.query';
 import {
-  useGetDailyReport,
-  useGetMonthlyReport,
-  useGetCustomReport,
-  type ReportData,
+    useGetDailyReport,
+    useGetMonthlyReport,
+    useGetCustomReport,
 } from '@/src/lib/queries/report.query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
-import { Button } from '@/src/components/ui/button';
-import { Input } from '@/src/components/ui/input';
-import { Label } from '@/src/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/src/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/src/components/ui/tabs';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/src/components/ui/table';
-import { Badge } from '@/src/components/ui/badge';
-import { BarChart3, DollarSign, Users, Building2 } from 'lucide-react';
-import { cn } from '@/src/components/ui/utils';
+import { useExportToCSV } from '@/src/lib/queries/statistics.query';
+import { DollarSign, Activity, ShoppingCart, Building2, TrendingUp, Download } from 'lucide-react';
+import { toast } from 'sonner';
 
-const reportTypes = [
-  { id: 'profit', label: 'Profit', icon: DollarSign, description: 'Revenue and margin overview' },
-  { id: 'volume', label: 'Volume', icon: BarChart3, description: 'Currency volume breakdown' },
-  { id: 'customers', label: 'Customers', icon: Users, description: 'Top customer performance' },
-  { id: 'branches', label: 'Branches', icon: Building2, description: 'Branch-level performance' },
-] as const;
+type ReportMode = 'daily' | 'monthly' | 'custom';
 
-type ReportType = (typeof reportTypes)[number]['id'];
+export default function ReportsPage() {
+    const today = new Date().toISOString().split('T')[0];
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
 
-export default function ReportsDashboardPage() {
-  const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [dailyDate, setDailyDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [monthlyYear, setMonthlyYear] = useState<number>(new Date().getFullYear());
-  const [monthlyMonth, setMonthlyMonth] = useState<number>(new Date().getMonth() + 1);
-  const [customStartDate, setCustomStartDate] = useState<string>('');
-  const [customEndDate, setCustomEndDate] = useState<string>('');
-  const [activeTab, setActiveTab] = useState('daily');
-  const [activeReportType, setActiveReportType] = useState<ReportType>('profit');
+    const [mode, setMode] = useState<ReportMode>('daily');
+    const [selectedDate, setSelectedDate] = useState<string>(today);
+    const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+    const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
+    const [startDate, setStartDate] = useState<string>('');
+    const [endDate, setEndDate] = useState<string>('');
+    const [selectedBranch, setSelectedBranch] = useState<string>('all');
 
-  const { data: branches } = useGetBranches();
-  const branchId = selectedBranch === 'all' ? undefined : Number(selectedBranch);
+    const { data: branches } = useGetBranches();
+    const exportCSV = useExportToCSV();
 
-  const { data: dailyReport, isLoading: dailyLoading } = useGetDailyReport(dailyDate, branchId);
-  const { data: monthlyReport, isLoading: monthlyLoading } = useGetMonthlyReport(
-    monthlyYear,
-    monthlyMonth,
-    branchId
-  );
-  const { data: customReport, isLoading: customLoading } = useGetCustomReport(
-    customStartDate,
-    customEndDate,
-    branchId
-  );
+    const branchId = selectedBranch !== 'all' ? Number(selectedBranch) : undefined;
 
-  const currentReport =
-    activeTab === 'daily' ? dailyReport : activeTab === 'monthly' ? monthlyReport : customReport;
-  const isLoading = activeTab === 'daily' ? dailyLoading : activeTab === 'monthly' ? monthlyLoading : customLoading;
+    // Fetch report data based on mode
+    const { data: dailyReport, isLoading: dailyLoading } = useGetDailyReport(
+        mode === 'daily' ? selectedDate : undefined,
+        mode === 'daily' ? branchId : undefined
+    );
+    const { data: monthlyReport, isLoading: monthlyLoading } = useGetMonthlyReport(
+        mode === 'monthly' ? selectedYear : undefined,
+        mode === 'monthly' ? selectedMonth : undefined,
+        mode === 'monthly' ? branchId : undefined
+    );
+    const { data: customReport, isLoading: customLoading } = useGetCustomReport(
+        mode === 'custom' ? startDate : undefined,
+        mode === 'custom' ? endDate : undefined,
+        mode === 'custom' ? branchId : undefined
+    );
 
-  const summaryMetric = useMemo(() => {
-    if (!currentReport) return { label: 'Total', value: 0, subLabel: '' };
+    // Get active report data
+    const report = useMemo(() => {
+        if (mode === 'daily') return dailyReport;
+        if (mode === 'monthly') return monthlyReport;
+        return customReport;
+    }, [mode, dailyReport, monthlyReport, customReport]);
 
-    const totalVolume = Object.values(currentReport.totalVolume || {}).reduce((sum, v) => sum + v, 0);
+    const isLoading = dailyLoading || monthlyLoading || customLoading;
 
-    switch (activeReportType) {
-      case 'profit':
-        return {
-          label: 'Total Revenue',
-          value: currentReport.totalRevenue,
-          subLabel: `Fees collected: $${currentReport.totalFees.toFixed(2)}`,
+    // Calculate avg profit per transaction
+    const avgProfitPerTxn = useMemo(() => {
+        if (!report || report.totalTransactions === 0) return 0;
+        return report.totalRevenue / report.totalTransactions;
+    }, [report]);
+
+    const handleExportCSV = () => {
+        const filters = {
+            startDate: mode === 'daily' ? selectedDate : mode === 'custom' ? startDate : undefined,
+            endDate: mode === 'daily' ? selectedDate : mode === 'custom' ? endDate : undefined,
+            branchId: branchId,
         };
-      case 'volume':
-        return {
-          label: 'Total Volume',
-          value: totalVolume,
-          subLabel: 'Aggregated across currencies',
-        };
-      case 'customers':
-        return {
-          label: 'Top Customers',
-          value: currentReport.topCustomers?.length || 0,
-          subLabel: `${currentReport.totalTransactions} total transactions`,
-        };
-      case 'branches':
-        return {
-          label: 'Reporting Branches',
-          value: currentReport.branchPerformance?.length || 0,
-          subLabel: `Total revenue: $${currentReport.totalRevenue.toFixed(2)}`,
-        };
-      default:
-        return { label: 'Total', value: 0, subLabel: '' };
-    }
-  }, [activeReportType, currentReport]);
 
-  return (
-    <div className="mx-auto w-full max-w-7xl px-6 py-6 space-y-6 font-[Inter]">
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Reports Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Clean, printable insights by report type</p>
-        </div>
-      </div>
+        exportCSV.mutate(filters, {
+            onSuccess: () => toast.success('Report exported successfully'),
+            onError: () => toast.error('Failed to export report'),
+        });
+    };
 
-      <div className="grid gap-6 lg:grid-cols-[240px,1fr]">
-        <Card className="h-fit border-border/60 bg-muted/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Report Types</CardTitle>
-            <CardDescription className="text-xs">Switch views instantly</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {reportTypes.map((type) => {
-              const Icon = type.icon;
-              const isActive = activeReportType === type.id;
-              return (
-                <Button
-                  key={type.id}
-                  variant={isActive ? 'secondary' : 'ghost'}
-                  className={cn(
-                    'w-full items-start justify-start gap-3 px-3 py-2 text-left',
-                    isActive
-                      ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-50'
-                      : 'hover:bg-muted/60'
-                  )}
-                  onClick={() => setActiveReportType(type.id)}
-                >
-                  <Icon className="mt-0.5 h-4 w-4" />
-                  <div>
-                    <div className="text-sm font-medium">{type.label}</div>
-                    <div className="text-xs text-muted-foreground">{type.description}</div>
-                  </div>
-                </Button>
-              );
-            })}
-          </CardContent>
-        </Card>
+    const formatCurrency = (value: number) => {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2,
+        }).format(value);
+    };
 
-        <div className="space-y-6">
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr),minmax(0,1fr)]">
-            <Card className="border-border/60">
-              <CardHeader>
-                <CardTitle className="text-sm font-semibold">Report Filters</CardTitle>
-                <CardDescription className="text-xs">Pick branch and time window</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Branch</Label>
-                    <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All Branches" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
-                        {branches?.map((branch) => (
-                          <SelectItem key={branch.id} value={String(branch.id)}>
-                            {branch.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+    const formatNumber = (value: number) => {
+        return new Intl.NumberFormat('en-US').format(value);
+    };
 
-                  <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <TabsList className="grid w-full grid-cols-3 rounded-lg bg-muted/40 p-1">
-                      <TabsTrigger value="daily">Daily</TabsTrigger>
-                      <TabsTrigger value="monthly">Monthly</TabsTrigger>
-                      <TabsTrigger value="custom">Custom</TabsTrigger>
-                    </TabsList>
+    return (
+        <div className="mx-auto w-full max-w-7xl px-6 py-8 space-y-8">
+            {/* Header */}
+            <div>
+                <h1 className="text-2xl font-bold text-slate-900">Profit Report</h1>
+                <p className="text-slate-500 text-sm mt-1">
+                    Overview of fees collected and net margins across branches.
+                </p>
+            </div>
 
-                    <TabsContent value="daily" className="space-y-2 mt-4">
-                      <Label htmlFor="dailyDate">Select Date</Label>
-                      <Input
-                        id="dailyDate"
+            {/* Controls Bar */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-3 flex flex-wrap gap-4 items-center shadow-sm">
+                {/* Segmented Control */}
+                <div className="bg-slate-100 p-1 rounded-lg flex">
+                    <button
+                        onClick={() => setMode('daily')}
+                        className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-all ${mode === 'daily'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                    >
+                        Daily
+                    </button>
+                    <button
+                        onClick={() => setMode('monthly')}
+                        className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-all ${mode === 'monthly'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                    >
+                        Monthly
+                    </button>
+                    <button
+                        onClick={() => setMode('custom')}
+                        className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-all ${mode === 'custom'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                    >
+                        Custom
+                    </button>
+                </div>
+
+                {/* Date Inputs based on mode */}
+                {mode === 'daily' && (
+                    <input
                         type="date"
-                        value={dailyDate}
-                        onChange={(e) => setDailyDate(e.target.value)}
-                      />
-                    </TabsContent>
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                )}
 
-                    <TabsContent value="monthly" className="space-y-2 mt-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="year">Year</Label>
-                          <Input
-                            id="year"
-                            type="number"
-                            value={monthlyYear}
-                            onChange={(e) => setMonthlyYear(Number(e.target.value))}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="month">Month</Label>
-                          <Select
-                            value={String(monthlyMonth)}
-                            onValueChange={(v) => setMonthlyMonth(Number(v))}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {[...Array(12)].map((_, i) => (
-                                <SelectItem key={i + 1} value={String(i + 1)}>
-                                  {new Date(2000, i, 1).toLocaleString('default', { month: 'long' })}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </TabsContent>
+                {mode === 'monthly' && (
+                    <div className="flex gap-2">
+                        <select
+                            value={selectedMonth}
+                            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                            className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            {Array.from({ length: 12 }, (_, i) => (
+                                <option key={i + 1} value={i + 1}>
+                                    {new Date(2000, i).toLocaleString('default', { month: 'long' })}
+                                </option>
+                            ))}
+                        </select>
+                        <select
+                            value={selectedYear}
+                            onChange={(e) => setSelectedYear(Number(e.target.value))}
+                            className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            {Array.from({ length: 5 }, (_, i) => (
+                                <option key={i} value={currentYear - i}>
+                                    {currentYear - i}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
 
-                    <TabsContent value="custom" className="space-y-2 mt-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="startDate">Start Date</Label>
-                          <Input
-                            id="startDate"
+                {mode === 'custom' && (
+                    <div className="flex gap-2 items-center">
+                        <input
                             type="date"
-                            value={customStartDate}
-                            onChange={(e) => setCustomStartDate(e.target.value)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="endDate">End Date</Label>
-                          <Input
-                            id="endDate"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Start"
+                        />
+                        <span className="text-slate-400">to</span>
+                        <input
                             type="date"
-                            value={customEndDate}
-                            onChange={(e) => setCustomEndDate(e.target.value)}
-                          />
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="End"
+                        />
+                    </div>
+                )}
+
+                {/* Branch Selector */}
+                <select
+                    value={selectedBranch}
+                    onChange={(e) => setSelectedBranch(e.target.value)}
+                    className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 outline-none focus:ring-2 focus:ring-blue-500 min-w-[140px]"
+                >
+                    <option value="all">All Branches</option>
+                    {branches?.map((branch) => (
+                        <option key={branch.id} value={String(branch.id)}>
+                            {branch.name}
+                        </option>
+                    ))}
+                </select>
+
+                {/* Export Button */}
+                <button
+                    onClick={handleExportCSV}
+                    disabled={exportCSV.isPending}
+                    className="ml-auto bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-slate-700 transition-colors disabled:opacity-50"
+                >
+                    <Download className="w-4 h-4" />
+                    {exportCSV.isPending ? 'Exporting...' : 'Export CSV'}
+                </button>
+            </div>
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Total Revenue */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                    <div className="flex justify-between items-start mb-4">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Total Revenue
+                        </span>
+                        <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
+                            <DollarSign className="w-5 h-5 text-blue-600" />
                         </div>
-                      </div>
-                    </TabsContent>
-                  </Tabs>
+                    </div>
+                    <div className="text-3xl font-extrabold text-slate-900">
+                        {isLoading ? '...' : formatCurrency(report?.totalRevenue || 0)}
+                    </div>
+                    <div className="text-xs font-semibold text-emerald-500 mt-2 flex items-center gap-1">
+                        <TrendingUp className="w-3.5 h-3.5" />
+                        From fees collected
+                    </div>
                 </div>
-              </CardContent>
-            </Card>
 
-            <Card className="border-border/60">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">
-                  {summaryMetric.label}
-                </CardTitle>
-                <CardDescription className="text-xs">{summaryMetric.subLabel}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Badge variant="outline" className="w-fit">
-                  {reportTypes.find((t) => t.id === activeReportType)?.label}
-                </Badge>
-                <div className="text-3xl font-bold">
-                  {activeReportType === 'customers' || activeReportType === 'branches'
-                    ? summaryMetric.value.toLocaleString()
-                    : `$${summaryMetric.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                {/* Transactions */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                    <div className="flex justify-between items-start mb-4">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Transactions
+                        </span>
+                        <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center">
+                            <Activity className="w-5 h-5 text-emerald-500" />
+                        </div>
+                    </div>
+                    <div className="text-3xl font-extrabold text-slate-900">
+                        {isLoading ? '...' : formatNumber(report?.totalTransactions || 0)}
+                    </div>
+                    <div className="text-xs font-semibold text-emerald-500 mt-2 flex items-center gap-1">
+                        <TrendingUp className="w-3.5 h-3.5" />
+                        Completed transactions
+                    </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
 
-          <Card className="border-border/60">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">
-                {reportTypes.find((t) => t.id === activeReportType)?.label} Report
-              </CardTitle>
-              <CardDescription className="text-xs">Striped rows for quick scanning</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12 text-muted-foreground">Loading report...</div>
-              ) : !currentReport ? (
-                <div className="flex items-center justify-center py-12 text-muted-foreground">No data available.</div>
-              ) : (
-                renderReportTable(activeReportType, currentReport)
-              )}
-            </CardContent>
-          </Card>
+                {/* Avg Profit / Txn */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                    <div className="flex justify-between items-start mb-4">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Avg. Profit / Txn
+                        </span>
+                        <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
+                            <ShoppingCart className="w-5 h-5 text-slate-500" />
+                        </div>
+                    </div>
+                    <div className="text-3xl font-extrabold text-slate-900">
+                        {isLoading ? '...' : formatCurrency(avgProfitPerTxn)}
+                    </div>
+                    <div className="text-xs font-medium text-slate-400 mt-2">
+                        Revenue per transaction
+                    </div>
+                </div>
+            </div>
+
+            {/* Branch Performance Table */}
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="px-6 py-5 border-b border-slate-200 flex justify-between items-center">
+                    <h2 className="text-base font-bold text-slate-900">Branch Performance Breakdown</h2>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead className="bg-slate-50">
+                            <tr>
+                                <th className="text-left px-6 py-3.5 font-semibold text-slate-500 uppercase text-xs tracking-wide">
+                                    Branch Name
+                                </th>
+                                <th className="text-right px-6 py-3.5 font-semibold text-slate-500 uppercase text-xs tracking-wide">
+                                    Transaction Count
+                                </th>
+                                <th className="text-right px-6 py-3.5 font-semibold text-slate-500 uppercase text-xs tracking-wide">
+                                    Volume (USD)
+                                </th>
+                                <th className="text-right px-6 py-3.5 font-semibold text-slate-500 uppercase text-xs tracking-wide">
+                                    Fees Collected
+                                </th>
+                                <th className="text-right px-6 py-3.5 font-semibold text-slate-500 uppercase text-xs tracking-wide">
+                                    Net Profit
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                                        Loading report data...
+                                    </td>
+                                </tr>
+                            ) : !report?.branchPerformance?.length ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                                        No data available for this period.
+                                    </td>
+                                </tr>
+                            ) : (
+                                report.branchPerformance.map((branch) => (
+                                    <tr key={branch.branchId} className="border-b border-slate-100 last:border-0">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                                                    <Building2 className="w-4 h-4 text-slate-400" />
+                                                </div>
+                                                <span className="font-semibold text-slate-900">
+                                                    {branch.branchName || 'Unknown Branch'}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-slate-900">
+                                            {formatNumber(branch.txCount)}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-slate-900">
+                                            {formatCurrency(branch.volume || 0)}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-slate-900">
+                                            {formatCurrency(branch.revenue)}
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600">
+                                                {formatCurrency(branch.revenue)}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function renderReportTable(type: ReportType, report: ReportData) {
-  if (type === 'volume') {
-    const volumeRows = Object.entries(report.totalVolume || {});
-    return (
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Currency</TableHead>
-            <TableHead className="text-right">Volume</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {volumeRows.map(([currency, volume], index) => (
-            <TableRow key={currency} className={index % 2 === 0 ? 'bg-muted/20' : 'bg-background'}>
-              <TableCell className="font-medium">{currency}</TableCell>
-              <TableCell className="text-right font-mono">{volume.toFixed(2)}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
     );
-  }
-
-  if (type === 'customers') {
-    return (
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>#</TableHead>
-            <TableHead>Customer</TableHead>
-            <TableHead className="text-right">Transactions</TableHead>
-            <TableHead className="text-right">Volume</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {report.topCustomers?.map((customer, index) => (
-            <TableRow
-              key={customer.clientId}
-              className={index % 2 === 0 ? 'bg-muted/20' : 'bg-background'}
-            >
-              <TableCell>
-                <Badge variant="outline">{index + 1}</Badge>
-              </TableCell>
-              <TableCell className="font-medium">{customer.clientName}</TableCell>
-              <TableCell className="text-right">{customer.txCount}</TableCell>
-              <TableCell className="text-right font-mono">${customer.volume.toFixed(2)}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    );
-  }
-
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Branch</TableHead>
-          <TableHead className="text-right">Transactions</TableHead>
-          <TableHead className="text-right">Revenue</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {report.branchPerformance?.map((branch, index) => (
-          <TableRow key={branch.branchId} className={index % 2 === 0 ? 'bg-muted/20' : 'bg-background'}>
-            <TableCell className="font-medium">{branch.branchName}</TableCell>
-            <TableCell className="text-right">{branch.txCount}</TableCell>
-            <TableCell className="text-right font-mono">${branch.revenue.toFixed(2)}</TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
 }

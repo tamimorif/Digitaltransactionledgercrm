@@ -39,12 +39,18 @@ func (h *NavasanHandler) GetNavasanRates(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	payload := map[string]interface{}{
 		"success": true,
 		"data":    rates,
 		"source":  "navasan.tech",
 		"note":    "Rates are in Iranian Toman (1 Toman = 10 Rial)",
-	})
+	}
+
+	if items, itemsErr := h.navasanService.FormatRawRatesForDisplay(); itemsErr == nil {
+		payload["items"] = items
+	}
+
+	respondJSON(w, http.StatusOK, payload)
 }
 
 // RefreshNavasanRates forces a refresh of cached rates

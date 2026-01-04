@@ -37,6 +37,7 @@ type BranchSummary struct {
 	BranchID   uint    `json:"branchId"`
 	BranchName string  `json:"branchName"`
 	TxCount    int64   `json:"txCount"`
+	Volume     float64 `json:"volume"`
 	Revenue    float64 `json:"revenue"`
 }
 
@@ -137,10 +138,11 @@ func (s *ReportService) generateReport(tenantID uint, branchID *uint, startDate,
 		BranchID   uint
 		BranchName string
 		TxCount    int64
+		Volume     float64
 		Revenue    float64
 	}
 	s.DB.Model(&models.Transaction{}).
-		Select("transactions.branch_id, branches.name as branch_name, COUNT(*) as tx_count, SUM(transactions.fee_charged) as revenue").
+		Select("transactions.branch_id, branches.name as branch_name, COUNT(*) as tx_count, SUM(transactions.send_amount) as volume, SUM(transactions.fee_charged) as revenue").
 		Joins("LEFT JOIN branches ON transactions.branch_id = branches.id").
 		Where("transactions.tenant_id = ? AND transactions.transaction_date >= ? AND transactions.transaction_date < ? AND transactions.status = ?",
 			tenantID, startDate, endDate, models.StatusCompleted).
@@ -154,6 +156,7 @@ func (s *ReportService) generateReport(tenantID uint, branchID *uint, startDate,
 				BranchID:   branch.BranchID,
 				BranchName: branch.BranchName,
 				TxCount:    branch.TxCount,
+				Volume:     branch.Volume,
 				Revenue:    branch.Revenue,
 			})
 		}

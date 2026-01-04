@@ -28,6 +28,7 @@ type NavasanRate struct {
 type NavasanService struct {
 	client          *http.Client
 	cachedRates     map[string]NavasanRate
+	cachedRaw       map[string]NavasanItem
 	cacheMutex      sync.RWMutex
 	cacheExpiry     time.Time
 	cacheTTL        time.Duration
@@ -41,6 +42,7 @@ func NewNavasanService() *NavasanService {
 			Timeout: 30 * time.Second,
 		},
 		cachedRates:     make(map[string]NavasanRate),
+		cachedRaw:       make(map[string]NavasanItem),
 		cacheTTL:        60 * time.Second,
 		updateThreshold: 0.25,
 	}
@@ -71,6 +73,25 @@ func (s *NavasanService) GetRates() (map[string]NavasanRate, error) {
 	s.cacheMutex.RUnlock()
 
 	return s.FetchRates()
+}
+
+// GetRawRates returns all Navasan items (from cache if valid, otherwise fetches fresh)
+func (s *NavasanService) GetRawRates() (map[string]NavasanItem, error) {
+	s.cacheMutex.RLock()
+	if time.Now().Before(s.cacheExpiry) && len(s.cachedRaw) > 0 {
+		raw := s.cloneCachedRaw()
+		s.cacheMutex.RUnlock()
+		return raw, nil
+	}
+	s.cacheMutex.RUnlock()
+
+	if _, err := s.FetchRates(); err != nil {
+		return nil, err
+	}
+
+	s.cacheMutex.RLock()
+	defer s.cacheMutex.RUnlock()
+	return s.cloneCachedRaw(), nil
 }
 
 // FetchRates fetches fresh rates from Navasan API
@@ -125,6 +146,7 @@ func (s *NavasanService) FetchRates() (map[string]NavasanRate, error) {
 	// Update cache
 	s.cacheMutex.Lock()
 	s.cachedRates = rates
+	s.cachedRaw = s.cloneRawRates(apiResponse)
 	s.cacheExpiry = now.Add(s.cacheTTL)
 	s.cacheMutex.Unlock()
 
@@ -141,6 +163,30 @@ func (s *NavasanService) cloneCachedRates() map[string]NavasanRate {
 
 	clone := make(map[string]NavasanRate, len(s.cachedRates))
 	for k, v := range s.cachedRates {
+		clone[k] = v
+	}
+	return clone
+}
+
+func (s *NavasanService) cloneCachedRaw() map[string]NavasanItem {
+	if len(s.cachedRaw) == 0 {
+		return nil
+	}
+
+	clone := make(map[string]NavasanItem, len(s.cachedRaw))
+	for k, v := range s.cachedRaw {
+		clone[k] = v
+	}
+	return clone
+}
+
+func (s *NavasanService) cloneRawRates(apiResp NavasanAPIResponse) map[string]NavasanItem {
+	if len(apiResp) == 0 {
+		return nil
+	}
+
+	clone := make(map[string]NavasanItem, len(apiResp))
+	for k, v := range apiResp {
 		clone[k] = v
 	}
 	return clone
@@ -400,6 +446,34 @@ func (s *NavasanService) FormatRatesForDisplay() ([]map[string]interface{}, erro
 			"source":          "navasan.tech (API)",
 		}
 		result = append(result, item)
+	}
+
+	return result, nil
+}
+
+// FormatRawRatesForDisplay returns the full list of API items for client use.
+func (s *NavasanService) FormatRawRatesForDisplay() ([]map[string]interface{}, error) {
+	rawRates, err := s.GetRawRates()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]map[string]interface{}, 0, len(rawRates))
+	for itemKey, item := range rawRates {
+		name := navasanItemNames[itemKey]
+		if name == "" {
+			name = itemKey
+		}
+		result = append(result, map[string]interface{}{
+			"item":        itemKey,
+			"currency":    itemKey,
+			"currency_fa": name,
+			"value":       item.Value,
+			"change":      item.Change,
+			"timestamp":   item.Timestamp,
+			"date":        item.Date,
+			"source":      "navasan.tech (API)",
+		})
 	}
 
 	return result, nil

@@ -153,102 +153,82 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Grid */}
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 lg:col-span-8 space-y-6">
-          <CashFlowChart data={dashboard?.cashFlow ?? []} />
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-sm font-semibold">Recent Transactions</CardTitle>
-              <Link
-                href="/company-overview"
-                className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
-              >
-                View All
-              </Link>
-            </CardHeader>
-            <CardContent className="pt-0">
-              {recentTransactions.length === 0 ? (
-                <div className="py-10 text-center text-sm text-muted-foreground">
-                  No recent transactions available.
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Client</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead className="text-right">Date</TableHead>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-stretch">
+        <CashFlowChart
+          data={dashboard?.cashFlow ?? []}
+          className="lg:min-h-[420px] lg:h-full"
+          contentClassName="min-h-0"
+        />
+        <QuickConvertWidget compact className="lg:min-h-[420px] lg:h-full" />
+        <Card className="lg:h-full">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardTitle className="text-sm font-semibold">Recent Transactions</CardTitle>
+            <Link
+              href="/company-overview"
+              className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
+            >
+              View All
+            </Link>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {recentTransactions.length === 0 ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">
+                No recent transactions available.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead className="text-right">Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentTransactions.slice(0, 6).map((tx, index) => (
+                    <TableRow key={tx.id} className={index % 2 === 0 ? 'bg-muted/20' : 'bg-background'}>
+                      <TableCell className="font-medium">{tx.client}</TableCell>
+                      <TableCell>
+                        {tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
+                        <span className="text-xs text-muted-foreground">{tx.currency}</span>
+                      </TableCell>
+                      <TableCell className="text-right text-xs text-muted-foreground">
+                        {new Date(tx.createdAt).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {recentTransactions.slice(0, 6).map((tx, index) => (
-                      <TableRow key={tx.id} className={index % 2 === 0 ? 'bg-muted/20' : 'bg-background'}>
-                        <TableCell className="font-medium">{tx.client}</TableCell>
-                        <TableCell>
-                          {tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
-                          <span className="text-xs text-muted-foreground">{tx.currency}</span>
-                        </TableCell>
-                        <TableCell className="text-right text-xs text-muted-foreground">
-                          {new Date(tx.createdAt).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="col-span-12 lg:col-span-4 space-y-6">
-          <QuickConvertWidget compact />
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-[1fr,1.15fr]">
-              <div className="space-y-3">
-                <Button
-                  size="sm"
-                  className="w-full bg-emerald-600 hover:bg-emerald-700"
-                  onClick={() => setTransferOpen(true)}
-                >
-                  <ArrowLeftRight className="mr-2 h-4 w-4" />
-                  New Transfer
-                </Button>
-                <Button
-                  size="sm"
-                  className="w-full"
-                  variant="outline"
-                  onClick={() => router.push('/send-pickup')}
-                >
-                  <ArrowUpRight className="mr-2 h-4 w-4" />
-                  Initiate Remittance
-                </Button>
-              </div>
-              <div className="border-t border-dashed pt-3 md:border-l md:border-t-0 md:pl-4 md:pt-0">
-                <DashboardDebugPanel
-                  enabled={!!user}
-                  status={status}
-                  fetchStatus={fetchStatus}
-                  isFetching={isFetching}
-                  isLoading={isLoading}
-                  isError={isError}
-                  dataUpdatedAt={dataUpdatedAt}
-                  failureCount={failureCount}
-                  error={error}
-                  dashboard={dashboard}
-                  variant="inline"
-                  compact
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+        <Card className="lg:h-full">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button
+              size="sm"
+              className="w-full bg-emerald-600 hover:bg-emerald-700"
+              onClick={() => setTransferOpen(true)}
+            >
+              <ArrowLeftRight className="mr-2 h-4 w-4" />
+              New Transfer
+            </Button>
+            <Button
+              size="sm"
+              className="w-full"
+              variant="outline"
+              onClick={() => router.push('/send-pickup')}
+            >
+              <ArrowUpRight className="mr-2 h-4 w-4" />
+              Initiate Remittance
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       <CreateTransferDialog open={transferOpen} onOpenChange={setTransferOpen} />
@@ -291,15 +271,11 @@ function DashboardSkeleton() {
           <Skeleton key={i} className="col-span-12 sm:col-span-6 xl:col-span-3 h-20" />
         ))}
       </div>
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 lg:col-span-8 space-y-6">
-          <Skeleton className="h-[320px] w-full" />
-          <Skeleton className="h-[240px] w-full" />
-        </div>
-        <div className="col-span-12 lg:col-span-4 space-y-6">
-          <Skeleton className="h-[260px] w-full" />
-          <Skeleton className="h-[180px] w-full" />
-        </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-stretch">
+        <Skeleton className="h-[420px] w-full" />
+        <Skeleton className="h-[420px] w-full" />
+        <Skeleton className="h-[240px] w-full" />
+        <Skeleton className="h-[240px] w-full" />
       </div>
     </div>
   );

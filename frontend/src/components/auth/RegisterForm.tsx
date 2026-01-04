@@ -66,18 +66,26 @@ export function RegisterForm() {
         email: data.email,
         password: data.password,
       });
-      
+
       toast.success('Registration Successful!', {
         description: 'Verification code sent to your email',
       });
-      
+
       // Store email for verify page
       localStorage.setItem('pending_verification_email', data.email);
       router.push('/verify-email');
-    } catch (error) {
-      toast.error('Registration Error', {
-        description: getErrorMessage(error, 'Please try again'),
-      });
+    } catch (error: any) {
+      // Check if the backend sent a specific error message (e.g., "user with this email already exists")
+      if (error?.response?.data?.error) {
+        toast.error('Registration Error', {
+          description: error.response.data.error,
+        });
+      } else {
+        // Fallback for network errors or other issues
+        toast.error('Registration Error', {
+          description: getErrorMessage(error, 'Please try again'),
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -104,7 +112,7 @@ export function RegisterForm() {
               </FormItem>
             )}
           />
-          
+
           <FormField
             control={form.control}
             name="email"
@@ -141,7 +149,7 @@ export function RegisterForm() {
               </FormItem>
             )}
           />
-          
+
           <FormField
             control={form.control}
             name="password"

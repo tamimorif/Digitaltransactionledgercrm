@@ -168,137 +168,118 @@ export default function BranchesPage() {
     const activeBranches = branches.filter(b => b.status === 'active');
     const inactiveBranches = branches.filter(b => b.status === 'inactive');
 
+    // Combine active and inactive for the verified design loop, or keep separated if preferred.
+    // The design requests a single grid, but functionally existing code separated them.
+    // I will merge them into one list and sort by status (active first) to match the "single grid" feel of the mock,
+    // or keep the separation if clarity is needed. Given "Branch Management" usually implies seeing everything, 
+    // I'll render the header/add button then the grid.
+
+    // Sort: Active first, then by ID
+    const sortedBranches = [...branches].sort((a, b) => {
+        if (a.status === b.status) return a.id - b.id;
+        return a.status === 'active' ? -1 : 1;
+    });
+
     return (
-        <div className="container mx-auto px-6 py-8 space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="max-w-[1200px] mx-auto px-10 py-10 min-h-screen bg-slate-50/50">
+            {/* Page Header */}
+            <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Branch Management</h1>
-                    <p className="text-muted-foreground">
-                        Manage your organization&apos;s branches and locations
-                    </p>
+                    <h1 className="text-[28px] font-extrabold tracking-tight text-slate-900">Branch Management</h1>
+                    <p className="text-[15px] mt-1 text-slate-500">Manage your organization&apos;s locations and access.</p>
                 </div>
-                <Button onClick={() => setShowCreateDialog(true)} disabled={isLoading}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Branch
-                </Button>
-            </div>
+                <button
+                    onClick={() => setShowCreateDialog(true)}
+                    disabled={isLoading}
+                    className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-semibold text-sm shadow-sm hover:-translate-y-[1px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <Plus className="w-5 h-5" />
+                    <span>Add New Branch</span>
+                </button>
+            </header>
 
-            {/* Active Branches */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Active Branches</CardTitle>
-                    <CardDescription>
-                        {activeBranches.length} active branch{activeBranches.length !== 1 ? 'es' : ''}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {isLoading ? (
-                        <div className="flex items-center justify-center py-8">
-                            <Loader2 className="h-6 w-6 animate-spin" />
-                        </div>
-                    ) : activeBranches.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                            No active branches yet
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {activeBranches.map((branch) => (
-                                <Card key={branch.id} className="relative">
-                                    <CardContent className="pt-6">
-                                        <div className="space-y-3">
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <Building2 className="h-5 w-5 text-primary" />
-                                                    <h3 className="font-semibold text-lg">{branch.name}</h3>
-                                                </div>
-                                            </div>
+            {/* Divider */}
+            <div className="h-px bg-slate-200 my-8" />
 
-                                            {branch.location && (
-                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                    <MapPin className="h-4 w-4" />
-                                                    <span>{branch.location}</span>
-                                                </div>
-                                            )}
-
-                                            <div className="pt-2 border-t">
-                                                <p className="text-xs text-muted-foreground">
-                                                    Code: <span className="font-mono">{branch.branchCode}</span>
-                                                </p>
-                                            </div>
-
-                                            <div className="flex gap-2 pt-2">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        setSelectedBranchId(branch.id);
-                                                        setSelectedBranchName(branch.name);
-                                                        setSelectedBranchUsername((branch as any).username);
-                                                        setShowCredentialsDialog(true);
-                                                    }}
-                                                    className="flex-1"
-                                                >
-                                                    <Key className="h-4 w-4 mr-1" />
-                                                    {(branch as any).username ? 'Edit Login' : 'Set Login'}
-                                                </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleEditBranch(branch)}
-                                                >
-                                                    <Edit2 className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleDeactivateBranch(branch.id)}
-                                                    className="text-red-600 hover:text-red-700"
-                                                >
-                                                    <PowerOff className="h-4 w-4" />
-                                                </Button>
-                                            </div>
+            {/* Branch Grid */}
+            {isLoading ? (
+                <div className="flex items-center justify-center py-20">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                </div>
+            ) : sortedBranches.length === 0 ? (
+                <div className="text-center py-20 bg-white rounded-xl border border-slate-200 border-dashed">
+                    <Building2 className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                    <h3 className="text-lg font-medium text-slate-900">No branches found</h3>
+                    <p className="text-slate-500">Get started by creating your first branch.</p>
+                </div>
+            ) : (
+                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {sortedBranches.map((branch) => {
+                        const isActive = branch.status === 'active';
+                        return (
+                            <article
+                                key={branch.id}
+                                className={`bg-white border border-slate-200 rounded-xl p-6 shadow-sm hover:shadow-[0_12px_20px_-5px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all flex flex-col gap-5 ${!isActive ? 'opacity-80' : ''}`}
+                            >
+                                {/* Card Top */}
+                                <div className="flex justify-between items-start">
+                                    <div className="flex gap-3 items-center">
+                                        <div className={`w-[42px] h-[42px] rounded-[10px] flex items-center justify-center flex-shrink-0 ${isActive ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-400'}`}>
+                                            <Building2 className="w-[22px] h-[22px]" />
                                         </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
-            {/* Inactive Branches */}
-            {inactiveBranches.length > 0 && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Inactive Branches</CardTitle>
-                        <CardDescription>
-                            {inactiveBranches.length} inactive branch{inactiveBranches.length !== 1 ? 'es' : ''}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {inactiveBranches.map((branch) => (
-                                <Card key={branch.id} className="opacity-60">
-                                    <CardContent className="pt-6">
-                                        <div className="space-y-3">
-                                            <div className="flex items-center gap-2">
-                                                <Building2 className="h-5 w-5 text-muted-foreground" />
-                                                <h3 className="font-semibold text-lg">{branch.name}</h3>
-                                                <Badge variant="secondary">Inactive</Badge>
-                                            </div>
-                                            {branch.location && (
-                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                    <MapPin className="h-4 w-4" />
-                                                    <span>{branch.location}</span>
-                                                </div>
-                                            )}
+                                        <div>
+                                            <h3 className="text-lg font-bold text-slate-900 leading-tight">{branch.name}</h3>
+                                            <span className="text-[13px] text-slate-500 font-mono bg-slate-100 px-1.5 py-0.5 rounded mt-1 inline-block">
+                                                {branch.branchCode || 'NO-CODE'}
+                                            </span>
                                         </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
+                                    </div>
+                                    <div className={`text-[12px] font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5 ${isActive ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600'}`}>
+                                        <div className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-green-600' : 'bg-slate-500'}`}></div>
+                                        {isActive ? 'Active' : 'Inactive'}
+                                    </div>
+                                </div>
+
+                                {/* Divider */}
+                                <div className="h-[1px] bg-slate-100 w-full"></div>
+
+                                {/* Actions */}
+                                <div className="flex gap-2.5 mt-auto">
+                                    <button
+                                        className="flex-grow inline-flex items-center justify-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg bg-white text-slate-500 font-medium text-[13px] hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 transition-all"
+                                        onClick={() => {
+                                            setSelectedBranchId(branch.id);
+                                            setSelectedBranchName(branch.name);
+                                            setSelectedBranchUsername((branch as any).username);
+                                            setShowCredentialsDialog(true);
+                                        }}
+                                    >
+                                        <Key className="w-4 h-4" />
+                                        <span>Manage Login</span>
+                                    </button>
+
+                                    <button
+                                        className="inline-flex items-center justify-center p-2 border border-slate-200 rounded-lg bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300 transition-all flex-shrink-0"
+                                        title="Edit Details"
+                                        onClick={() => handleEditBranch(branch)}
+                                    >
+                                        <Edit2 className="w-4 h-4" />
+                                    </button>
+
+                                    {isActive && (
+                                        <button
+                                            className="inline-flex items-center justify-center p-2 border border-slate-200 rounded-lg bg-white text-slate-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all flex-shrink-0"
+                                            title="Deactivate Branch"
+                                            onClick={() => handleDeactivateBranch(branch.id)}
+                                        >
+                                            <PowerOff className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
+                            </article>
+                        );
+                    })}
+                </section>
             )}
 
             {/* Create Branch Dialog */}

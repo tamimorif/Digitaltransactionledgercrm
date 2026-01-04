@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { DashboardSummaryCashFlowPoint } from '@/src/lib/models/dashboard.model';
+import { cn } from '@/src/lib/utils';
 import {
     Line,
     LineChart,
@@ -15,17 +16,19 @@ import { format } from 'date-fns';
 
 interface CashFlowChartProps {
     data: DashboardSummaryCashFlowPoint[];
+    className?: string;
+    contentClassName?: string;
 }
 
-export function CashFlowChart({ data }: CashFlowChartProps) {
+export function CashFlowChart({ data, className, contentClassName }: CashFlowChartProps) {
     if (!data || data.length === 0) {
         return (
-            <Card className="col-span-2">
+            <Card className={cn(className)}>
                 <CardHeader>
                     <CardTitle>Cash Flow</CardTitle>
                     <CardDescription>Income vs Outgoing Volume (30 Days)</CardDescription>
                 </CardHeader>
-                <CardContent className="h-[320px] flex items-center justify-center text-muted-foreground">
+                <CardContent className={cn('flex flex-1 items-center justify-center text-muted-foreground', contentClassName)}>
                     No data available
                 </CardContent>
             </Card>
@@ -33,13 +36,13 @@ export function CashFlowChart({ data }: CashFlowChartProps) {
     }
 
     return (
-        <Card className="col-span-2">
+        <Card className={cn(className)}>
             <CardHeader>
                 <CardTitle>Cash Flow</CardTitle>
                 <CardDescription>Income vs Outgoing Volume (30 Days)</CardDescription>
             </CardHeader>
-            <CardContent>
-                <div className="h-[320px] w-full">
+            <CardContent className={cn('flex-1', contentClassName)}>
+                <div className="h-full w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                             <XAxis

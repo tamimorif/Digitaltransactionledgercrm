@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
@@ -170,8 +172,38 @@ func (h *PickupHandler) GetPickupTransactionsHandler(w http.ResponseWriter, r *h
 	}
 
 	var status *string
-	if statusStr := r.URL.Query().Get("status"); statusStr != "" {
-		status = &statusStr
+	if statusStr := strings.TrimSpace(r.URL.Query().Get("status")); statusStr != "" {
+		normalized := strings.ToUpper(statusStr)
+		if normalized == "ALL" {
+			normalized = ""
+		}
+		if normalized == "COMPLETED" || normalized == "DISBURSED" {
+			normalized = models.PickupStatusPickedUp
+		}
+		if normalized != "" {
+			status = &normalized
+		}
+	}
+
+	var dateFrom *time.Time
+	if dateFromStr := strings.TrimSpace(r.URL.Query().Get("dateFrom")); dateFromStr != "" {
+		parsed, err := time.Parse("2006-01-02", dateFromStr)
+		if err != nil {
+			http.Error(w, "Invalid dateFrom format (expected YYYY-MM-DD)", http.StatusBadRequest)
+			return
+		}
+		dateFrom = &parsed
+	}
+
+	var dateTo *time.Time
+	if dateToStr := strings.TrimSpace(r.URL.Query().Get("dateTo")); dateToStr != "" {
+		parsed, err := time.Parse("2006-01-02", dateToStr)
+		if err != nil {
+			http.Error(w, "Invalid dateTo format (expected YYYY-MM-DD)", http.StatusBadRequest)
+			return
+		}
+		endOfDay := parsed.Add(24*time.Hour - time.Nanosecond)
+		dateTo = &endOfDay
 	}
 
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
@@ -188,6 +220,8 @@ func (h *PickupHandler) GetPickupTransactionsHandler(w http.ResponseWriter, r *h
 		*tenantID,
 		branchID,
 		status,
+		dateFrom,
+		dateTo,
 		limit,
 		offset,
 	)
@@ -257,7 +291,7 @@ func (h *PickupHandler) SearchPickupByCodeHandler(w http.ResponseWriter, r *http
 	respondJSON(w, http.StatusOK, pickup)
 }
 
-// SearchPickupsByQueryHandler searches pickups by phone number or name
+// SearchPickupsByQueryHandler searches pickups by phone number, name, code, or amount
 // GET /pickups/search?q=query
 func (h *PickupHandler) SearchPickupsByQueryHandler(w http.ResponseWriter, r *http.Request) {
 	tenantID := middleware.GetTenantID(r)
@@ -266,13 +300,66 @@ func (h *PickupHandler) SearchPickupsByQueryHandler(w http.ResponseWriter, r *ht
 		return
 	}
 
-	query := r.URL.Query().Get("q")
-	if query == "" || len(query) < 3 {
-		http.Error(w, "Search query must be at least 3 characters", http.StatusBadRequest)
-		return
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	filters := services.PickupSearchFilters{}
+
+	if dateFrom := strings.TrimSpace(r.URL.Query().Get("dateFrom")); dateFrom != "" {
+		parsed, err := time.Parse("2006-01-02", dateFrom)
+		if err != nil {
+			http.Error(w, "Invalid dateFrom format (expected YYYY-MM-DD)", http.StatusBadRequest)
+			return
+		}
+		filters.DateFrom = &parsed
 	}
 
-	pickups, err := h.PickupService.SearchPickupsByQuery(query, *tenantID)
+	if dateTo := strings.TrimSpace(r.URL.Query().Get("dateTo")); dateTo != "" {
+		parsed, err := time.Parse("2006-01-02", dateTo)
+		if err != nil {
+			http.Error(w, "Invalid dateTo format (expected YYYY-MM-DD)", http.StatusBadRequest)
+			return
+		}
+		endOfDay := parsed.Add(24*time.Hour - time.Nanosecond)
+		filters.DateTo = &endOfDay
+	}
+
+	if amountMin := strings.TrimSpace(r.URL.Query().Get("amountMin")); amountMin != "" {
+		value, err := strconv.ParseFloat(amountMin, 64)
+		if err != nil {
+			http.Error(w, "Invalid amountMin value", http.StatusBadRequest)
+			return
+		}
+		filters.AmountMin = &value
+	}
+
+	if amountMax := strings.TrimSpace(r.URL.Query().Get("amountMax")); amountMax != "" {
+		value, err := strconv.ParseFloat(amountMax, 64)
+		if err != nil {
+			http.Error(w, "Invalid amountMax value", http.StatusBadRequest)
+			return
+		}
+		filters.AmountMax = &value
+	}
+
+	if status := strings.TrimSpace(r.URL.Query().Get("status")); status != "" && status != "ALL" {
+		filters.Status = &status
+	}
+
+	if currency := strings.TrimSpace(r.URL.Query().Get("currency")); currency != "" && currency != "ALL" {
+		filters.Currency = &currency
+	}
+
+	if query == "" && filters.IsEmpty() {
+		http.Error(w, "Search query or filters are required", http.StatusBadRequest)
+		return
+	}
+	if query != "" && len(query) < 3 {
+		if _, err := strconv.ParseFloat(query, 64); err != nil {
+			http.Error(w, "Search query must be at least 3 characters", http.StatusBadRequest)
+			return
+		}
+	}
+
+	pickups, err := h.PickupService.SearchPickupsByQuery(query, *tenantID, filters)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
